@@ -5,7 +5,7 @@ go 1.26.8
 require (
 	github.com/go-logr/logr v1.4.4
 	github.com/go-logr/zapr v1.3.0
-	github.com/oapi-codegen/runtime v1.6.0
+	github.com/oapi-codegen/runtime v1.7.0
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
 	go.uber.org/zap v1.27.0
