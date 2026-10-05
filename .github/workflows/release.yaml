@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  release:
+    name: Create GitHub release with install manifests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # needed to create the GitHub release
+      packages: read   # needed to check the image publish-image.yaml pushes
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Strip the leading 'v' to get a plain semver (e.g. v0.1.0 → 0.1.0).
+      - name: Derive version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # build-installer:
+      #   1. Runs 'make manifests' to regenerate CRD/RBAC from type markers
+      #   2. Sets the manager image in config/manager/kustomization.yaml
+      #   3. Runs 'kustomize build config/default > dist/install.yaml'
+      - name: Generate install manifests
+        run: |
+          make build-installer \
+            IMG=ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # install.yaml points at this image, which publish-image.yaml pushes from
+      # the same tag in parallel. Do not publish the release until it exists.
+      - name: Wait for the release image
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+        run: |
+          for _ in $(seq 60); do
+            if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then
+              exit 0
+            fi
+            echo "Waiting for $IMAGE..."
+            sleep 30
+          done
+          echo "$IMAGE was not published within 30 minutes." >&2
+          exit 1
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: "Release ${{ github.ref_name }}"
+          generate_release_notes: true
+          files: dist/install.yaml

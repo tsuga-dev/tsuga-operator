@@ -1,0 +1,62 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: SLO
+metadata:
+  name: example-event-slo
+  namespace: default
+spec:
+  name: "Checkout availability"
+  description: "Share of checkout requests that return a non-error response."
+  owner: "<YOUR_TEAM_ID>"
+  permissions: "all"
+  target: 99.9
+  timeframeDays: 30
+  configuration:
+    type: event
+    dataSource: traces
+    noDataBehavior: good
+    goodQuery:
+      formula: "q1"
+      queries:
+        - aggregate:
+            type: count
+          filter: "service:checkout -status:error"
+    totalQuery:
+      formula: "q1"
+      queries:
+        - aggregate:
+            type: count
+          filter: "service:checkout"
+  alerts:
+    - priority: 2
+      configuration:
+        type: burn-rate
+        burnRate: 14.4
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: SLO
+metadata:
+  name: example-time-slo
+  namespace: default
+spec:
+  name: "Checkout latency"
+  owner: "<YOUR_TEAM_ID>"
+  permissions: "owning-team-and-public"
+  target: 99
+  timeframeDays: 7
+  configuration:
+    type: time
+    dataSource: traces
+    noDataBehavior: ignore
+    sliceSizeMinutes: 60
+    threshold:
+      operator: less_than_or_equal
+      value: 250
+    query:
+      formula: "q1"
+      queries:
+        - aggregate:
+            type: percentile
+            field: "duration"
+            percentile: 95
+          filter: "service:checkout"
+  alerts: []

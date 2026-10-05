@@ -1,0 +1,53 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Dashboard
+metadata:
+  name: example-dashboard
+  namespace: default
+spec:
+  name: Example dashboard
+  owner: <YOUR_TEAM_ID>
+  graphs:
+  - id: graph-1
+    visualization:
+      type: timeseries
+      source: metrics
+      queries:
+      - aggregate:
+          type: average
+          field: traces.span.metrics.calls
+        filter: ''
+      visibleSeries:
+      - true
+      - false
+      groupBy: []
+      legendMode: no-legend
+    name: 'test'
+    layout:
+      x: 0
+      "y": 0
+      w: 3
+      h: 4
+  - id: graph-2
+    visualization:
+      type: timeseries
+      source: metrics
+      queries:
+      - aggregate:
+          type: average
+          field: traces.span.metrics.calls
+        filter: ''
+      visibleSeries:
+      - true
+      - false
+      groupBy: []
+      legendMode: no-legend
+    name: ''
+    layout:
+      x: 4
+      "y": 0
+      w: 3
+      h: 4
+    
+  filters: []
+  tags: []
+  timePreset: past-30-minutes

@@ -1,0 +1,73 @@
+version: "2"
+run:
+  allow-parallel-runners: true
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - dupl
+    - errcheck
+    - ginkgolinter
+    - goconst
+    - gocyclo
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    goconst:
+      # internal/collection builds unstructured Kubernetes objects, so it
+      # repeats the API's own field names as map keys. A constant named after
+      # "kind" reads worse than the literal it replaces.
+      ignore-map-keys: true
+      # RBAC verbs, for the same reason: these are the API's vocabulary.
+      ignore-string-values:
+        - '^(get|list|watch|create|update|patch|delete)$'
+      # Fixtures repeat cluster names, namespaces and endpoints by design;
+      # hoisting them into constants makes each test harder to read alone.
+      ignore-tests: true
+    revive:
+      rules:
+        # Allow //+kubebuilder: markers which intentionally omit the space.
+        - name: comment-spacings
+          arguments:
+            - "+kubebuilder"
+            - "+groupName"
+            - "+versionName"
+        - name: import-shadowing
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - lll
+        path: api/*
+      - linters:
+          - dupl
+          - lll
+        path: internal/*
+      # Test helpers often keep parameters for readability/future use even
+      # when all current call sites pass the same value.
+      - linters:
+          - unparam
+        path: "_test.go$"
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -1,0 +1,16 @@
+{
+  "timeRange": {
+    "from": __FROM__,
+    "to": __TO__
+  },
+  "dataSource": "metrics",
+  "queries": [
+    {
+      "aggregate": {
+        "type": "count",
+        "field": "__METRIC__"
+      },
+      "filter": "context.k8s.cluster.name:\"__CLUSTER__\""
+    }
+  ]
+}

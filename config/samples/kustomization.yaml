@@ -1,0 +1,9 @@
+## Append samples of your project ##
+resources:
+- tsuga_v1alpha1_tsugamonitor.yaml
+- tsuga_v1alpha1_tsugadashboard.yaml
+- observability_v1alpha1_tsugacollectorconfig.yaml
+- observability_v1alpha1_tsugamonitoring.yaml
+- observability_v1alpha1_slo.yaml
+- observability_v1alpha1_tsugapostgresmonitoring.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

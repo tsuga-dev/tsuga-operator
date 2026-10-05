@@ -1,0 +1,28 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaCollectorConfig
+metadata:
+  name: cluster
+spec:
+  clusterName: dev
+  export:
+    # Both the API key and the OTLP endpoint are provided by the user via a
+    # Secret (never inlined here). Create it with, e.g.:
+    #   kubectl -n tsuga-operator-system create secret generic tsuga-credentials \
+    #     --from-literal=api-key='<key>' --from-literal=otlp-endpoint='https://<endpoint>'
+    tokenSecretRef:
+      name: tsuga-credentials
+      key: api-key
+    endpointSecretRef:
+      name: tsuga-credentials
+      key: otlp-endpoint
+  agent: { traces: true, metrics: true, logs: true }
+  gateway: { clusterMetrics: true, kubernetesObjects: true }
+  # Scrapes pods annotated prometheus.io/scrape: "true". Off by default.
+  # replicas above 1 requires targetAllocator.enabled.
+  prometheus:
+    enabled: false
+    scrapeInterval: 30s
+    replicas: 1
+    targetAllocator:
+      enabled: false
+      allocationStrategy: consistent-hashing

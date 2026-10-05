@@ -1,0 +1,11 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaMonitoring
+metadata:
+  name: default
+  namespace: payments
+spec:
+  instrumentation:
+    enabled: true
+    languages:
+    - python
+  injectExistingWorkloads: false

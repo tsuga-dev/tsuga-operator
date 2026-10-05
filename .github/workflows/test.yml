@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Gate spec-sync PRs on breaking changes to the operator's Dashboard,
+      # Monitor, and SLO payload contract.
+      - name: OpenAPI drift (Dashboard/Monitor/SLO contract)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --depth=1 origin "$BASE_REF"
+          make openapi-drift-check OPENAPI_BASE_REF="origin/$BASE_REF"
+
+      - name: Check for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+      - name: Check generated Tsuga API client
+        run: make check-generated-tsuga-client
+
+      # Runs go vet and every non-e2e package against envtest.
+      - name: Run unit tests
+        run: make test
+
+      # The collection controllers render OpenTelemetryCollector, TargetAllocator
+      # and Instrumentation as unstructured objects, so a schema change upstream
+      # would otherwise surface at apply time on a user's cluster. This submits
+      # every render to an API server carrying the CRDs of the OTel Operator
+      # release the README and Makefile pin.
+      - name: Validate renders against the pinned OTel Operator CRDs
+        run: make test-otel-schema
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage
+          path: cover.out
+          retention-days: 7

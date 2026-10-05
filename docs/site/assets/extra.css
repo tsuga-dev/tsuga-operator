@@ -1,0 +1,160 @@
+/* Palette snapshot from tsuga/typescript:
+ * packages/design-system/src/chakra/theme-helpers/design-tokens.figma.ts
+ * Uses the same light/dark semantic tokens as the current Chakra theme.
+ * Keep this snapshot local so documentation builds do not require that repository.
+ */
+[data-md-color-scheme="default"] {
+  --tsuga-text: #1f2937;
+  --tsuga-muted: #6b7280;
+  --tsuga-brand-text: #047857;
+  --tsuga-on-brand: #ffffff;
+  --tsuga-surface: #ffffff;
+  --tsuga-surface-secondary: #f9fafb;
+  --tsuga-surface-tertiary: #f3f4f6;
+  --tsuga-brand: #04865d;
+  --tsuga-brand-hover: #065f46;
+  --tsuga-brand-subtle: #dcf5e8;
+  --tsuga-selection: #bce5d0;
+  --tsuga-border: #e5e7eb;
+  --tsuga-border-strong: #d1d5db;
+  --tsuga-info-text: #1e40af;
+  --tsuga-info-bg: #dbeafe;
+  --tsuga-info-border: #93c5fd;
+  --tsuga-warning-text: #894b00;
+  --tsuga-warning-bg: #fef9c2;
+  --tsuga-warning-border: #ffdf20;
+  --tsuga-danger-text: #991b1b;
+  --tsuga-danger-bg: #fee2e2;
+  --tsuga-danger-border: #fca5a5;
+  --tsuga-success-text: #047857;
+  --tsuga-success-bg: #d1fae5;
+  --tsuga-success-border: #6ee7b7;
+  --tsuga-purple: #6e11b0;
+  --tsuga-pink: #a3004c;
+  --tsuga-orange: #9f2d00;
+}
+
+[data-md-color-scheme="slate"] {
+  --tsuga-text: #e4e4e7;
+  --tsuga-muted: #a1a1aa;
+  --tsuga-brand-text: #87ceb7;
+  --tsuga-on-brand: #e4e4e7;
+  --tsuga-surface: #202023;
+  --tsuga-surface-secondary: #18181b;
+  --tsuga-surface-tertiary: #101013;
+  --tsuga-brand: #1c7f5e;
+  --tsuga-brand-hover: #2e9b77;
+  --tsuga-brand-subtle: #124232;
+  --tsuga-selection: #1b6a4c;
+  --tsuga-border: #333338;
+  --tsuga-border-strong: #3f3f46;
+  --tsuga-info-text: #a4bfec;
+  --tsuga-info-bg: #2b4673;
+  --tsuga-info-border: #426db3;
+  --tsuga-warning-text: #e1c363;
+  --tsuga-warning-bg: #5e5025;
+  --tsuga-warning-border: #886f20;
+  --tsuga-danger-text: #eeb3b3;
+  --tsuga-danger-bg: #5b2424;
+  --tsuga-danger-border: #993636;
+  --tsuga-success-text: #87ceb7;
+  --tsuga-success-bg: #124232;
+  --tsuga-success-border: #16664c;
+  --tsuga-purple: #dac0f2;
+  --tsuga-pink: #ebb6d0;
+  --tsuga-orange: #e8b089;
+}
+
+[data-md-color-scheme] {
+  --md-default-bg-color: var(--tsuga-surface);
+  --md-default-fg-color: var(--tsuga-text);
+  --md-default-fg-color--light: var(--tsuga-muted);
+  --md-default-fg-color--lighter: var(--tsuga-border-strong);
+  --md-default-fg-color--lightest: var(--tsuga-border);
+  --md-primary-fg-color: var(--tsuga-brand-text);
+  --md-primary-fg-color--light: var(--tsuga-brand-subtle);
+  --md-primary-fg-color--dark: var(--tsuga-brand-hover);
+  --md-primary-bg-color: var(--tsuga-on-brand);
+  --md-primary-bg-color--light: var(--tsuga-on-brand);
+  --md-accent-fg-color: var(--tsuga-brand-text);
+  --md-accent-fg-color--transparent: var(--tsuga-brand-subtle);
+  --md-accent-bg-color: var(--tsuga-surface);
+  --md-typeset-color: var(--tsuga-text);
+  --md-typeset-a-color: var(--tsuga-brand-text);
+  --md-typeset-table-color: var(--tsuga-border);
+  --md-typeset-table-color--light: var(--tsuga-surface-secondary);
+  --md-code-bg-color: var(--tsuga-surface-secondary);
+  --md-code-fg-color: var(--tsuga-text);
+  --md-code-hl-color: var(--tsuga-selection);
+  --md-code-hl-number-color: var(--tsuga-orange);
+  --md-code-hl-special-color: var(--tsuga-danger-text);
+  --md-code-hl-function-color: var(--tsuga-purple);
+  --md-code-hl-constant-color: var(--tsuga-info-text);
+  --md-code-hl-keyword-color: var(--tsuga-info-text);
+  --md-code-hl-string-color: var(--tsuga-brand-text);
+  --md-code-hl-name-color: var(--tsuga-text);
+  --md-code-hl-operator-color: var(--tsuga-muted);
+  --md-code-hl-punctuation-color: var(--tsuga-muted);
+  --md-code-hl-comment-color: var(--tsuga-muted);
+  --md-code-hl-generic-color: var(--tsuga-pink);
+  --md-code-hl-variable-color: var(--tsuga-text);
+  --md-footer-bg-color: var(--tsuga-surface-secondary);
+  --md-footer-bg-color--dark: var(--tsuga-surface-tertiary);
+  --md-footer-fg-color: var(--tsuga-text);
+  --md-footer-fg-color--light: var(--tsuga-muted);
+  --md-footer-fg-color--lighter: var(--tsuga-muted);
+  --md-admonition-bg-color: var(--tsuga-surface);
+  --md-admonition-fg-color: var(--tsuga-text);
+}
+
+.md-header { background-color: var(--tsuga-brand); }
+.md-typeset .md-button--primary {
+  background-color: var(--tsuga-brand);
+  border-color: var(--tsuga-brand);
+  color: var(--tsuga-on-brand);
+}
+.md-typeset .md-button:is(:hover, :focus-visible) {
+  background-color: var(--tsuga-brand-hover);
+  border-color: var(--tsuga-brand-hover);
+  color: var(--tsuga-on-brand);
+}
+.md-nav--primary .md-nav__link--active { color: var(--tsuga-brand-text); }
+::selection { background: var(--tsuga-selection); color: var(--tsuga-text); }
+
+.md-typeset .admonition.info { border-color: var(--tsuga-info-border); }
+.md-typeset .info > .admonition-title {
+  background-color: var(--tsuga-info-bg);
+  color: var(--tsuga-info-text);
+}
+.md-typeset .info > .admonition-title::before { background-color: var(--tsuga-info-text); }
+
+.md-typeset .admonition.warning { border-color: var(--tsuga-warning-border); }
+.md-typeset .warning > .admonition-title {
+  background-color: var(--tsuga-warning-bg);
+  color: var(--tsuga-warning-text);
+}
+.md-typeset .warning > .admonition-title::before { background-color: var(--tsuga-warning-text); }
+
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.md-typeset code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.md-typeset .md-button { border-radius: .35rem; margin: .25rem .4rem .25rem 0; }
+.md-typeset table:not([class]) { font-size: .7rem; }
+.md-typeset .admonition { border-radius: .35rem; }
+.md-typeset h1 { color: var(--md-default-fg-color); font-weight: 650; }
+.md-nav--primary .md-nav__link { border-radius: .25rem; }
+.md-nav--primary .md-nav__link--active { font-weight: 650; }
+
+[data-md-color-scheme="slate"] .md-typeset .md-button:is(:hover, :focus-visible) {
+  background-color: var(--tsuga-brand-subtle);
+  color: var(--tsuga-brand-text);
+}
+
+/* Keep the official two-tone green mark legible on the branded header. */
+.md-header .md-logo img {
+  background: #ffffff;
+  border-radius: .25rem;
+  padding: .2rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  object-fit: contain;
+}

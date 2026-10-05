@@ -1,0 +1,30 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Monitor
+metadata:
+  name: example-monitor
+  namespace: default
+spec:
+  name: Example Metric Monitor
+  owner: <YOUR_TEAM_ID>
+  priority: 3
+  permissions: all
+  configuration:
+    type: metric
+    timeframe: 5
+    noDataBehavior: alert
+    groupByFields: []
+    aggregationAlertLogic: no_aggregation
+    conditions:
+    - formula: q1
+      operator: greater_than
+      threshold: 50000
+    queries:
+    - aggregate:
+        type: sum
+        field: traces.span.metrics.calls
+      filter: ''
+      fill:
+        mode:
+          type: zero
+  dashboardRef:
+    name: example-dashboard

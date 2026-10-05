@@ -1,0 +1,33 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: SLO
+metadata:
+  name: example-event-slo
+  namespace: default
+spec:
+  name: Checkout availability
+  description: Share of checkout requests that return a non-error response.
+  owner: <YOUR_TEAM_ID>
+  permissions: all
+  target: 99.9
+  timeframeDays: 30
+  configuration:
+    type: event
+    dataSource: traces
+    noDataBehavior: good
+    goodQuery:
+      formula: q1
+      queries:
+      - aggregate:
+          type: count
+        filter: service:checkout -status:error
+    totalQuery:
+      formula: q1
+      queries:
+      - aggregate:
+          type: count
+        filter: service:checkout
+  alerts:
+  - priority: 2
+    configuration:
+      type: burn-rate
+      burnRate: 14.4

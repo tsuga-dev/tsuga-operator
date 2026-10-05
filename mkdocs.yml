@@ -1,0 +1,98 @@
+site_name: Tsuga Operator
+site_description: Manage Tsuga observability and Kubernetes telemetry as code.
+site_url: https://tsuga-dev.github.io/tsuga-operator/
+repo_url: https://github.com/tsuga-dev/tsuga-operator
+repo_name: tsuga-dev/tsuga-operator
+edit_uri: edit/main/docs/site/
+docs_dir: docs/site
+site_dir: site
+strict: true
+theme:
+  name: material
+  font: false
+  logo: assets/logo.svg
+  favicon: assets/favicon.png
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: [docs/site]
+      check_paths: true
+extra_css:
+  - assets/extra.css
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+nav:
+  - Home: index.md
+  - Getting started: getting-started/index.md
+  - Kubernetes monitoring:
+      - Overview: kubernetes-monitoring/index.md
+      - Getting started: kubernetes-monitoring/getting-started.md
+      - Auto-instrumentation: kubernetes-monitoring/auto-instrumentation.md
+      - DBM: kubernetes-monitoring/dbm.md
+      - Prometheus scraping: kubernetes-monitoring/prometheus.md
+      - Collector API: reference/tsugacollectorconfig.md
+      - PostgreSQL API: reference/tsugapostgresmonitoring.md
+      - Instrumentation API: reference/tsugamonitoring.md
+  - Dashboards:
+      - Getting started: dashboards/index.md
+      - API reference: reference/dashboard.md
+  - Monitors:
+      - Getting started: monitors/index.md
+      - API reference: reference/monitor.md
+  - SLOs:
+      - Getting started: slos/index.md
+      - API reference: reference/slo.md
+  - Resources:
+      - Credentials: how-to/credentials.md
+      - GitOps: how-to/gitops.md
+      - Troubleshooting: operations/troubleshooting.md
+      - Production checklist: operations/production.md
+      - Upgrade and uninstall: operations/lifecycle.md
+      - Architecture: concepts/architecture.md
+      - Reconciliation and status: concepts/reconciliation.md
+      - API overview: reference/index.md
+      - Configuration and compatibility: reference/configuration.md
+      - Example manifests: examples/index.md
+      - Contributing:
+          - Development: contributing/development.md
+          - Documentation and publishing: contributing/documentation.md
+          - Help and releases: contributing/support.md

@@ -1,0 +1,27 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaCollectorConfig
+metadata:
+  name: cluster
+spec:
+  clusterName: dev
+  export:
+    tokenSecretRef:
+      name: tsuga-credentials
+      key: api-key
+    endpointSecretRef:
+      name: tsuga-credentials
+      key: otlp-endpoint
+  agent:
+    traces: true
+    metrics: true
+    logs: true
+  gateway:
+    clusterMetrics: true
+    kubernetesObjects: true
+  prometheus:
+    enabled: true
+    scrapeInterval: 30s
+    replicas: 1
+    targetAllocator:
+      enabled: false
+      allocationStrategy: consistent-hashing

@@ -1,0 +1,11 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaPostgresMonitoring
+metadata:
+  name: orders-db
+  namespace: orders
+spec:
+  host: orders-pg-rw.orders.svc
+  database: postgres
+  sslMode: require
+  provisioning:
+    mode: manual

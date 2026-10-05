@@ -1,0 +1,273 @@
+extensions:
+  health_check:
+    endpoint: ${env:MY_POD_IP}:13133
+receivers:
+  file_log:
+    # Exclude the collector's own container logs to avoid a self-ingestion
+    # feedback loop (the operator names the collector container "otc-container").
+    exclude:
+      - /var/log/pods/*/otc-container/*.log
+      - /var/log/pods/*/otel-collector/*.log
+    include:
+      - /var/log/pods/*/*/*.log
+    include_file_name: false
+    include_file_path: true
+    operators:
+      - id: container-parser
+        max_log_size: 102400
+        type: container
+    retry_on_failure:
+      enabled: true
+    start_at: end
+  kubelet_stats:
+    auth_type: serviceAccount
+    collection_interval: 20s
+    endpoint: ${env:NODE_IP}:10250
+    # Many kubelets (kind, minikube, kubeadm without serverTLSBootstrap) serve
+    # self-signed certificates the cluster CA cannot verify. The call never
+    # leaves the node (the pod's own host IP), and the token it presents is
+    # bound to a role limited to nodes/stats, nodes/proxy and pod metadata
+    # reads. See docs/site/operations/production.md.
+    insecure_skip_verify: true
+    metric_groups: [node, pod, container, volume]
+    # Add volume type labels for storage observability
+    extra_metadata_labels: [k8s.volume.type]
+    # Utilization against the pod/container requests and limits: computed by the
+    # receiver from data it already scrapes, so they add series but no extra
+    # kubelet load.
+    metrics:
+      k8s.container.cpu_limit_utilization:
+        enabled: true
+      k8s.container.cpu_request_utilization:
+        enabled: true
+      k8s.container.memory_limit_utilization:
+        enabled: true
+      k8s.container.memory_request_utilization:
+        enabled: true
+      k8s.pod.cpu_limit_utilization:
+        enabled: true
+      k8s.pod.cpu_request_utilization:
+        enabled: true
+      k8s.pod.memory_limit_utilization:
+        enabled: true
+      k8s.pod.memory_request_utilization:
+        enabled: true
+  host_metrics:
+    root_path: /hostfs
+    collection_interval: 10s
+    scrapers:
+      paging:
+        metrics:
+          system.paging.utilization:
+            enabled: true
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      disk: {}
+      filesystem:
+        # Pseudo, virtual and container-runtime filesystems report either no
+        # usable capacity or the same device many times over, so they are
+        # dropped rather than shipped as series nobody alerts on.
+        exclude_fs_types:
+          fs_types:
+            - autofs
+            - binfmt_misc
+            - bpf
+            - cgroup
+            - cgroup2
+            - configfs
+            - debugfs
+            - devpts
+            - devtmpfs
+            - erofs
+            - fusectl
+            - hugetlbfs
+            - iso9660
+            - mqueue
+            - nsfs
+            - overlay
+            - proc
+            - procfs
+            - pstore
+            - rpc_pipefs
+            - securityfs
+            - selinuxfs
+            - squashfs
+            - sysfs
+            - tracefs
+          match_type: strict
+        exclude_mount_points:
+          match_type: regexp
+          mount_points:
+            - ^/dev($|/)
+            - ^/proc($|/)
+            - ^/run/credentials/.+
+            - ^/run/k3s/containerd/.+
+            - ^/sys($|/)
+            - ^/var/lib/containers/storage/.+
+            - ^/var/lib/docker/.+
+            - ^/var/lib/kubelet/.+
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+      load: {}
+      memory:
+        metrics:
+          system.linux.memory.available:
+            enabled: true
+          system.memory.limit:
+            enabled: true
+          system.memory.utilization:
+            enabled: true
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ${env:MY_POD_IP}:4317
+      http:
+        endpoint: ${env:MY_POD_IP}:4318
+
+processors:
+  batch:
+    # Trigger a send when the batch reaches 5000 items.
+    send_batch_size: 5000
+    # Enforce a hard limit of 5000 items per batch. This prevents the
+    # timeout from creating a massive batch that would be rejected.
+    send_batch_max_size: 5000
+  k8s_attributes:
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.deployment.name
+        - k8s.statefulset.name
+        - k8s.daemonset.name
+        - k8s.cronjob.name
+        - k8s.job.name
+        - k8s.node.name
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.pod.start_time
+        - service.name
+        - service.version
+        - k8s.container.name
+        - container.id
+        - container.image.name
+        - container.image.tag
+      labels:
+        - tag_name: env
+          key: resource.opentelemetry.io/env
+          from: pod
+        - tag_name: team
+          key: resource.opentelemetry.io/team
+          from: pod
+      annotations:
+        - tag_name: service.name
+          key: resource.opentelemetry.io/service.name
+          from: pod
+        - tag_name: service.version
+          key: resource.opentelemetry.io/service.version
+          from: pod
+        - tag_name: env
+          key: resource.opentelemetry.io/env
+          from: pod
+        - tag_name: team
+          key: resource.opentelemetry.io/team
+          from: pod
+    filter:
+      node_from_env_var: K8S_NODE_NAME
+    passthrough: false
+    pod_association:
+      - sources:
+        - from: resource_attribute
+          name: k8s.pod.ip
+      - sources:
+        - from: resource_attribute
+          name: k8s.pod.uid
+      - sources:
+        - from: connection
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  cumulative_to_delta: {}
+  resource:
+    attributes:
+      - key: k8s.cluster.name
+        value: "__CLUSTER_NAME__"
+        action: upsert
+  resource/node:
+    attributes:
+      - key: k8s.node.name
+        value: ${env:K8S_NODE_NAME}
+        action: insert
+exporters:
+  otlp_http/tsuga:
+    endpoint: "__TSUGA_ENDPOINT__"
+    headers:
+      Authorization: Bearer ${env:TSUGA_API_KEY}
+    encoding: json
+    compression: gzip
+connectors:
+  span_metrics:
+    dimensions:
+      - name: http.request.method
+        default: GET
+      - name: http.response.status_code
+      - name: http.route
+service:
+  extensions:
+    - health_check
+  pipelines:
+    logs:
+      receivers:
+        - otlp
+        - file_log
+      processors:
+        - memory_limiter
+        - k8s_attributes
+        - resource
+        - resource/node
+        - batch
+      exporters:
+        - otlp_http/tsuga
+    metrics:
+      receivers:
+        - otlp
+        - kubelet_stats
+        - span_metrics
+        - host_metrics
+      processors:
+        - memory_limiter
+        - cumulative_to_delta
+        - k8s_attributes
+        - resource
+        - resource/node
+        - batch
+      exporters:
+        - otlp_http/tsuga
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - k8s_attributes
+        - resource
+        - resource/node
+        - batch
+      exporters:
+        - otlp_http/tsuga
+        - span_metrics
+  telemetry:
+    resource:
+      k8s.cluster.name: "__CLUSTER_NAME__"
+      service.instance.id: ${POD_UID}
+    metrics:
+      readers:
+        - periodic:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                headers:
+                  - name: Authorization
+                    value: Bearer ${env:TSUGA_API_KEY}
+                endpoint: "__TSUGA_ENDPOINT__/v1/metrics"
