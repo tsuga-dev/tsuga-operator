@@ -32,7 +32,7 @@ jobs:
           make openapi-drift-check OPENAPI_BASE_REF="origin/$BASE_REF"
 
       - name: Check for known vulnerabilities
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+        run: go tool -modfile=hack/tools/go.mod govulncheck ./...
 
       - name: Check generated Tsuga API client
         run: make check-generated-tsuga-client

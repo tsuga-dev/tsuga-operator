@@ -24,7 +24,7 @@ output-options:
   response-type-suffix: HTTPResponse
 EOF
 
-(cd "$repo_root" && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0 \
+(cd "$repo_root" && go tool -modfile="$repo_root/hack/tools/go.mod" oapi-codegen \
   -config "$work_dir/config.yaml" "$work_dir/tsuga-api.json")
 
 if [[ "$check" == true ]]; then

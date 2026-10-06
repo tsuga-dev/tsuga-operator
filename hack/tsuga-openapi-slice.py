@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Extract the Tsuga-backed operator API and flatten pass-through unions."""
 
 import argparse
@@ -8,7 +9,11 @@ from pathlib import Path
 
 
 RESOURCES = ("dashboards", "monitors", "slos")
-PATHS = {f"/v1/{resource}{suffix}" for resource in RESOURCES for suffix in ("", "/{id}", "/query")}
+PATHS = {
+    f"/v1/{resource}{suffix}"
+    for resource in RESOURCES
+    for suffix in ("", "/{id}", "/query")
+}
 OPAQUE = {
     "type": "object",
     "additionalProperties": True,
@@ -19,13 +24,19 @@ OPAQUE = {
 def flatten_opaque_fields(spec):
     for resource in RESOURCES:
         for suffix, method in (("", "post"), ("/{id}", "put")):
-            properties = spec["paths"][f"/v1/{resource}{suffix}"][method]["requestBody"]["content"]["application/json"]["schema"]["properties"]
+            properties = spec["paths"][f"/v1/{resource}{suffix}"][method][
+                "requestBody"
+            ]["content"]["application/json"]["schema"]["properties"]
             if resource == "dashboards":
-                properties["graphs"]["items"]["properties"]["visualization"] = copy.deepcopy(OPAQUE)
+                properties["graphs"]["items"]["properties"]["visualization"] = (
+                    copy.deepcopy(OPAQUE)
+                )
             else:
                 properties["configuration"] = copy.deepcopy(OPAQUE)
             if resource == "slos":
-                properties["alerts"]["items"]["properties"]["configuration"] = copy.deepcopy(OPAQUE)
+                properties["alerts"]["items"]["properties"]["configuration"] = (
+                    copy.deepcopy(OPAQUE)
+                )
 
     # The current operator reads only data.id (and data[].tags on queries, to
     # verify ownership before adoption) from successful responses and branches
@@ -84,7 +95,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--opaque", action="store_true", help="replace the operator's pass-through unions with JSON objects")
+    parser.add_argument(
+        "--opaque",
+        action="store_true",
+        help="replace the operator's pass-through unions with JSON objects",
+    )
     args = parser.parse_args()
 
     spec = json.loads(args.source.read_text())
@@ -96,7 +111,9 @@ def main():
         flatten_opaque_fields(spec)
     spec["components"] = referenced_components(spec)
     args.output.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n")
-    print(f"wrote {args.output}: {len(spec['paths'])} paths, {len(spec['components'].get('schemas', {}))} schemas")
+    print(
+        f"wrote {args.output}: {len(spec['paths'])} paths, {len(spec['components'].get('schemas', {}))} schemas"
+    )
 
 
 if __name__ == "__main__":

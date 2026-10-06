@@ -56,8 +56,6 @@ help: ## Display this help.
 OPENAPI_SPEC ?= public-open-api.json
 # Git ref to diff OPENAPI_SPEC against for drift detection (the PR base branch in CI).
 OPENAPI_BASE_REF ?= origin/main
-# Pinned oasdiff version used by the drift gate.
-OASDIFF_VERSION ?= v1.23.0
 # API packages scanned by the api-only generation targets (manifests-crd, generate-api).
 API_PATHS ?= ./api/...
 
@@ -82,7 +80,7 @@ openapi-drift-check: ## Fail on breaking changes to the Dashboard/Monitor/SLO pa
 	@tmp=$$(mktemp -d); \
 	git show $(OPENAPI_BASE_REF):./$(OPENAPI_SPEC) | python3 hack/openapi-envelope.py > $$tmp/base.json; \
 	python3 hack/openapi-envelope.py < $(OPENAPI_SPEC) > $$tmp/revision.json; \
-	go run github.com/oasdiff/oasdiff@$(OASDIFF_VERSION) breaking \
+	go tool -modfile=hack/tools/go.mod oasdiff breaking \
 		$$tmp/base.json $$tmp/revision.json \
 		--match-path '^/v1/(dashboards|monitors|slos)$$' \
 		--fail-on ERR; \
@@ -337,13 +335,12 @@ $(LOCALBIN):
 KUBECTL ?= kubectl
 KIND ?= kind
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+CONTROLLER_GEN ?= go tool -modfile=$(CURDIR)/hack/tools/go.mod controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.6.0
-CONTROLLER_TOOLS_VERSION ?= v0.18.0
 #ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script (i.e. release-0.20)
 ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
 #ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
@@ -370,9 +367,7 @@ $(KUSTOMIZE): $(LOCALBIN)
 	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
-$(CONTROLLER_GEN): $(LOCALBIN)
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
+controller-gen: ## controller-gen is managed via hack/tools/go.mod (go tool); nothing to install.
 
 .PHONY: setup-envtest
 setup-envtest: envtest ## Download the binaries required for ENVTEST in the local bin directory.
