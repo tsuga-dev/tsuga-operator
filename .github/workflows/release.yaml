@@ -2,13 +2,51 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref_type }}
+  cancel-in-progress: false
 
 permissions: {}
 
 jobs:
+  # Tags the newest CHANGELOG.md version. The app token is required: tags pushed
+  # with GITHUB_TOKEN do not trigger publish-image.yaml or the release job below.
+  tag:
+    name: Tag latest changelog release
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Tag latest changelog release
+        run: |
+          version=$(awk '/^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ {match($0, /[0-9]+\.[0-9]+\.[0-9]+/); print substr($0, RSTART, RLENGTH); exit}' CHANGELOG.md)
+          test -n "$version"
+          git show-ref --tags --verify --quiet "refs/tags/v$version" && exit 0
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git tag -a "v$version" -m "Release v$version"
+          git push origin "v$version"
+
   release:
     name: Create GitHub release with install manifests
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
 
     permissions:
@@ -60,9 +98,19 @@ jobs:
           echo "$IMAGE was not published within 30 minutes." >&2
           exit 1
 
+      # Commits here are all sync commits, so notes come from CHANGELOG.md.
+      - name: Extract release notes
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          awk -v ver="$VERSION" '
+            /^## \[/ { if (found) exit; if (index($0, "[" ver "]")) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > dist/release-notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           name: "Release ${{ github.ref_name }}"
-          generate_release_notes: true
+          body_path: dist/release-notes.md
           files: dist/install.yaml

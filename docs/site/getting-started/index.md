@@ -51,16 +51,15 @@ For a managed environment, provision this Secret through your secret manager. Do
 
 ## 3. Install a release
 
-Choose a published tag from [GitHub Releases](https://github.com/tsuga-dev/tsuga-operator/releases) that includes `install.yaml`. Set `VERSION` to that exact tag; `vX.Y.Z` is a placeholder.
+This downloads the installer from the latest [GitHub release](https://github.com/tsuga-dev/tsuga-operator/releases). It pins the operator image to that release's version.
 
 ```sh
-VERSION=vX.Y.Z
-curl -fL "https://github.com/tsuga-dev/tsuga-operator/releases/download/${VERSION}/install.yaml" -o install.yaml
+curl -fL "https://github.com/tsuga-dev/tsuga-operator/releases/latest/download/install.yaml" -o install.yaml
 # Inspect the downloaded CRDs, RBAC, namespace, and Deployment before applying.
 kubectl apply -f install.yaml
 ```
 
-If there is no published installer for your version, build from a matching checkout using the [development guide](../contributing/development.md). Do not guess a release or image tag.
+To install a specific version instead, replace `latest/download` with `download/vX.Y.Z`, using a tag from the releases page.
 
 ## 4. Verify startup
 
