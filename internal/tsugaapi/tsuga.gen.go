@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 )
@@ -494,6 +495,9 @@ type CreateMonitorJSONBody struct {
 	// Owner Team ID that owns and manages the monitor.
 	Owner string `json:"owner"`
 
+	// PauseUntil ISO timestamp until which the monitor is snoozed. Must be in the future and at most one month from now. On create: omit or send `null` to leave the monitor active. On update: omit to keep the current snooze, send `null` to clear it.
+	PauseUntil *time.Time `json:"pauseUntil,omitempty"`
+
 	// Permissions `all` allows the resource to query all permitted telemetry, `owning-team-and-public` limits it to the owning team plus public data, and `owning-team-only` limits it to the owning team.
 	Permissions interface{} `json:"permissions"`
 
@@ -612,6 +616,9 @@ type UpdateMonitorJSONBody struct {
 
 	// Owner Team ID that owns and manages the monitor.
 	Owner string `json:"owner"`
+
+	// PauseUntil ISO timestamp until which the monitor is snoozed. Must be in the future and at most one month from now. On create: omit or send `null` to leave the monitor active. On update: omit to keep the current snooze, send `null` to clear it.
+	PauseUntil *time.Time `json:"pauseUntil,omitempty"`
 
 	// Permissions `all` allows the resource to query all permitted telemetry, `owning-team-and-public` limits it to the owning team plus public data, and `owning-team-only` limits it to the owning team.
 	Permissions interface{} `json:"permissions"`
@@ -949,13 +956,13 @@ type ClientInterface interface {
 	// CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 	CreateMonitorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateMonitor performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 	CreateMonitor(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryMonitorsWithBody performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
@@ -983,13 +990,13 @@ type ClientInterface interface {
 	// UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSloWithBody performs a POST /v1/slos (the `CreateSlo` operationId) request,
@@ -1029,13 +1036,13 @@ type ClientInterface interface {
 	// UpdateSloWithBody performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 	UpdateSloWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateSlo performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 	UpdateSlo(ctx context.Context, id string, body UpdateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
@@ -1168,7 +1175,7 @@ func (c *Client) UpdateDashboard(ctx context.Context, id string, body UpdateDash
 // CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 func (c *Client) CreateMonitorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateMonitorRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -1184,7 +1191,7 @@ func (c *Client) CreateMonitorWithBody(ctx context.Context, contentType string, 
 // CreateMonitor performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 func (c *Client) CreateMonitor(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateMonitorRequest(c.Server, body)
 	if err != nil {
@@ -1262,7 +1269,7 @@ func (c *Client) GetMonitor(ctx context.Context, id string, reqEditors ...Reques
 // UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -1278,7 +1285,7 @@ func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentTy
 // UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 func (c *Client) UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequest(c.Server, id, body)
 	if err != nil {
@@ -1388,7 +1395,7 @@ func (c *Client) GetSlo(ctx context.Context, id string, reqEditors ...RequestEdi
 // UpdateSloWithBody performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request,
 // with any type of body and a specified content type.
 //
-// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 func (c *Client) UpdateSloWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateSloRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -1404,7 +1411,7 @@ func (c *Client) UpdateSloWithBody(ctx context.Context, id string, contentType s
 // UpdateSlo performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 func (c *Client) UpdateSlo(ctx context.Context, id string, body UpdateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateSloRequest(c.Server, id, body)
 	if err != nil {
@@ -2105,7 +2112,7 @@ type ClientWithResponsesInterface interface {
 	// CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateMonitorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error)
@@ -2113,7 +2120,7 @@ type ClientWithResponsesInterface interface {
 	// CreateMonitorWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 	CreateMonitorWithResponse(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error)
 
 	// QueryMonitorsWithBodyWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
@@ -2147,7 +2154,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
@@ -2155,7 +2162,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
 
 	// CreateSloWithBodyWithResponse performs a POST /v1/slos (the `CreateSlo` operationId) request,
@@ -2203,7 +2210,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateSloWithBodyWithResponse performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateSloWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSloHTTPResponse, error)
@@ -2211,7 +2218,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateSloWithResponse performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+	// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 	UpdateSloWithResponse(ctx context.Context, id string, body UpdateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSloHTTPResponse, error)
 }
 
@@ -3462,7 +3469,7 @@ func (c *ClientWithResponses) UpdateDashboardWithResponse(ctx context.Context, i
 // CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateMonitorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error) {
@@ -3476,7 +3483,7 @@ func (c *ClientWithResponses) CreateMonitorWithBodyWithResponse(ctx context.Cont
 // CreateMonitorWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, or new error patterns depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, or error pattern increases depending on its configuration.
 func (c *ClientWithResponses) CreateMonitorWithResponse(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error) {
 	rsp, err := c.CreateMonitor(ctx, body, reqEditors...)
 	if err != nil {
@@ -3540,7 +3547,7 @@ func (c *ClientWithResponses) GetMonitorWithResponse(ctx context.Context, id str
 // UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
@@ -3554,7 +3561,7 @@ func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Cont
 // UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, and `clusterIds` keep their existing values. Omitting `dashboardId` clears the dashboard link, and public updates clear any existing snooze because `pauseUntil` is not part of the public schema.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 func (c *ClientWithResponses) UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
 	rsp, err := c.UpdateMonitor(ctx, id, body, reqEditors...)
 	if err != nil {
@@ -3644,7 +3651,7 @@ func (c *ClientWithResponses) GetSloWithResponse(ctx context.Context, id string,
 // UpdateSloWithBodyWithResponse performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request,
 // with any type of body and a specified content type.
 //
-// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateSloWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSloHTTPResponse, error) {
@@ -3658,7 +3665,7 @@ func (c *ClientWithResponses) UpdateSloWithBodyWithResponse(ctx context.Context,
 // UpdateSloWithResponse performs a PUT /v1/slos/{id} (the `UpdateSlo` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets evaluated SLO state, so returned status and error budget are based on data evaluated after the update.
+// Replaces an existing SLO definition by ID. Send the full SLO input shape, including configuration, ownership, permissions, cluster scope, and the reconciled alert list. Changing configuration, target, timeframe, permissions, or cluster scope resets the evaluation state of every alert on the SLO, so each alert ignores the transitions it recorded before the update. The SLO status and error budget are recomputed from the telemetry in the rolling window and are not cleared by an update.
 func (c *ClientWithResponses) UpdateSloWithResponse(ctx context.Context, id string, body UpdateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSloHTTPResponse, error) {
 	rsp, err := c.UpdateSlo(ctx, id, body, reqEditors...)
 	if err != nil {
