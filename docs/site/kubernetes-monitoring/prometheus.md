@@ -1,6 +1,6 @@
 # Scrape Prometheus metrics
 
-**Prerequisite: working collection and OpenTelemetry Operator v0.159.0**
+**Prerequisite: working collection and OpenTelemetry Operator v0.160.0**
 
 The optional scraper discovers pods with `prometheus.io/scrape: "true"`. This feature uses pod annotations; it does not configure discovery from Prometheus `ServiceMonitor` or `PodMonitor` resources.
 

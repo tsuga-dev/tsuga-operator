@@ -28,7 +28,7 @@ Documentation tracks `main`. For a deployed version, check its [release notes](h
 
 ## Quick orientation
 
-Dashboard, Monitor, and SLO management needs a Tsuga **operation key**. Telemetry collection additionally needs an **OTLP ingestion key**, **OTLP endpoint**, cert-manager, and the pinned **OpenTelemetry Operator v0.159.0**. The Tsuga operator's process requires the operation key even for collection-only use. Create the keys and find your OTLP endpoint in the Tsuga app under Settings.
+Dashboard, Monitor, and SLO management needs a Tsuga **operation key**. Telemetry collection additionally needs an **OTLP ingestion key**, **OTLP endpoint**, cert-manager, and the pinned **OpenTelemetry Operator v0.160.0**. The Tsuga operator's process requires the operation key even for collection-only use. Create the keys and find your OTLP endpoint in the Tsuga app under Settings.
 
 The Tsuga operator creates OpenTelemetry custom resources; the upstream operator runs the collectors. Use one `TsugaCollectorConfig` named `cluster` and one `TsugaMonitoring` per application namespace. See the [installation guide](docs/site/getting-started/index.md) for the full sequence.
 

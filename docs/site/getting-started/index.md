@@ -29,7 +29,7 @@ kubectl wait --for=condition=Available -n cert-manager deployment --all --timeou
 The OpenTelemetry Operator runs the collectors and injects application instrumentation configured by the Tsuga Operator. This installs its controller and custom resource definitions for collectors, instrumentation, and target allocation. Wait for the controller to become available, then check that those resource definitions are present.
 
 ```sh
-kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/download/v0.159.0/opentelemetry-operator.yaml
+kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/download/v0.160.0/opentelemetry-operator.yaml
 kubectl wait --for=condition=Available -n opentelemetry-operator-system deployment --all --timeout=180s
 kubectl get crd opentelemetrycollectors.opentelemetry.io instrumentations.opentelemetry.io targetallocators.opentelemetry.io
 ```
@@ -62,6 +62,8 @@ kubectl apply -f install.yaml
 To install a specific version instead, replace `latest/download` with `download/vX.Y.Z`, using a tag from the releases page.
 
 ## 4. Verify startup
+
+Installed with the [Helm chart](https://github.com/tsuga-dev/helm-charts/tree/main/charts/tsuga-operator) instead? The Deployment is the release name if that contains `tsuga-operator`, otherwise `<release>-tsuga-operator`, and runs in the release namespace. Substitute both in the commands on this page.
 
 ```sh
 kubectl -n tsuga-operator-system rollout status deployment/tsuga-operator-controller-manager --timeout=180s

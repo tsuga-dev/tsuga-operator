@@ -4,6 +4,8 @@ Start with the desired resource, then its controller, then any generated workloa
 
 ## First checks
 
+Installed with the [Helm chart](https://github.com/tsuga-dev/helm-charts/tree/main/charts/tsuga-operator) instead? The Deployment is the release name if that contains `tsuga-operator`, otherwise `<release>-tsuga-operator`, and runs in the release namespace. Substitute both in the commands on this page.
+
 ```sh
 kubectl -n tsuga-operator-system get pods
 kubectl -n tsuga-operator-system logs deployment/tsuga-operator-controller-manager --tail=100

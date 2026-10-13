@@ -42,7 +42,7 @@ The dedicated PostgreSQL collector runs as a single-replica Deployment in the da
 | --- | --- | --- |
 | Go | `1.26.8` module directive | Build and test toolchain |
 | cert-manager | `v1.18.2` | Makefile installation target |
-| OpenTelemetry Operator | `v0.159.0` | `make test-otel-schema` validates generated resources against this release's CRDs |
+| OpenTelemetry Operator | `v0.160.0` | `make test-otel-schema` validates generated resources against this release's CRDs |
 | Collector distributions | `0.157.0` | Explicit images in collection renderer |
 
 The repository does not declare a general Kubernetes support matrix. Kubernetes Go library versions and envtest versions are not a support guarantee. Validate your cluster and admission policies in staging.

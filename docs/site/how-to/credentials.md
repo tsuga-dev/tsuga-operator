@@ -14,7 +14,7 @@ The default Secret is `tsuga-credentials` in `tsuga-operator-system`. The operat
 
 Follow the complete Secret command in [collect cluster telemetry](../kubernetes-monitoring/getting-started.md#1-provide-all-credential-keys), or have your secret manager provision the same name and keys. Use placeholders in Git and keep real values in your organization's secret store.
 
-`make create-tsuga-secret` manages only `api-token`. Recreating an apply-managed Secret with that target can remove ingestion keys. Prefer one authoritative manifest or secret-manager resource for all keys in a shared Secret.
+`make create-tsuga-secret` creates the Secret with `api-token` only, or patches `api-token` into an existing one and leaves its other keys in place. Prefer one authoritative manifest or secret-manager resource for all keys in a shared Secret.
 
 ## Rotate keys or change the endpoint
 

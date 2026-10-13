@@ -255,13 +255,19 @@ setup-kind-dev: ## Set up a local Kind cluster for development if it does not ex
 	esac
 
 .PHONY: create-tsuga-secret
-create-tsuga-secret: ensure-tsuga-token ## Create or update the Tsuga API secret from .env for the active cluster.
+create-tsuga-secret: ensure-tsuga-token ## Create the Tsuga API secret from .env, or update only its api-token, for the active cluster.
 	@$(KUBECTL) create namespace $(OPERATOR_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	@# The token is read from the exported environment, not expanded by make,
-	@# so it never appears in a process's argv.
-	@printf '%s' "$$TSUGA_API_TOKEN" | $(KUBECTL) -n $(OPERATOR_NAMESPACE) create secret generic $(TSUGA_SECRET_NAME) \
-		--from-file=api-token=/dev/stdin \
-		--dry-run=client -o yaml | $(KUBECTL) apply -f -
+	@# so it never appears in a process's argv. An existing secret is patched
+	@# rather than applied: an apply carrying only api-token removes the
+	@# collection keys (api-key, otlp-endpoint) a previous apply wrote.
+	@if $(KUBECTL) -n $(OPERATOR_NAMESPACE) get secret $(TSUGA_SECRET_NAME) >/dev/null 2>&1; then \
+		printf '{"data":{"api-token":"%s"}}' "$$(printf '%s' "$$TSUGA_API_TOKEN" | base64 | tr -d '\n')" \
+			| $(KUBECTL) -n $(OPERATOR_NAMESPACE) patch secret $(TSUGA_SECRET_NAME) --type merge --patch-file /dev/stdin; \
+	else \
+		printf '%s' "$$TSUGA_API_TOKEN" | $(KUBECTL) -n $(OPERATOR_NAMESPACE) create secret generic $(TSUGA_SECRET_NAME) \
+			--from-file=api-token=/dev/stdin; \
+	fi
 
 .PHONY: kind-load
 kind-load: docker-build ## Build the operator image and load it into the Kind dev cluster.
@@ -349,10 +355,10 @@ GOLANGCI_LINT_VERSION ?= v2.14.0
 CERT_MANAGER_VERSION ?= v1.18.2
 # Single source of truth for the OTel Operator version: the README install command,
 # `make kind-deploy`, and the CRDs test-otel-schema validates renders against.
-OTEL_OPERATOR_VERSION ?= v0.159.0
+OTEL_OPERATOR_VERSION ?= v0.160.0
 OTEL_OPERATOR_BUNDLE ?= $(LOCALBIN)/opentelemetry-operator-$(OTEL_OPERATOR_VERSION).yaml
 # Bump together with OTEL_OPERATOR_VERSION: the release asset is not signed.
-OTEL_OPERATOR_BUNDLE_SHA256 ?= 576ff70530e40c1acbe617b6eadf579ed49c0415935301c10146596baa9a8df4
+OTEL_OPERATOR_BUNDLE_SHA256 ?= 8727de504b3645617efee9c969f626898eee0f06780aa3671b587adb8ee3ebf7
 
 .PHONY: otel-bundle
 otel-bundle: $(OTEL_OPERATOR_BUNDLE) ## Download the pinned OpenTelemetry Operator release bundle (its CRDs are what the render tests validate against).
