@@ -8,6 +8,6 @@ import (
 var (
 	GroupVersion = schema.GroupVersion{Group: "observability.tsuga.com", Version: "v1alpha1"}
 
-	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion} //nolint:staticcheck // kubebuilder scaffold; migrating off needs per-type AddToScheme functions across every _types.go file
 	AddToScheme   = SchemeBuilder.AddToScheme
 )

@@ -129,5 +129,5 @@ func applyControlled(ctx context.Context, c client.Client, reader client.Reader,
 	if err := controllerutil.SetControllerReference(owner, obj, scheme); err != nil {
 		return err
 	}
-	return c.Patch(ctx, obj, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership)
+	return c.Patch(ctx, obj, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership) //nolint:staticcheck // obj is an unstructured.Unstructured; the typed client.Client.Apply() needs a runtime.ApplyConfiguration, which unstructured objects don't have
 }
