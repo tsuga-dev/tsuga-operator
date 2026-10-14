@@ -26,6 +26,12 @@ Replace `dashboardRef` with `dashboardId: "<YOUR_DASHBOARD_ID>"` in the manifest
 
 The referenced Dashboard must have a remote ID before the Monitor can sync. After changing a Monitor, compare `status.observedGeneration` with `metadata.generation` as well as checking `Ready`.
 
+## File the monitor in a folder
+
+Add `folderId: "<YOUR_MONITOR_FOLDER_ID>"` to the manifest to file the monitor in an existing Tsuga monitor folder. The folder must already exist and be readable by the operator's token; there is no folder custom resource. Filing a monitor does not change its ownership, data access, or evaluation.
+
+Without `folderId`, the operator leaves the monitor's folder unchanged, so a folder chosen in the Tsuga UI is kept. Removing `folderId` from the manifest therefore does not unfile the monitor: move it out of the folder in Tsuga instead.
+
 ## Update or remove
 
 Edit the manifest and reapply it to update the remote monitor. Delete the resource to delete the remote monitor:

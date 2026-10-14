@@ -11,6 +11,7 @@ import (
 	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
 	"github.com/tsuga-dev/tsuga-operator/internal/tsugaapi"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/utils/ptr"
 )
 
 // The hand-owned Kubernetes API deliberately differs from Tsuga's API. These
@@ -41,6 +42,7 @@ func TestPayloadsMatchGeneratedRequestModels(t *testing.T) {
 				return MonitorSpecToPayload(v1alpha1.MonitorSpec{
 					Name: "Example", Owner: "team-1", Priority: 2,
 					Permissions: "all", Configuration: apiextensionsv1.JSON{Raw: []byte(`{"type":"logs"}`)},
+					FolderID: ptr.To("folder-1"),
 				})
 			},
 			create: &tsugaapi.CreateMonitorJSONBody{},

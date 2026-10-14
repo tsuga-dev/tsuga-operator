@@ -20,6 +20,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.dashboardId` | string | No | — | Optional related dashboard ID in Tsuga.  |
 | `spec.dashboardRef` | object | No | — | Optional reference to a Dashboard custom resource in the same namespace.  |
 | `spec.dashboardRef.name` | string | Yes | — | — minLength: `1` |
+| `spec.folderId` | string | No | — | Optional monitor folder ID in Tsuga. When unset, the monitor keeps its current folder.  |
 | `spec.message` | string | No | — | —  |
 | `spec.name` | string | Yes | — | — minLength: `1` |
 | `spec.owner` | string | Yes | — | Team ID that owns and manages the monitor. minLength: `1` |

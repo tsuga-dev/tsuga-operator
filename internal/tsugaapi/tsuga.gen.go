@@ -486,6 +486,9 @@ type CreateMonitorJSONBody struct {
 	// DashboardId ID of the dashboard to link to this monitor for context when investigating alerts. On create: omit or send `null` to leave the monitor unlinked. On update: omit to skip updating this field, send `null` to clear an existing link.
 	DashboardId *string `json:"dashboardId,omitempty"`
 
+	// FolderId Folder to organize this monitor in. Omit on create or send null to leave it unfiled; omit on update to keep its folder, or send null to remove it. A non-null ID must name a readable monitor folder. Assignment does not change ownership, data access, or evaluation state.
+	FolderId *string `json:"folderId,omitempty"`
+
 	// Message Message included in notifications triggered by this monitor. Optional on create.
 	Message *string `json:"message,omitempty"`
 
@@ -528,6 +531,9 @@ type QueryMonitorsJSONBody struct {
 			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
 			Values []string `json:"values"`
 		} `json:"clusterIds,omitempty"`
+
+		// FolderId Return monitors directly assigned to this folder ID, or unfiled monitors when null. Omit to return all monitors.
+		FolderId *string `json:"folderId,omitempty"`
 
 		// Owners Restrict results to monitors owned by any of these team IDs
 		Owners *struct {
@@ -607,6 +613,9 @@ type UpdateMonitorJSONBody struct {
 
 	// DashboardId ID of the dashboard to link to this monitor for context when investigating alerts. On create: omit or send `null` to leave the monitor unlinked. On update: omit to skip updating this field, send `null` to clear an existing link.
 	DashboardId *string `json:"dashboardId,omitempty"`
+
+	// FolderId Folder to organize this monitor in. Omit on create or send null to leave it unfiled; omit on update to keep its folder, or send null to remove it. A non-null ID must name a readable monitor folder. Assignment does not change ownership, data access, or evaluation state.
+	FolderId *string `json:"folderId,omitempty"`
 
 	// Message Message included in notifications triggered by this monitor. Optional on create.
 	Message *string `json:"message,omitempty"`
@@ -968,13 +977,13 @@ type ClientInterface interface {
 	// QueryMonitorsWithBody performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 	QueryMonitorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryMonitors performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 	QueryMonitors(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteMonitor performs a DELETE /v1/monitors/{id} (the `DeleteMonitor` operationId) request.
@@ -990,13 +999,13 @@ type ClientInterface interface {
 	// UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSloWithBody performs a POST /v1/slos (the `CreateSlo` operationId) request,
@@ -1207,7 +1216,7 @@ func (c *Client) CreateMonitor(ctx context.Context, body CreateMonitorJSONReques
 // QueryMonitorsWithBody performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 func (c *Client) QueryMonitorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryMonitorsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -1223,7 +1232,7 @@ func (c *Client) QueryMonitorsWithBody(ctx context.Context, contentType string, 
 // QueryMonitors performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 func (c *Client) QueryMonitors(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryMonitorsRequest(c.Server, body)
 	if err != nil {
@@ -1269,7 +1278,7 @@ func (c *Client) GetMonitor(ctx context.Context, id string, reqEditors ...Reques
 // UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -1285,7 +1294,7 @@ func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentTy
 // UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 func (c *Client) UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequest(c.Server, id, body)
 	if err != nil {
@@ -2126,7 +2135,7 @@ type ClientWithResponsesInterface interface {
 	// QueryMonitorsWithBodyWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	QueryMonitorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error)
@@ -2134,7 +2143,7 @@ type ClientWithResponsesInterface interface {
 	// QueryMonitorsWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 	QueryMonitorsWithResponse(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error)
 
 	// DeleteMonitorWithResponse performs a DELETE /v1/monitors/{id} (the `DeleteMonitor` operationId) request.
@@ -2154,7 +2163,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
@@ -2162,7 +2171,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 	UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
 
 	// CreateSloWithBodyWithResponse performs a POST /v1/slos (the `CreateSlo` operationId) request,
@@ -3495,7 +3504,7 @@ func (c *ClientWithResponses) CreateMonitorWithResponse(ctx context.Context, bod
 // QueryMonitorsWithBodyWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) QueryMonitorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error) {
@@ -3509,7 +3518,7 @@ func (c *ClientWithResponses) QueryMonitorsWithBodyWithResponse(ctx context.Cont
 // QueryMonitorsWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, or cluster, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
 func (c *ClientWithResponses) QueryMonitorsWithResponse(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error) {
 	rsp, err := c.QueryMonitors(ctx, body, reqEditors...)
 	if err != nil {
@@ -3547,7 +3556,7 @@ func (c *ClientWithResponses) GetMonitorWithResponse(ctx context.Context, id str
 // UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
@@ -3561,7 +3570,7 @@ func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Cont
 // UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, and `pauseUntil` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
 func (c *ClientWithResponses) UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
 	rsp, err := c.UpdateMonitor(ctx, id, body, reqEditors...)
 	if err != nil {

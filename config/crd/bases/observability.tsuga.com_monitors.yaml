@@ -75,6 +75,10 @@ spec:
                 required:
                 - name
                 type: object
+              folderId:
+                description: Optional monitor folder ID in Tsuga. When unset, the
+                  monitor keeps its current folder.
+                type: string
               message:
                 type: string
               name:

@@ -40,6 +40,9 @@ type MonitorSpec struct {
 	// Optional reference to a Dashboard custom resource in the same namespace.
 	DashboardRef *LocalObjectReference `json:"dashboardRef,omitempty"`
 
+	// Optional monitor folder ID in Tsuga. When unset, the monitor keeps its current folder.
+	FolderID *string `json:"folderId,omitempty"`
+
 	// This controls which data the resource can see.
 	// +kubebuilder:validation:Enum=all;owning-team-and-public;owning-team-only
 	Permissions string `json:"permissions"`
