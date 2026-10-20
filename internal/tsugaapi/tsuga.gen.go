@@ -656,7 +656,7 @@ type CreateSloJSONBody struct {
 		Priority interface{} `json:"priority"`
 	} `json:"alerts"`
 
-	// ClusterIds Cluster IDs this SLO is evaluated on. Omit or send an empty array on input to run on all clusters; responses use an empty array to mean all clusters. Non-empty input values must reference existing clusters.
+	// ClusterIds Cluster IDs this SLO is evaluated on. An empty array means every cluster. Omitting the field runs on every cluster when creating and preserves the current scope when updating. Values must reference existing clusters.
 	ClusterIds *[]string `json:"clusterIds,omitempty"`
 
 	// Configuration Opaque Tsuga configuration passed through by the operator
@@ -778,7 +778,7 @@ type UpdateSloJSONBody struct {
 		Priority interface{} `json:"priority"`
 	} `json:"alerts"`
 
-	// ClusterIds Cluster IDs this SLO is evaluated on. Omit or send an empty array on input to run on all clusters; responses use an empty array to mean all clusters. Non-empty input values must reference existing clusters.
+	// ClusterIds Cluster IDs this SLO is evaluated on. An empty array means every cluster. Omitting the field runs on every cluster when creating and preserves the current scope when updating. Values must reference existing clusters.
 	ClusterIds *[]string `json:"clusterIds,omitempty"`
 
 	// Configuration Opaque Tsuga configuration passed through by the operator
