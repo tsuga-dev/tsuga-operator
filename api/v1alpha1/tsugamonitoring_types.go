@@ -1,6 +1,9 @@
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // InstrumentationSpec controls auto-instrumentation for a namespace.
 type InstrumentationSpec struct {
@@ -9,11 +12,22 @@ type InstrumentationSpec struct {
 	// next roll. Inject annotations set by hand are left in place.
 	// +kubebuilder:default=false
 	Enabled bool `json:"enabled"`
-	// Languages to inject. Valid: java, nodejs, python, dotnet.
+	// Languages to inject. Valid: java, nodejs, python, dotnet, go,
+	// apache-httpd, nginx.
 	// Dropping a language removes the inject annotation the operator added for
 	// it; an annotation set by hand for that language is left in place.
-	// +kubebuilder:validation:items:Enum=java;nodejs;python;dotnet
+	// +kubebuilder:validation:items:Enum=java;nodejs;python;dotnet;go;apache-httpd;nginx
 	Languages []string `json:"languages,omitempty"`
+	// Instrumentation CR spec settings, deep-merged over what the operator
+	// renders (exporter endpoint, propagators, one block per language), as in
+	// the kube-stack chart: sampler, env, resource, propagators, per-language
+	// image/env/resources, and so on. exporter.endpoint is managed by the
+	// operator, which points it at the node agent, and cannot be set here.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type=object
+	// +optional
+	Spec *apiextensionsv1.JSON `json:"spec,omitempty"`
 }
 
 // TsugaMonitoringSpec is the desired per-namespace monitoring state.

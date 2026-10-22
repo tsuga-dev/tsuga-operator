@@ -6,6 +6,8 @@ Read the target release notes and compare API schemas, collector images, and the
 
 Test the new release in staging, then download and inspect its `install.yaml` as in the [installation guide](../getting-started/index.md). Apply it and verify the operator rollout, CR status, collector workloads, and fresh telemetry in Tsuga.
 
+Installed with the [Helm chart](https://github.com/tsuga-dev/helm-charts/tree/main/charts/tsuga-operator)? The chart renders the CRDs as templates, so `helm upgrade` updates them, as long as the chart version ships this release's CRDs. With `crds.create: false`, apply the release's CRDs yourself before upgrading the chart: a new operator on the old CRDs gets every new field silently pruned by the API server and reads it as unset (for example, `gateway.kubernetesEvents` reads `false` and events stay off).
+
 If the OpenTelemetry CRDs were installed after the Tsuga operator started, restart the Tsuga operator to register its collection controllers.
 
 If you built from source, update the checkout and image together, regenerate manifests as required, and use `make deploy IMG=<registry>/tsuga-operator:<tag>`.

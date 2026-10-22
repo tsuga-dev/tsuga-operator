@@ -92,6 +92,25 @@ func instrumentationLanguages(namespace string) ([]string, error) {
 	return present, nil
 }
 
+// tierBLanguages are the languages Tier B injects, each with a fixture under
+// test/fixtures.
+var tierBLanguages = []string{"java", "nodejs", "python", "dotnet", "go", "nginx"}
+
+// injectedContainer names the container the OTel Operator adds to a pod it
+// instruments: an init container that copies the agent in for most
+// languages, a privileged eBPF sidecar for go, and a module-attaching init
+// container for nginx.
+func injectedContainer(language string) string {
+	switch language {
+	case languageGo:
+		return "opentelemetry-auto-instrumentation"
+	case "nginx":
+		return "otel-agent-attach-nginx"
+	default:
+		return "opentelemetry-auto-instrumentation-"
+	}
+}
+
 // tierBSpecs registers Tier B; see tierASpecs for why the tiers are
 // functions rather than top-level containers.
 func tierBSpecs() {
@@ -109,15 +128,15 @@ func tierBSpecs() {
 			baselineCluster = baseline.ClusterName
 		})
 
-		for _, language := range []string{"java", "nodejs", "python", "dotnet"} {
+		for _, language := range tierBLanguages {
 			It("injects "+language+" instrumentation", func() {
 				namespace := "e2e-inject-" + language
-				Expect(applyYAML(fmt.Sprintf(
-					"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace))).To(Succeed())
+				Expect(applyNamespace(namespace)).To(Succeed())
 				DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
-				// The workload is deployed BEFORE the TsugaMonitoring, because
-				// injectExistingWorkloads means exactly that. The controller
+				// Except for go (below), the workload is deployed BEFORE the
+				// TsugaMonitoring, because injectExistingWorkloads means exactly
+				// that. The controller
 				// annotates the Deployments it finds while reconciling the
 				// TsugaMonitoring, and it watches only TsugaMonitoring and the
 				// Instrumentation it owns - not Deployments. A workload created
@@ -126,36 +145,61 @@ func tierBSpecs() {
 				// waits out its full timeout on a workload the operator was never
 				// asked to adopt. Workloads created later are the opt-in
 				// annotation's job, which "honours an opt-in annotation" covers.
-				By("running the uninstrumented workload first, so it is an existing workload")
-				workload := renderLanguageWorkload(namespace, language, false)
-				Expect(applyYAML(workload)).To(Succeed())
-				_, err := kubectl("wait", "--for=condition=Available",
-					"-n", namespace, "deploy/app-"+language, "--timeout=300s")
-				Expect(err).NotTo(HaveOccurred())
+				deployWorkload := func(optIn bool) {
+					Expect(applyYAML(renderLanguageWorkload(namespace, language, optIn))).To(Succeed())
+					_, err := kubectl("wait", "--for=condition=Available",
+						"-n", namespace, "deploy/app-"+language, "--timeout=300s")
+					Expect(err).NotTo(HaveOccurred())
+				}
+				applyMonitoring := func() {
+					Expect(applyYAML(renderMonitoring(namespace, true, []string{language}, true, ""))).To(Succeed())
+					Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
+						"Ready", crTimeout)).To(Succeed())
+				}
 
-				monitoring := renderMonitoring(namespace, true, []string{language}, true)
-				Expect(applyYAML(monitoring)).To(Succeed())
-				Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
-					"Ready", crTimeout)).To(Succeed())
+				// The operator never bulk-injects go: injection needs the
+				// per-workload otel-go-auto-target-exe annotation, so a go
+				// workload opts in by hand. The webhook only injects at pod
+				// creation, so it is deployed after the Instrumentation exists.
+				if language == languageGo {
+					applyMonitoring()
+					By("deploying the hand-annotated go workload")
+					deployWorkload(true)
+				} else {
+					By("running the uninstrumented workload first, so it is an existing workload")
+					deployWorkload(false)
+					applyMonitoring()
+				}
 
 				By("asserting the Instrumentation carries the language block")
 				Expect(instrumentationLanguages(namespace)).To(ConsistOf(language),
 					"the rendered Instrumentation must carry exactly the requested language block")
 
-				By("asserting the pod received an injected init container")
+				By("asserting the pod received the injected agent container")
 				Eventually(func() (string, error) {
-					return kubectl("get", "pods", "-n", namespace,
-						"-l", "app="+language, "-o", "jsonpath={.items[0].spec.initContainers[*].name}")
-				}, crTimeout, 5*time.Second).Should(ContainSubstring("opentelemetry"),
-					"the OTel Operator should have injected an init container")
+					// Every pod, not items[0]: the pre-injection pod lingers
+					// through the roll, and for nginx never leaves.
+					return kubectl("get", "pods", "-n", namespace, "-l", "app="+language,
+						"-o", "jsonpath={.items[*].spec.initContainers[*].name} {.items[*].spec.containers[*].name}")
+				}, crTimeout, 5*time.Second).Should(ContainSubstring(injectedContainer(language)),
+					"the OTel Operator should have injected its agent container")
+
+				// ponytail: the spike on kind/arm64 (Docker Desktop) injected
+				// nginx but the pod never starts: the OTel Operator's
+				// autoinstrumentation-apache-httpd:1.0.4 image, which carries the
+				// nginx module, is published for amd64 only ("no match for
+				// platform in manifest"). nginx is therefore checked in-cluster
+				// only, like profiling. Go's eBPF agent did produce spans there.
+				if language == "nginx" {
+					return
+				}
 
 				By("asserting this workload's spans reached Tsuga, which only an attached agent can produce")
 				// Scoped to this workload: counting spans for the whole cluster
 				// would let this scenario pass on the spans an earlier language
 				// produced.
 				//
-				// Scoped by Deployment name rather than service.name because spans
-				// are not indexed on context.service.name - see
+				// Scoped by Deployment name rather than service.name - see
 				// CountTracesForWorkload. app-<language> is the Deployment this
 				// spec just waited on, so the scope is exact.
 				Eventually(func() (int, error) {
@@ -164,28 +208,62 @@ func tierBSpecs() {
 			})
 		}
 
-		It("injects all four languages at once", func() {
+		It("injects all six languages at once", func() {
 			namespace := "e2e-inject-all"
-			Expect(applyYAML(fmt.Sprintf(
-				"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace))).To(Succeed())
+			Expect(applyNamespace(namespace)).To(Succeed())
 			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
-			languages := []string{"java", "nodejs", "python", "dotnet"}
-			Expect(applyYAML(renderMonitoring(namespace, true, languages, true))).To(Succeed())
+			Expect(applyYAML(renderMonitoring(namespace, true, tierBLanguages, true, ""))).To(Succeed())
 			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 				"Ready", crTimeout)).To(Succeed())
 
 			Expect(instrumentationLanguages(namespace)).To(ConsistOf(
-				"java", "nodejs", "python", "dotnet"))
+				"java", "nodejs", "python", "dotnet", "go", "nginx"))
+		})
+
+		It("merges instrumentation.spec into the Instrumentation", func() {
+			namespace := "e2e-inject-spec"
+			Expect(applyNamespace(namespace)).To(Succeed())
+			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
+
+			Expect(applyYAML(renderLanguageWorkload(namespace, "nodejs", false))).To(Succeed())
+			_, err := kubectl("wait", "--for=condition=Available",
+				"-n", namespace, "deploy/app-nodejs", "--timeout=300s")
+			Expect(err).NotTo(HaveOccurred())
+
+			// resourceAttributes is the Instrumentation CRD's key; the schema
+			// rejects resource.attributes.
+			Expect(applyYAML(renderMonitoring(namespace, true, []string{"nodejs"}, true,
+				"resource:\n  resourceAttributes:\n    e2e.merged: \"yes\""))).To(Succeed())
+			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
+				"Ready", crTimeout)).To(Succeed())
+
+			By("asserting the user's resource attribute landed on the Instrumentation")
+			merged, err := kubectlStdout("get", "instrumentation", "-n", namespace,
+				"-o", `jsonpath={.items[0].spec.resource.resourceAttributes.e2e\.merged}`)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(merged).To(Equal("yes"))
+
+			By("asserting the operator-owned exporter endpoint survived, so spec was merged, not substituted")
+			endpoint, err := kubectlStdout("get", "instrumentation", "-n", namespace,
+				"-o", "jsonpath={.items[0].spec.exporter.endpoint}")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(endpoint).To(Equal(fmt.Sprintf(
+				"http://tsuga-agent-collector.%s.svc.cluster.local:4318", operatorNS)))
+
+			By("asserting spans carrying the merged attribute reached Tsuga")
+			Eventually(func() (int, error) {
+				return cli.CountSpans(baselineCluster,
+					"context.e2e.merged:yes AND context.k8s.deployment.name:app-nodejs", "-15m")
+			}, ingestTimeout(), signalPollInterval).Should(BeNumerically(">", 0))
 		})
 
 		It("creates no Instrumentation when disabled", func() {
 			namespace := "e2e-inject-off"
-			Expect(applyYAML(fmt.Sprintf(
-				"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace))).To(Succeed())
+			Expect(applyNamespace(namespace)).To(Succeed())
 			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
-			Expect(applyYAML(renderMonitoring(namespace, false, nil, true))).To(Succeed())
+			Expect(applyYAML(renderMonitoring(namespace, false, nil, true, ""))).To(Succeed())
 			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 				"Ready", crTimeout)).To(Succeed())
 
@@ -198,12 +276,11 @@ func tierBSpecs() {
 
 		It("annotates only annotated workloads when injectExistingWorkloads is false", func() {
 			namespace := "e2e-inject-optin"
-			Expect(applyYAML(fmt.Sprintf(
-				"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace))).To(Succeed())
+			Expect(applyNamespace(namespace)).To(Succeed())
 			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
 			Expect(applyYAML(renderMonitoring(
-				namespace, true, []string{"nodejs"}, false))).To(Succeed())
+				namespace, true, []string{"nodejs"}, false, ""))).To(Succeed())
 			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 				"Ready", crTimeout)).To(Succeed())
 
@@ -266,28 +343,6 @@ spec:
 				return out
 			}, 20*time.Second, 5*time.Second).ShouldNot(ContainSubstring("opentelemetry"),
 				"an un-annotated workload must not be injected when opt-in is required")
-		})
-
-		// Instrumented workloads carry no credential of their own: the
-		// Instrumentation exports to the in-cluster agent, which holds the
-		// cluster export token.
-		It("renders an Instrumentation exporting through the in-cluster agent", func() {
-			namespace := "e2e-inject-token"
-			Expect(applyYAML(fmt.Sprintf(
-				"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace))).To(Succeed())
-			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
-
-			Expect(applyYAML(renderMonitoring(
-				namespace, true, []string{"nodejs"}, true))).To(Succeed())
-			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
-				"Ready", crTimeout)).To(Succeed())
-
-			endpoint, err := kubectlStdout("get", "instrumentation", "-n", namespace,
-				"-o", "jsonpath={.items[0].spec.exporter.endpoint}")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(endpoint).To(Equal(fmt.Sprintf(
-				"http://tsuga-agent-collector.%s.svc.cluster.local:4318", operatorNS)),
-				"the Instrumentation must export to the agent Service, which holds the token")
 		})
 	})
 }

@@ -56,6 +56,7 @@ func TestIngestTimeoutFallsBackOnUnparsableValue(t *testing.T) {
 }
 
 func TestKeepClusterFalseWhenUnset(t *testing.T) {
+	t.Setenv("E2E_KEEP_CLUSTER", "")
 	if keepCluster() {
 		t.Fatal("want false when E2E_KEEP_CLUSTER is unset")
 	}
@@ -101,48 +102,6 @@ func assertStringSliceEqual(t *testing.T, got, want []string) {
 		if got[i] != want[i] {
 			t.Fatalf("want %v, got %v", want, got)
 		}
-	}
-}
-
-func TestIdsTaggedWithRunFiltersByRunID(t *testing.T) {
-	// `tsuga <kind> list` returns a bare array. Verified against the live CLI.
-	payload := []byte(`[
-		{"id": "d-1", "name": "checkout-e2e-abc12345"},
-		{"id": "d-2", "name": "checkout-e2e-other000"},
-		{"id": "d-3", "name": "unrelated-dashboard"}
-	]`)
-	got := idsTaggedWithRun(payload, "dashboards", "e2e-abc12345")
-	want := []string{"d-1"}
-	assertStringSliceEqual(t, got, want)
-}
-
-// TestIdsTaggedWithRunReturnsNilOnEnvelopedPayload pins the failure mode to
-// watch for if the CLI's response shape ever changes. Kind isolation is
-// structural now — the suite makes one `list` call per kind, so a payload can
-// only ever contain that kind's resources. But if the CLI started wrapping the
-// array in an envelope, this decoder would stop matching anything and the sweep
-// would silently delete nothing, leaking every resource the run created. That
-// is the quiet failure, so it gets an explicit test.
-func TestIdsTaggedWithRunReturnsNilOnEnvelopedPayload(t *testing.T) {
-	payload := []byte(`{"dashboards": [{"id": "d-1", "name": "checkout-e2e-abc12345"}]}`)
-	got := idsTaggedWithRun(payload, "dashboards", "e2e-abc12345")
-	if got != nil {
-		t.Fatalf("want nil when the payload is enveloped rather than a bare array, got %v", got)
-	}
-}
-
-func TestIdsTaggedWithRunReturnsNilForMalformedJSON(t *testing.T) {
-	got := idsTaggedWithRun([]byte("not json at all"), "dashboards", "e2e-abc12345")
-	if got != nil {
-		t.Fatalf("want nil for malformed JSON, got %v", got)
-	}
-}
-
-func TestIdsTaggedWithRunReturnsNilWhenNoneMatch(t *testing.T) {
-	payload := []byte(`[{"id": "d-1", "name": "unrelated"}]`)
-	got := idsTaggedWithRun(payload, "dashboards", "e2e-abc12345")
-	if got != nil {
-		t.Fatalf("want nil when nothing matches, got %v", got)
 	}
 }
 

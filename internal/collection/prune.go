@@ -36,6 +36,9 @@ func pruneGatewayConfig(config map[string]interface{}, toggles v1alpha1.GatewayT
 	if !toggles.KubernetesObjects {
 		delete(pipelines, "logs")
 	}
+	if !toggles.KubernetesEvents {
+		delete(pipelines, "logs/events")
+	}
 	pruneUnreferencedReceivers(config)
 }
 

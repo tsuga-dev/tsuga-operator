@@ -1,7 +1,11 @@
 ENV_FILE ?= .env
 ifneq ($(wildcard $(ENV_FILE)),)
+ENV_FILE_VARS := $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' $(ENV_FILE))
+# include overrides the environment, so re-assert variables the caller already set.
+ENV_FILE_PRESET := $(foreach v,$(ENV_FILE_VARS),$(if $(findstring environment,$(origin $(v))),$(v)))
 include $(ENV_FILE)
-export $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' $(ENV_FILE))
+$(foreach v,$(ENV_FILE_PRESET),$(eval $(v) := $(shell printenv $(v))))
+export $(ENV_FILE_VARS)
 endif
 
 # Image URL to use all building/pushing image targets
@@ -222,7 +226,7 @@ endif
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply --server-side --force-conflicts -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -231,7 +235,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/default | $(KUBECTL) apply --server-side --force-conflicts -f -
 	@if [ -n "$(TSUGA_BASE_URL)" ]; then \
 		$(KUBECTL) -n $(OPERATOR_NAMESPACE) set env deployment/$(MANAGER_DEPLOYMENT) TSUGA_BASE_URL="$(TSUGA_BASE_URL)"; \
 	fi
@@ -273,12 +277,29 @@ create-tsuga-secret: ensure-tsuga-token ## Create the Tsuga API secret from .env
 kind-load: docker-build ## Build the operator image and load it into the Kind dev cluster.
 	$(KIND) load docker-image $(IMG) --name $(KIND_DEV_CLUSTER)
 
+OTEL_OPERATOR_DEPLOYMENT ?= opentelemetry-operator-controller-manager
+
 .PHONY: install-otel-prereqs
-install-otel-prereqs: ## Install cert-manager and the OpenTelemetry Operator (the CRDs the collection controllers watch). Idempotent.
+install-otel-prereqs: ## Install cert-manager, the OpenTelemetry Operator (Go and nginx injection enabled) and the prometheus-operator CRDs. Idempotent.
 	$(KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml
 	$(KUBECTL) wait --for=condition=Available -n cert-manager deploy --all --timeout=180s
-	$(KUBECTL) apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/download/$(OTEL_OPERATOR_VERSION)/opentelemetry-operator.yaml
+# cert-manager's webhook refuses connections for a while after its
+# Deployments report Available, so the first apply on a new cluster can fail.
+	$(KUBECTL) -n opentelemetry-operator-system get deploy $(OTEL_OPERATOR_DEPLOYMENT) >/dev/null 2>&1 || \
+		for attempt in $$(seq 12); do \
+			$(KUBECTL) apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/download/$(OTEL_OPERATOR_VERSION)/opentelemetry-operator.yaml && break; \
+			[ $$attempt -lt 12 ] || exit 1; \
+			sleep 5; \
+		done
 	$(KUBECTL) wait --for=condition=Available -n opentelemetry-operator-system deploy --all --timeout=180s
+	for crd in servicemonitors podmonitors; do \
+		$(KUBECTL) apply --server-side -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/$(PROMETHEUS_OPERATOR_VERSION)/example/prometheus-operator-crd/monitoring.coreos.com_$$crd.yaml || exit 1; \
+	done
+	for flag in --enable-go-instrumentation=true --enable-nginx-instrumentation=true; do \
+		$(KUBECTL) -n opentelemetry-operator-system get deploy $(OTEL_OPERATOR_DEPLOYMENT) -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].args}' | grep -q -- "$$flag" || \
+		$(KUBECTL) -n opentelemetry-operator-system patch deploy $(OTEL_OPERATOR_DEPLOYMENT) --type=json -p "[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/args/-\",\"value\":\"$$flag\"}]" || exit 1; \
+	done
+	$(KUBECTL) -n opentelemetry-operator-system rollout status deploy/$(OTEL_OPERATOR_DEPLOYMENT) --timeout=180s
 
 .PHONY: kind-deploy
 kind-deploy: setup-kind-dev install-otel-prereqs create-tsuga-secret ## Build the image, load it into Kind, and deploy the operator locally.
@@ -296,22 +317,24 @@ e2e-fixtures: ## Build the end-to-end suite's fixture images.
 	docker build -t tsuga-e2e/app-nodejs:latest test/fixtures/nodejs
 	docker build -t tsuga-e2e/app-python:latest test/fixtures/python
 	docker build -t tsuga-e2e/app-dotnet:latest test/fixtures/dotnet
+	docker build -t tsuga-e2e/app-go:latest     test/fixtures/go
+	docker build -t tsuga-e2e/app-nginx:latest  test/fixtures/nginx
 
 .PHONY: e2e-fixtures-smoke
 e2e-fixtures-smoke: e2e-fixtures ## Verify each fixture serves traffic and logs to stdout.
-	@for image in app-java app-nodejs app-python app-dotnet; do \
+	@for image in app-java app-nodejs app-python app-dotnet app-go app-nginx; do \
 		test/fixtures/smoke.sh tsuga-e2e/$$image:latest || exit 1; \
 	done
 
 KIND_E2E_FULL_CLUSTER ?= tsuga-operator-e2e-full
 FOCUS ?=
 LABEL ?=
-# Tier C paces ~146 resources at 30s apiece to stay under the API's rate limit,
-# so it alone runs well over an hour against a real org. This value feeds BOTH
-# `go test -timeout` and `-ginkgo.timeout`: Ginkgo enforces its own suite
-# deadline, which defaults to one hour, and silently cuts a run short regardless
-# of what go test allows. Override for a shorter focused run.
-E2E_TIMEOUT ?= 480m
+# A full run takes up to two hours: Tsuga checks poll serially at 30s to stay
+# under the API's rate limit. 150m leaves headroom over that budget. This value
+# feeds BOTH `go test -timeout` and `-ginkgo.timeout`: Ginkgo enforces its own
+# suite deadline, which defaults to one hour, and silently cuts a run short
+# regardless of what go test allows. Override for a shorter focused run.
+E2E_TIMEOUT ?= 150m
 
 .PHONY: test-e2e-full
 test-e2e-full: ## Run the full e2e suite against a real Tsuga test org. Requires TSUGA_E2E_* credentials.
@@ -353,6 +376,7 @@ ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
 GOLANGCI_LINT_VERSION ?= v2.15.0
 CERT_MANAGER_VERSION ?= v1.18.2
+PROMETHEUS_OPERATOR_VERSION ?= v0.82.0
 # Single source of truth for the OTel Operator version: the README install command,
 # `make kind-deploy`, and the CRDs test-otel-schema validates renders against.
 OTEL_OPERATOR_VERSION ?= v0.160.0

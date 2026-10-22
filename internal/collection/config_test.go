@@ -8,7 +8,7 @@ import (
 
 func TestResolveCollectorDefaultsNamespace(t *testing.T) {
 	got := ResolveCollector(v1alpha1.TsugaCollectorConfigSpec{
-		Export: v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}},
+		Export: &v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}},
 	})
 	if got.CollectorNamespace != "tsuga-operator-system" {
 		t.Fatalf("want default namespace, got %q", got.CollectorNamespace)
@@ -17,7 +17,7 @@ func TestResolveCollectorDefaultsNamespace(t *testing.T) {
 
 func TestResolveCollectorDefaultsPrometheus(t *testing.T) {
 	got := ResolveCollector(v1alpha1.TsugaCollectorConfigSpec{
-		Export: v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}},
+		Export: &v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}},
 	})
 	if got.Prometheus.Enabled {
 		t.Fatal("prometheus scraping must default to off")
@@ -38,7 +38,7 @@ func TestResolveCollectorDefaultsPrometheus(t *testing.T) {
 
 func TestResolveCollectorKeepsExplicitPrometheus(t *testing.T) {
 	got := ResolveCollector(v1alpha1.TsugaCollectorConfigSpec{
-		Export: v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}},
+		Export: &v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}},
 		Prometheus: v1alpha1.PrometheusSpec{
 			Enabled:        true,
 			ScrapeInterval: "60s",

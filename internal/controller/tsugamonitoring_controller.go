@@ -67,8 +67,8 @@ type TsugaMonitoringReconciler struct {
 // applications must export to this in-cluster agent - which holds the
 // export auth token and enriches/batches telemetry - rather than directly
 // to the external Tsuga endpoint.
-func agentOTLPEndpoint(collectorNamespace string) string {
-	return fmt.Sprintf("http://%s.%s.svc.cluster.local:4318", agentCollectorServiceName, collectorNamespace)
+func agentOTLPEndpoint(collectorNamespace string, port int32) string {
+	return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", agentCollectorServiceName, collectorNamespace, port)
 }
 
 func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -95,7 +95,7 @@ func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		// going away) the wanted annotation set is empty, so this pass
 		// strips the inject annotations this CR added and leaves the
 		// workloads uninstrumented on their next roll.
-		instrumented, _, err := r.reconcileWorkloads(ctx, m)
+		instrumented, _, err := r.reconcileWorkloads(ctx, m, false)
 		if err != nil {
 			return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
 		}
@@ -125,14 +125,23 @@ func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return r.fail(ctx, m, reasonClusterConfigMissing, err)
 	}
 	collectorCfg := collection.ResolveCollector(cluster.Spec)
-	endpoint := agentOTLPEndpoint(collectorCfg.CollectorNamespace)
+	if !collection.AgentEnabled(collectorCfg) {
+		return r.retireInstrumentation(ctx, m, reasonAgentDisabled,
+			"the cluster config disables the node agent, which auto-instrumented applications export to")
+	}
+	endpoint := agentOTLPEndpoint(collectorCfg.CollectorNamespace, collection.AgentOTLPPort(collectorCfg, "http"))
+	grpcEndpoint := agentOTLPEndpoint(collectorCfg.CollectorNamespace, collection.AgentOTLPPort(collectorCfg, "grpc"))
 
-	inst := collection.RenderInstrumentation(m.Namespace, m.Name, m.Spec.Instrumentation, endpoint)
+	inst, err := collection.RenderInstrumentation(m.Namespace, m.Name, m.Spec.Instrumentation, endpoint, grpcEndpoint)
+	if err != nil {
+		// The spec caused this; a retry cannot fix it, so wait for an edit.
+		return ctrl.Result{}, r.recordFailure(ctx, m, reasonRenderFailed, err)
+	}
 	if err := applyControlled(ctx, r.Client, r.Client, r.Scheme, m, inst); err != nil {
 		return r.fail(ctx, m, reasonApplyFailed, err)
 	}
 
-	instrumented, conflicts, err := r.reconcileWorkloads(ctx, m)
+	instrumented, conflicts, err := r.reconcileWorkloads(ctx, m, true)
 	if err != nil {
 		return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
 	}
@@ -158,6 +167,35 @@ func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	setReady(&desired.CollectionStatus, m.Generation, true, reasonReconciled,
 		fmt.Sprintf("%d workloads instrumented", instrumented))
 
+	return r.syncStatus(ctx, m, desired)
+}
+
+// Go needs a per-workload otel-go-auto-target-exe annotation, so bulk
+// injection cannot set inject-go on its own.
+const languageGo = "go"
+
+// retireInstrumentation is the disabled-instrumentation cleanup for a cluster
+// config the exporter cannot reach: strip the inject annotations, delete the
+// owned Instrumentation, report Ready=False. Nothing to retry until the config
+// changes, which the cluster-config watch already re-enqueues.
+func (r *TsugaMonitoringReconciler) retireInstrumentation(ctx context.Context, m *v1alpha1.TsugaMonitoring, reason, message string) (ctrl.Result, error) {
+	instrumented, _, err := r.reconcileWorkloads(ctx, m, false)
+	if err != nil {
+		return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
+	}
+	if err := r.deleteOwnedInstrumentation(ctx, m); err != nil {
+		return r.fail(ctx, m, reasonApplyFailed, err)
+	}
+	desired := v1alpha1.TsugaMonitoringStatus{
+		CollectionStatus: v1alpha1.CollectionStatus{
+			Phase:              phaseError,
+			Message:            message,
+			ObservedGeneration: m.Generation,
+			Conditions:         slices.Clone(m.Status.Conditions),
+		},
+		InstrumentedWorkloads: instrumented,
+	}
+	setReady(&desired.CollectionStatus, m.Generation, false, reason, message)
 	return r.syncStatus(ctx, m, desired)
 }
 
@@ -203,11 +241,16 @@ func (r *TsugaMonitoringReconciler) syncStatus(ctx context.Context, m *v1alpha1.
 // skipped languages are returned as sorted "lang (claimed by name)" entries;
 // overwriting it instead would have the two CRs take turns rolling the
 // workload forever.
-func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v1alpha1.TsugaMonitoring) (int32, []string, error) {
+//
+// go is never bulk-injected.
+func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v1alpha1.TsugaMonitoring, inject bool) (int32, []string, error) {
 	var want map[string]string
-	if m.DeletionTimestamp.IsZero() && m.Spec.Instrumentation.Enabled && m.Spec.InjectExistingWorkloads {
+	if inject && m.DeletionTimestamp.IsZero() && m.Spec.InjectExistingWorkloads {
 		want = make(map[string]string, len(m.Spec.Instrumentation.Languages))
 		for _, lang := range m.Spec.Instrumentation.Languages {
+			if lang == languageGo {
+				continue
+			}
 			want[injectAnnotationPrefix+lang] = m.Name
 		}
 	}
@@ -419,13 +462,19 @@ func (r *TsugaMonitoringReconciler) deleteOwnedInstrumentation(ctx context.Conte
 }
 
 func (r *TsugaMonitoringReconciler) fail(ctx context.Context, m *v1alpha1.TsugaMonitoring, reason string, cause error) (ctrl.Result, error) {
-	m.Status.Phase = phaseError
-	m.Status.Message = cause.Error()
-	setReady(&m.Status.CollectionStatus, m.Generation, false, reason, cause.Error())
-	if err := r.Status().Update(ctx, m); err != nil {
+	if err := r.recordFailure(ctx, m, reason, cause); err != nil {
 		logf.FromContext(ctx).Error(err, "failed to record Error status", "reason", reason)
 	}
 	return ctrl.Result{}, cause
+}
+
+// recordFailure writes the Error status for cause and returns the status
+// write error, if any.
+func (r *TsugaMonitoringReconciler) recordFailure(ctx context.Context, m *v1alpha1.TsugaMonitoring, reason string, cause error) error {
+	m.Status.Phase = phaseError
+	m.Status.Message = cause.Error()
+	setReady(&m.Status.CollectionStatus, m.Generation, false, reason, cause.Error())
+	return r.Status().Update(ctx, m)
 }
 
 // instrumentationGVK is the GroupVersionKind of the OTel Operator's

@@ -31,12 +31,13 @@ The Tsuga operator does not run collectors itself. The upstream OpenTelemetry Op
 | Component | Deployment shape | Role |
 | --- | --- | --- |
 | `tsuga-agent` | DaemonSet | Host and kubelet metrics, pod logs, OTLP receiver for applications |
-| `tsuga-gateway` | Deployment | Cluster metrics and Kubernetes objects |
+| `tsuga-gateway` | Deployment | Cluster metrics, Kubernetes objects and Warning events |
 | `tsuga-scraper` | StatefulSet, optional | Prometheus annotation scraping |
 | `tsuga-scraper-ta` | TargetAllocator, optional | Distribute scrape targets across scraper replicas |
+| `tsuga-profiler` | DaemonSet, optional | eBPF CPU profiles from every process on the node |
 | `<name>-pg` | Deployment, optional | PostgreSQL metrics forwarded to the agent over OTLP/gRPC port 4317 |
 
-The agent, gateway, and scraper each export to the configured Tsuga OTLP endpoint. The gateway is a cluster-data collector, not an intermediate hop for all agent traffic. Auto-instrumented applications export to the agent's cluster Service on port 4318.
+The agent, gateway, scraper, and profiler each export to the configured Tsuga OTLP endpoint. The gateway is a cluster-data collector, not an intermediate hop for all agent traffic. Auto-instrumented applications export to the agent's cluster Service on port 4318.
 
 ## Resource scope
 
@@ -48,6 +49,6 @@ Use one cluster config named `cluster` and one `TsugaMonitoring` resource per na
 
 Dashboard, Monitor, and SLO resources use finalizers to delete their remote Tsuga objects before Kubernetes completes deletion. Collection and Instrumentation children use Kubernetes owner references for garbage collection.
 
-Workloads annotated for instrumentation are not owned by TsugaMonitoring. Deleting it therefore does not delete applications or automatically clean their annotations. Disable instrumentation and verify cleanup before deleting the monitoring resource.
+Workloads annotated for instrumentation are not owned by TsugaMonitoring, so deleting it does not delete applications. A finalizer removes the inject annotations the operator added before the deletion completes; annotations set by hand are left in place.
 
 Continue with [reconciliation and status](reconciliation.md) for the exact meaning of readiness and current lifecycle limitations.

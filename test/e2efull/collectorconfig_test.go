@@ -1,7 +1,6 @@
 package e2efull
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -53,8 +52,7 @@ func tierASpecs() {
 		scenarios := tierAScenarios()
 
 		BeforeAll(func() {
-			Expect(applyYAML(fmt.Sprintf(
-				"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", tierANamespace))).To(Succeed())
+			Expect(applyNamespace(tierANamespace)).To(Succeed())
 		})
 
 		for i := range scenarios {
@@ -64,8 +62,7 @@ func tierASpecs() {
 				collectorNS := operatorNS
 				if scenario.Variant == "customNamespace" {
 					collectorNS = "e2e-collectors"
-					Expect(applyYAML(fmt.Sprintf(
-						"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", collectorNS))).To(Succeed())
+					Expect(applyNamespace(collectorNS)).To(Succeed())
 					Expect(copyIngestionSecret(collectorNS)).To(Succeed())
 				}
 				if scenario.Variant == "endpointSecretRef" {
@@ -115,7 +112,7 @@ func tierASpecs() {
 					out, err := kubectl("get", "opentelemetrycollector", "tsuga-agent",
 						"-n", collectorNS, "-o", "jsonpath={.spec.image}")
 					Expect(err).NotTo(HaveOccurred())
-					Expect(out).To(ContainSubstring("0.157.0"))
+					Expect(out).To(ContainSubstring("0.161.0"))
 				}
 				if scenario.Variant == "resourcesOverride" {
 					out, err := kubectl("get", "opentelemetrycollector", "tsuga-agent",
@@ -125,7 +122,7 @@ func tierASpecs() {
 				}
 
 				By("running the emitter so the pipelines have something to carry")
-				emitter := renderEmitterWorkload(tierANamespace, scenario.ClusterName, collectorNS)
+				emitter := renderEmitterWorkload(tierANamespace, scenario.ClusterName, collectorNS, 4318)
 				Expect(applyYAML(emitter)).To(Succeed())
 				DeferCleanup(func() { _ = deleteYAML(emitter) })
 				_, err := kubectl("wait", "--for=condition=Available",

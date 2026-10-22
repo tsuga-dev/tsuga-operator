@@ -13,21 +13,17 @@ import (
 
 const (
 	// defaultAttempts is how many times Run will issue a call that comes
-	// back rate limited, counting the first. Tier C fires roughly 150
-	// create+get pairs back to back and Tier A's negatives issue on the
-	// order of a thousand calls, so a throttled response is an expected
-	// condition rather than a suite failure.
+	// back rate limited, counting the first. Tier C's create+get pairs and
+	// Tier A's polling share one throttled API, so a throttled response is
+	// an expected condition rather than a suite failure.
 	defaultAttempts = 9
 	// defaultRetryDelay is the first backoff; each further attempt doubles it,
 	// giving 5s through 20m — about 40 minutes in total. A throttled read is
 	// worth waiting out: the resource exists, only the verification is blocked,
 	// and the API's window can take tens of minutes to drain.
 	//
-	// Sized from a measurement, not a guess: after the suite creates Tier C's
-	// ~150 resources the API stays rate limited for minutes, and read-only list
-	// calls were still returning 429 well after a run had finished. The earlier
-	// 1s/2s/4s ladder gave up after ~7 seconds and turned an expected throttle
-	// into a suite failure.
+	// Sized from a measurement: once throttled, the API stays rate limited
+	// for minutes, read-only list calls included.
 	defaultRetryDelay = 5 * time.Second
 )
 

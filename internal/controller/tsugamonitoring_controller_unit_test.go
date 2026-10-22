@@ -8,12 +8,14 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -62,7 +64,7 @@ func TestMonitoringReconcileCreatesInstrumentation(t *testing.T) {
 	scheme := monitoringTestScheme(t)
 	cluster := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
@@ -142,7 +144,7 @@ func TestMonitoringReconcileInjectsExistingWorkloads(t *testing.T) {
 	scheme := monitoringTestScheme(t)
 	cluster := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
@@ -206,7 +208,7 @@ func TestMonitoringReconcileSkipsInjectionWhenDisabledOnSpec(t *testing.T) {
 	scheme := monitoringTestScheme(t)
 	cluster := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
@@ -291,7 +293,7 @@ func TestMonitoringInstrumentedWorkloadsReportsTotalAcrossReconciles(t *testing.
 	scheme := monitoringTestScheme(t)
 	cluster := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
@@ -343,7 +345,7 @@ func TestMonitoringCountsHandAnnotatedWorkloadsInOptInMode(t *testing.T) {
 	scheme := monitoringTestScheme(t)
 	cluster := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
@@ -390,7 +392,7 @@ func TestMonitoringSetsReadyConditionOnSuccess(t *testing.T) {
 	scheme := monitoringTestScheme(t)
 	cluster := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments", Generation: 4},
@@ -460,7 +462,7 @@ func TestMonitoringSteadyStateIsNoOp(t *testing.T) {
 	scheme := monitoringTestScheme(t)
 	cluster := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
@@ -500,7 +502,7 @@ func TestMonitoringSteadyStateIsNoOp(t *testing.T) {
 }
 
 func TestAgentOTLPEndpoint(t *testing.T) {
-	got := agentOTLPEndpoint("tsuga-operator-system")
+	got := agentOTLPEndpoint("tsuga-operator-system", 4318)
 	if got != wantAgentEndpoint {
 		t.Fatalf("want %q, got %q", wantAgentEndpoint, got)
 	}
@@ -520,7 +522,7 @@ func newMonitoring(languages ...string) *v1alpha1.TsugaMonitoring {
 func newClusterConfig() *v1alpha1.TsugaCollectorConfig {
 	return &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
+		Spec:       v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}}},
 	}
 }
 
@@ -1001,5 +1003,158 @@ func TestMonitoringReconcileRejectsUnownedExistingInstrumentation(t *testing.T) 
 	}
 	if refs := inst.GetOwnerReferences(); len(refs) != 0 {
 		t.Fatalf("hand-made Instrumentation must not be adopted, got %v", refs)
+	}
+}
+
+func reconcileMonitoringAfterConfigChange(t *testing.T, change func(*v1alpha1.TsugaCollectorConfigSpec), workloads ...client.Object) (client.Client, *v1alpha1.TsugaMonitoring) {
+	t.Helper()
+	scheme := monitoringTestScheme(t)
+	m := newMonitoring("java")
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(append([]client.Object{newClusterConfig(), m}, workloads...)...).WithStatusSubresource(m).
+		WithInterceptorFuncs(applyAsCreateOrUpdate()).
+		Build()
+	r := &TsugaMonitoringReconciler{Client: cl, Scheme: scheme}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "default", Namespace: "payments"}}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	updateClusterSpec(t, cl, change)
+	res, err := r.Reconcile(context.Background(), req)
+	if err != nil || res.RequeueAfter != 0 {
+		t.Fatalf("want no error and no requeue, got %v, %v", res, err)
+	}
+	got := &v1alpha1.TsugaMonitoring{}
+	if err := cl.Get(context.Background(), req.NamespacedName, got); err != nil {
+		t.Fatal(err)
+	}
+	return cl, got
+}
+
+func assertInstrumentationGone(t *testing.T, cl client.Client) {
+	t.Helper()
+	inst := &unstructured.Unstructured{}
+	inst.SetGroupVersionKind(otelInstrumentationGVK)
+	err := cl.Get(context.Background(), types.NamespacedName{Name: "default", Namespace: "payments"}, inst)
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("want the owned Instrumentation deleted, got err=%v", err)
+	}
+}
+
+func TestMonitoringAgentDisabledRemovesInstrumentation(t *testing.T) {
+	dep := newTestDeployment("checkout", "payments")
+	dep.Annotations = map[string]string{ownedLanguagesAnnotation: "java"}
+	dep.Spec.Template.Annotations = map[string]string{injectAnnotationPrefix + "java": "default"}
+	cl, got := reconcileMonitoringAfterConfigChange(t, func(s *v1alpha1.TsugaCollectorConfigSpec) {
+		s.Agent.Enabled = ptr.To(false)
+	}, dep)
+	assertInstrumentationGone(t, cl)
+	if _, ok := getDeployment(t, cl, "checkout").Spec.Template.Annotations[injectAnnotationPrefix+"java"]; ok {
+		t.Fatal("want the inject annotation stripped from the workload")
+	}
+	cond := meta.FindStatusCondition(got.Status.Conditions, conditionReady)
+	if cond == nil || cond.Status != metav1.ConditionFalse || cond.Reason != reasonAgentDisabled {
+		t.Fatalf("want Ready=False/%s, got %+v", reasonAgentDisabled, cond)
+	}
+	if cond.Message != "the cluster config disables the node agent, which auto-instrumented applications export to" {
+		t.Fatalf("message = %q", cond.Message)
+	}
+}
+
+func TestMonitoringUsesConfiguredAgentHTTPPort(t *testing.T) {
+	cl, _ := reconcileMonitoringAfterConfigChange(t, func(s *v1alpha1.TsugaCollectorConfigSpec) {
+		s.Agent.OTLP.HTTPEndpoint = "0.0.0.0:14318"
+	})
+	inst := &unstructured.Unstructured{}
+	inst.SetGroupVersionKind(otelInstrumentationGVK)
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "default", Namespace: "payments"}, inst); err != nil {
+		t.Fatal(err)
+	}
+	endpoint, _, _ := unstructured.NestedString(inst.Object, "spec", "exporter", "endpoint")
+	if !strings.HasSuffix(endpoint, ":14318") {
+		t.Fatalf("want exporter endpoint on :14318, got %q", endpoint)
+	}
+}
+
+func reconcileBulkMonitoring(t *testing.T, spec v1alpha1.TsugaMonitoringSpec) (client.Client, *v1alpha1.TsugaMonitoring, error) {
+	t.Helper()
+	scheme := monitoringTestScheme(t)
+	m := &v1alpha1.TsugaMonitoring{
+		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
+		Spec:       spec,
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(newClusterConfig(), m, newTestDeployment("checkout", "payments")).WithStatusSubresource(m).
+		WithInterceptorFuncs(applyAsCreateOrUpdate()).
+		Build()
+
+	r := &TsugaMonitoringReconciler{Client: cl, Scheme: scheme}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "default", Namespace: "payments"}}
+	_, err := r.Reconcile(context.Background(), req)
+	got := &v1alpha1.TsugaMonitoring{}
+	if getErr := cl.Get(context.Background(), req.NamespacedName, got); getErr != nil {
+		t.Fatal(getErr)
+	}
+	return cl, got, err
+}
+
+func TestBulkInjectionSkipsGo(t *testing.T) {
+	cl, got, err := reconcileBulkMonitoring(t, v1alpha1.TsugaMonitoringSpec{
+		Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java", "go"}},
+		InjectExistingWorkloads: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ann := getDeployment(t, cl, "checkout").Spec.Template.Annotations
+	if ann["instrumentation.opentelemetry.io/inject-java"] != "default" {
+		t.Fatalf("want inject-java, got %v", ann)
+	}
+	if _, ok := ann["instrumentation.opentelemetry.io/inject-go"]; ok {
+		t.Fatalf("want no inject-go, got %v", ann)
+	}
+	cond := meta.FindStatusCondition(got.Status.Conditions, conditionReady)
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		t.Fatalf("want Ready=True, got %+v", cond)
+	}
+}
+
+func TestBulkInjectionOnlyGo(t *testing.T) {
+	cl, got, err := reconcileBulkMonitoring(t, v1alpha1.TsugaMonitoringSpec{
+		Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"go"}},
+		InjectExistingWorkloads: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ann := getDeployment(t, cl, "checkout").Spec.Template.Annotations; len(ann) != 0 {
+		t.Fatalf("want no annotations, got %v", ann)
+	}
+	cond := meta.FindStatusCondition(got.Status.Conditions, conditionReady)
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		t.Fatalf("want Ready=True, got %+v", cond)
+	}
+}
+
+func TestInstrumentationRenderErrorReported(t *testing.T) {
+	cl, got, err := reconcileBulkMonitoring(t, v1alpha1.TsugaMonitoringSpec{
+		Instrumentation: v1alpha1.InstrumentationSpec{
+			Enabled:   true,
+			Languages: []string{"java"},
+			Spec:      &apiextensionsv1.JSON{Raw: []byte(`{"exporter":{"endpoint":"http://x"}}`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("render errors must not requeue, got %v", err)
+	}
+	cond := meta.FindStatusCondition(got.Status.Conditions, conditionReady)
+	const wantMsg = "instrumentation.spec.exporter.endpoint is managed by the operator (it points at the node agent); remove it"
+	if cond == nil || cond.Status != metav1.ConditionFalse || cond.Reason != reasonRenderFailed || !strings.Contains(cond.Message, wantMsg) {
+		t.Fatalf("want False/%s with render error, got %+v", reasonRenderFailed, cond)
+	}
+	inst := &unstructured.Unstructured{}
+	inst.SetGroupVersionKind(otelInstrumentationGVK)
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "default", Namespace: "payments"}, inst); !apierrors.IsNotFound(err) {
+		t.Fatalf("want no Instrumentation, got err=%v", err)
 	}
 }

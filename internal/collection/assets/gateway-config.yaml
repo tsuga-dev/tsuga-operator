@@ -4,7 +4,7 @@ extensions:
 receivers:
   k8s_cluster:
     collection_interval: 10s
-    allocatable_types_to_report: [cpu, memory, ephemeral-storage]
+    allocatable_types_to_report: [cpu, memory, ephemeral-storage, pods]
     node_conditions_to_report: [Ready, MemoryPressure, DiskPressure, PIDPressure]
     metrics:
       k8s.pod.status_reason:
@@ -16,6 +16,30 @@ receivers:
       - group: ""
         name: pods
         mode: watch
+  # Core/v1, not events.k8s.io/v1: Tsuga's Kubernetes Events view reads
+  # message, involvedObject and count, which events.k8s.io/v1 renames.
+  #
+  # A separate receiver instance only so events can set
+  # include_initial_state: false. The field is receiver-wide and the pods
+  # watch above needs its snapshot; sharing one would re-send the API
+  # server's retained event window (an hour by default) on every restart.
+  #
+  # field_selector filters at the API server, so Normal events are never
+  # transferred. The API server rejects an unsupported selector in a
+  # background goroutine: a typo gives one log line and silence.
+  #
+  # exclude_watch_type drops DELETED: event expiry arrives on the watch
+  # carrying the original object, which would report every warning twice.
+  k8s_objects/events:
+    auth_type: serviceAccount
+    include_initial_state: false
+    objects:
+      - group: ""
+        name: events
+        mode: watch
+        field_selector: type=Warning
+        exclude_watch_type:
+          - DELETED
 processors:
   memory_limiter:
     check_interval: 5s
@@ -27,6 +51,13 @@ processors:
     # Enforce a hard limit of 5000 items per batch. This prevents the
     # timeout from creating a massive batch that would be rejected.
     send_batch_max_size: 5000
+  # k8s_objects sets no severity and Tsuga normalizes a missing level to
+  # INFO. No condition: this pipeline only carries type=Warning records.
+  transform/k8s_event_severity:
+    error_mode: ignore
+    log_statements:
+      - set(log.severity_text, "WARN")
+      - set(log.severity_number, SEVERITY_NUMBER_WARN)
   k8s_attributes:
     extract:
       metadata:
@@ -45,7 +76,7 @@ processors:
         - k8s.container.name
         - container.id
         - container.image.name
-        - container.image.tag
+        - container.image.tags
       labels:
         - tag_name: env
           key: resource.opentelemetry.io/env
@@ -99,6 +130,18 @@ service:
       processors:
         - memory_limiter
         - k8s_attributes
+        - resource
+        - batch
+      exporters:
+        - otlp_http/tsuga
+    # k8s_attributes is absent: an event record carries only
+    # k8s.namespace.name, which no pod_association source matches.
+    logs/events:
+      receivers:
+        - k8s_objects/events
+      processors:
+        - memory_limiter
+        - transform/k8s_event_severity
         - resource
         - batch
       exporters:

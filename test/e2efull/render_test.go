@@ -1,13 +1,18 @@
 package e2efull
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
+
+	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
+	"github.com/tsuga-dev/tsuga-operator/internal/collection"
 )
 
 func TestJSONFieldPlainNestedObjectPath(t *testing.T) {
@@ -95,14 +100,23 @@ type renderedDashboard struct {
 		// These field names mirror the graph item in
 		// config/crd/bases/observability.tsuga.com_dashboards.yaml, which
 		// declares [description, id, layout, name, visualization] and
-		// requires id and visualization. An earlier version of this struct
-		// had a "Title" field that the CRD does not define, so it round-
-		// tripped happily here while the API server pruned it and rejected
-		// every Tier C dashboard for a missing spec.graphs[0].id.
+		// requires id and visualization. A field the CRD does not define
+		// would round-trip here while the API server pruned it.
+		TimePreset string `json:"timePreset"`
+		Filters    []struct {
+			Key    string   `json:"key"`
+			Values []string `json:"values"`
+		} `json:"filters"`
 		Graphs []struct {
 			ID            string         `json:"id"`
 			Name          string         `json:"name"`
 			Visualization map[string]any `json:"visualization"`
+			Layout        *struct {
+				X int `json:"x"`
+				Y int `json:"y"`
+				W int `json:"w"`
+				H int `json:"h"`
+			} `json:"layout"`
 		} `json:"graphs"`
 	} `json:"spec"`
 }
@@ -112,7 +126,7 @@ func TestRenderDashboardProducesValidManifest(t *testing.T) {
 	runID = "e2e-testrunid"
 	defer func() { runID = previousRunID }()
 
-	manifest, err := renderDashboard("checkout-viz-00", "e2e-tier-c", "team-123", "timeseries")
+	manifest, err := renderDashboardWithGraphs("checkout-viz-00", "e2e-tier-c", "team-123", []string{"timeseries"})
 	if err != nil {
 		t.Fatalf("rendering the dashboard: %v", err)
 	}
@@ -169,7 +183,7 @@ func TestRenderDashboardSatisfiesEveryFieldTheCRDRequires(t *testing.T) {
 
 	specRequired, graphRequired, graphProperties := dashboardCRDContract(t)
 
-	manifest, err := renderDashboard("checkout-viz-00", "e2e-tier-c", "team-123", "timeseries")
+	manifest, err := renderDashboardWithGraphs("checkout-viz-00", "e2e-tier-c", "team-123", []string{"timeseries"})
 	if err != nil {
 		t.Fatalf("rendering the dashboard: %v", err)
 	}
@@ -581,8 +595,8 @@ func TestRenderCollectorConfigImageOverrideVariant(t *testing.T) {
 	manifest := renderCollectorConfig(scenario, "otlp.example.com:4317", "tsuga-operator-system")
 	parsed := parseCollectorConfig(t, manifest)
 
-	if !strings.Contains(parsed.Spec.Image, "0.157.0") {
-		t.Errorf("want spec.image to carry tag %q, got %q", "0.157.0", parsed.Spec.Image)
+	if !strings.Contains(parsed.Spec.Image, "0.161.0") {
+		t.Errorf("want spec.image to carry tag %q, got %q", "0.161.0", parsed.Spec.Image)
 	}
 }
 
@@ -607,6 +621,9 @@ func TestRenderCollectorConfigResourcesOverrideVariant(t *testing.T) {
 	if parsed.Spec.Resources.Limits.Memory != "1Gi" {
 		t.Errorf("want spec.resources.limits.memory %q, got %q",
 			"1Gi", parsed.Spec.Resources.Limits.Memory)
+	}
+	if strings.Contains(manifest, "kubernetesEvents") {
+		t.Error("want kubernetesEvents unset so the CRD default applies")
 	}
 }
 
@@ -662,7 +679,7 @@ type renderedEmitterDeployment struct {
 }
 
 func TestRenderEmitterWorkloadProducesValidManifest(t *testing.T) {
-	manifest := renderEmitterWorkload("e2e-tier-a", "e2e-testrunid-s00", "tsuga-operator-system")
+	manifest := renderEmitterWorkload("e2e-tier-a", "e2e-testrunid-s00", "tsuga-operator-system", 4318)
 
 	var parsed renderedEmitterDeployment
 	if err := yaml.Unmarshal([]byte(manifest), &parsed); err != nil {
@@ -691,8 +708,8 @@ func TestRenderEmitterWorkloadProducesValidManifest(t *testing.T) {
 	for _, env := range container.Env {
 		if env.Name == "OTEL_EXPORTER_OTLP_ENDPOINT" {
 			sawEndpoint = true
-			if !strings.Contains(env.Value, "tsuga-agent-collector.tsuga-operator-system") {
-				t.Errorf("want OTEL_EXPORTER_OTLP_ENDPOINT pointed at the collector namespace, got %q",
+			if !strings.Contains(env.Value, "tsuga-agent-collector.tsuga-operator-system.svc.cluster.local:4318") {
+				t.Errorf("want OTEL_EXPORTER_OTLP_ENDPOINT pointed at the collector namespace and port, got %q",
 					env.Value)
 			}
 		}
@@ -755,7 +772,7 @@ func hasKey(t *testing.T, manifest string, path ...string) bool {
 }
 
 func TestRenderMonitoringProducesValidManifest(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-nodejs", true, []string{"nodejs", "java"}, true)
+	manifest := renderMonitoring("e2e-inject-nodejs", true, []string{"nodejs", "java"}, true, "")
 	parsed := parseMonitoring(t, manifest)
 
 	if parsed.APIVersion != "observability.tsuga.com/v1alpha1" {
@@ -777,7 +794,7 @@ func TestRenderMonitoringProducesValidManifest(t *testing.T) {
 }
 
 func TestRenderMonitoringDisabledInstrumentation(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-off", false, nil, true)
+	manifest := renderMonitoring("e2e-inject-off", false, nil, true, "")
 	parsed := parseMonitoring(t, manifest)
 
 	if parsed.Spec.Instrumentation.Enabled {
@@ -786,7 +803,7 @@ func TestRenderMonitoringDisabledInstrumentation(t *testing.T) {
 }
 
 func TestRenderMonitoringInjectExistingWorkloadsFalse(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-optin", true, []string{"nodejs"}, false)
+	manifest := renderMonitoring("e2e-inject-optin", true, []string{"nodejs"}, false, "")
 	parsed := parseMonitoring(t, manifest)
 
 	if parsed.Spec.InjectExistingWorkloads {
@@ -795,7 +812,7 @@ func TestRenderMonitoringInjectExistingWorkloadsFalse(t *testing.T) {
 }
 
 func TestRenderMonitoringOmitsLanguagesKeyWhenEmpty(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-off", false, nil, true)
+	manifest := renderMonitoring("e2e-inject-off", false, nil, true, "")
 
 	if hasKey(t, manifest, "spec", "instrumentation", "languages") {
 		t.Error("want no spec.instrumentation.languages key when languages is empty, " +
@@ -886,5 +903,167 @@ func TestRenderLanguageWorkloadOptInAnnotationOnlyWhenRequested(t *testing.T) {
 	}
 	if strings.Contains(withoutOptIn, "instrumentation.opentelemetry.io/inject-") {
 		t.Errorf("want no opt-in annotation in the manifest when optInLabel is false:\n%s", withoutOptIn)
+	}
+}
+
+const (
+	kitchenSinkTestEndpoint = "https://otlp.example.com"
+	kitchenSinkTestCluster  = "e2e-testrunid-" + kitchenSinkSuffix
+)
+
+func parseKitchenSink(t *testing.T) v1alpha1.TsugaCollectorConfig {
+	t.Helper()
+	manifest := renderKitchenSinkConfig(kitchenSinkTestCluster, kitchenSinkTestEndpoint, "tsuga-operator-system")
+	var parsed v1alpha1.TsugaCollectorConfig
+	if err := yaml.Unmarshal([]byte(manifest), &parsed); err != nil {
+		t.Fatalf("manifest is not valid YAML for TsugaCollectorConfig: %v\n%s", err, manifest)
+	}
+	return parsed
+}
+
+// missingPaths returns every key path in want that got lacks. It walks nested
+// maps only: list elements are not compared. Run on the raw manifest against
+// the typed round trip, it names any field the API types drop, which is a
+// field the API server would prune just as silently.
+func missingPaths(want, got any, prefix string) []string {
+	wantMap, ok := want.(map[string]any)
+	if !ok {
+		return nil
+	}
+	gotMap, _ := got.(map[string]any)
+	var missing []string
+	for key, value := range wantMap {
+		keyPath := prefix + "." + key
+		child, present := gotMap[key]
+		if !present {
+			missing = append(missing, keyPath)
+			continue
+		}
+		missing = append(missing, missingPaths(value, child, keyPath)...)
+	}
+	return missing
+}
+
+func TestRenderKitchenSinkConfigDropsNoField(t *testing.T) {
+	manifest := renderKitchenSinkConfig(kitchenSinkTestCluster, kitchenSinkTestEndpoint, "tsuga-operator-system")
+	var raw map[string]any
+	if err := yaml.Unmarshal([]byte(manifest), &raw); err != nil {
+		t.Fatalf("manifest is not valid YAML: %v\n%s", err, manifest)
+	}
+	parsed := parseKitchenSink(t)
+	encoded, err := json.Marshal(parsed)
+	if err != nil {
+		t.Fatalf("re-encoding: %v", err)
+	}
+	var roundTripped map[string]any
+	if err := json.Unmarshal(encoded, &roundTripped); err != nil {
+		t.Fatalf("decoding round trip: %v", err)
+	}
+	if missing := missingPaths(raw, roundTripped, ""); len(missing) > 0 {
+		t.Errorf("fields not in the TsugaCollectorConfig API, the API server would prune them: %v", missing)
+	}
+}
+
+func checkField(t *testing.T, field string, got, want any) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("%s: want %v, got %v", field, want, got)
+	}
+}
+
+func TestRenderKitchenSinkConfigRendersThroughTheOperator(t *testing.T) {
+	spec := parseKitchenSink(t).Spec
+	objs := assertOperatorRenders(t, spec)
+
+	agent := renderedCollector(t, objs, "tsuga-agent")
+	if hostNetwork, found, _ := unstructured.NestedBool(agent.Object, "spec", "hostNetwork"); found && hostNetwork {
+		t.Error("the agent renders spec.hostNetwork: true without agent.hostNetwork")
+	}
+
+	rbac := collection.RenderCollectorRBAC(spec)
+	if len(rbac) == 0 {
+		t.Fatal("want the operator to render collector RBAC, got none")
+	}
+	for _, obj := range rbac {
+		if !strings.HasPrefix(obj.GetName(), operatorRBACPrefix) {
+			t.Errorf("%T %s does not start with operatorRBACPrefix %q", obj, obj.GetName(), operatorRBACPrefix)
+		}
+	}
+}
+
+func parseScenarioConfig(t *testing.T, manifest string) v1alpha1.TsugaCollectorConfigSpec {
+	t.Helper()
+	var parsed v1alpha1.TsugaCollectorConfig
+	if err := yaml.Unmarshal([]byte(manifest), &parsed); err != nil {
+		t.Fatalf("manifest is not valid YAML for TsugaCollectorConfig: %v\n%s", err, manifest)
+	}
+	checkField(t, "metadata.name", parsed.Name, collectorConfigName)
+	return parsed.Spec
+}
+
+// assertOperatorRenders runs the spec through the operator's own renderer, so
+// a config the operator would reject with RenderFailed fails here, offline.
+func assertOperatorRenders(t *testing.T, spec v1alpha1.TsugaCollectorConfigSpec) []*unstructured.Unstructured {
+	t.Helper()
+	objs, err := collection.RenderCollectors(collection.ResolveCollector(spec))
+	if err != nil {
+		t.Fatalf("the operator rejects this config: %v", err)
+	}
+	return objs
+}
+
+func renderedCollector(t *testing.T, objs []*unstructured.Unstructured, name string) *unstructured.Unstructured {
+	t.Helper()
+	for _, obj := range objs {
+		if obj.GetName() == name {
+			return obj
+		}
+	}
+	t.Fatalf("operator rendered no %s", name)
+	return nil
+}
+
+func TestRenderServiceAccountConfigDisablesCreation(t *testing.T) {
+	cluster := "e2e-testrunid-" + serviceAccountSuffix
+	spec := parseScenarioConfig(t,
+		renderServiceAccountConfig(cluster, kitchenSinkTestEndpoint, "tsuga-operator-system"))
+
+	objs := assertOperatorRenders(t, spec)
+	if len(collection.RenderCollectorServiceAccounts(spec)) != 0 ||
+		len(collection.RenderCollectorRBAC(spec)) != 0 {
+		t.Error("the operator would still create ServiceAccounts or RBAC")
+	}
+	agent := renderedCollector(t, objs, "tsuga-agent")
+	if sa, _, _ := unstructured.NestedString(agent.Object, "spec", "serviceAccount"); sa != sharedServiceAccount {
+		t.Errorf("agent serviceAccount: want %s, got %s", sharedServiceAccount, sa)
+	}
+	scrapers, _, _ := unstructured.NestedMap(agent.Object, "spec", "config", "receivers", "host_metrics", "scrapers")
+	for _, scraper := range []string{"network", "process", "processes"} {
+		if _, ok := scrapers[scraper]; !ok {
+			t.Errorf("agent host_metrics lacks the %s scraper", scraper)
+		}
+	}
+}
+
+func TestRenderConflictingTuningConfigSetsCustomConfigAndExportOff(t *testing.T) {
+	cluster := "e2e-testrunid-" + conflictingTuningSuffix
+	spec := parseScenarioConfig(t,
+		renderConflictingTuningConfig(cluster, kitchenSinkTestEndpoint, "tsuga-operator-system"))
+
+	objs := assertOperatorRenders(t, spec)
+	agentConfig, _, _ := unstructured.NestedMap(renderedCollector(t, objs, "tsuga-agent").Object, "spec", "config")
+	agentJSON, err := json.Marshal(agentConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var agent map[string]any
+	if err := json.Unmarshal(agentJSON, &agent); err != nil {
+		t.Fatal(err)
+	}
+	checkField(t, "rendered agent config", agent, conflictingAgentCustomConfig())
+	gatewayExporters, _, _ := unstructured.NestedMap(renderedCollector(t, objs, "tsuga-gateway").Object,
+		"spec", "config", "exporters")
+	if _, ok := gatewayExporters[tsugaExporterName]; ok {
+		t.Errorf("gateway still has %s", tsugaExporterName)
 	}
 }

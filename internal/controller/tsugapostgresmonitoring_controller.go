@@ -56,6 +56,11 @@ func (r *TsugaPostgresMonitoringReconciler) Reconcile(ctx context.Context, req c
 		return r.fail(ctx, pg, reasonClusterConfigMissing, err)
 	}
 	clusterCfg := collection.ResolveCollector(cluster.Spec)
+	if !collection.AgentEnabled(clusterCfg) {
+		return r.retireCollector(ctx, pg, reasonAgentDisabled,
+			"the cluster config disables the node agent, which database monitoring exports to")
+	}
+	port := collection.AgentOTLPPort(clusterCfg, "grpc")
 	spec := collection.ResolvePostgres(pg.Spec)
 
 	// ponytail: Create on every reconcile; on AlreadyExists, createIfAbsent
@@ -95,7 +100,7 @@ func (r *TsugaPostgresMonitoringReconciler) Reconcile(ctx context.Context, req c
 	}
 
 	collector, err := collection.RenderPostgresCollector(pg.Name, pg.Namespace, spec,
-		clusterCfg.Image, agentOTLPGRPCEndpoint(clusterCfg.CollectorNamespace))
+		clusterCfg.Image, agentOTLPGRPCEndpoint(clusterCfg.CollectorNamespace, port))
 	if err != nil {
 		return r.fail(ctx, pg, reasonRenderFailed, err)
 	}
@@ -141,8 +146,27 @@ func (r *TsugaPostgresMonitoringReconciler) Reconcile(ctx context.Context, req c
 
 // agentOTLPGRPCEndpoint is the OTLP/gRPC address of the tsuga-agent Service,
 // which the Postgres collector forwards to.
-func agentOTLPGRPCEndpoint(collectorNamespace string) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.local:4317", agentCollectorServiceName, collectorNamespace)
+func agentOTLPGRPCEndpoint(collectorNamespace string, port int32) string {
+	return fmt.Sprintf("%s.%s.svc.cluster.local:%d", agentCollectorServiceName, collectorNamespace, port)
+}
+
+// retireCollector deletes the owned collector, since it has no agent to
+// forward to, and reports Ready=False. The Secret and setup Job are left
+// alone: they are inert without the collector.
+func (r *TsugaPostgresMonitoringReconciler) retireCollector(ctx context.Context, pg *v1alpha1.TsugaPostgresMonitoring, reason, message string) (ctrl.Result, error) {
+	collector := &unstructured.Unstructured{}
+	collector.SetGroupVersionKind(collectorGVK)
+	key := types.NamespacedName{Name: pg.Name + "-pg", Namespace: pg.Namespace}
+	if err := r.Get(ctx, key, collector); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return r.fail(ctx, pg, reasonApplyFailed, err)
+		}
+	} else if metav1.IsControlledBy(collector, pg) {
+		if err := r.Delete(ctx, collector); client.IgnoreNotFound(err) != nil {
+			return r.fail(ctx, pg, reasonApplyFailed, err)
+		}
+	}
+	return r.syncStatus(ctx, pg, nil, false, reason, message)
 }
 
 // setupJobOutcome maps the setup Job's terminal condition onto the Ready

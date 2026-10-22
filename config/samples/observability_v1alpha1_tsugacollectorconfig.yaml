@@ -16,7 +16,7 @@ spec:
       name: tsuga-credentials
       key: otlp-endpoint
   agent: { traces: true, metrics: true, logs: true }
-  gateway: { clusterMetrics: true, kubernetesObjects: true }
+  gateway: { clusterMetrics: true, kubernetesObjects: true, kubernetesEvents: true }
   # Scrapes pods annotated prometheus.io/scrape: "true". Off by default.
   # replicas above 1 requires targetAllocator.enabled.
   prometheus:
@@ -26,3 +26,16 @@ spec:
     targetAllocator:
       enabled: false
       allocationStrategy: consistent-hashing
+  # eBPF CPU profiles from every process on each node. Off by default: the
+  # profiler runs privileged with hostPID. Needs kernel 5.10+.
+  profiling:
+    enabled: false
+  # Placement and identity. Per-collector fields (agent.tolerations, ...)
+  # replace the spec-level defaults for that collector, and are preferred
+  # for tolerations because spec.tolerations also reaches the single-replica
+  # gateway and the scraper. For example, add under agent:
+  #   tolerations:
+  #     - operator: Exists
+  # serviceAccount:
+  #   annotations:
+  #     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/tsuga-collectors

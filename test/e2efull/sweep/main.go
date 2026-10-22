@@ -1,11 +1,7 @@
-// Command sweep deletes Tsuga dashboards and monitors left behind by a
+// Command sweep deletes Tsuga dashboards, monitors and SLOs left behind by a
 // crashed end-to-end run. Usage: go run ./test/e2efull/sweep -run e2e-ab12cd34
 //
-// The list call is unpaged, which is an unverified assumption: a run creates
-// roughly 150 Tsuga resources, so if the CLI caps a page below that, this
-// command deletes only the first page and re-running it re-reads the same
-// page. Check `tsuga <kind> list` for a paging flag before concluding the
-// sweep is broken.
+// Every page of each kind's listing is read.
 package main
 
 import (
@@ -38,16 +34,10 @@ func main() {
 
 	deleted := 0
 	failures := 0
-	for _, kind := range []string{"dashboards", "monitors"} {
-		out, err := client.Run(kind, "list")
+	for _, kind := range tsugacli.SweptKinds {
+		tagged, err := client.ListTaggedWithRun(kind, *runID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "listing %s: %v\n", kind, err)
-			failures++
-			continue
-		}
-		tagged, err := tsugacli.ResourcesTaggedWithRun(out, kind, *runID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "decoding %s: %v\n", kind, err)
+			fmt.Fprintln(os.Stderr, err)
 			failures++
 			continue
 		}

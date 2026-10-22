@@ -69,6 +69,10 @@ nav:
       - Auto-instrumentation: kubernetes-monitoring/auto-instrumentation.md
       - DBM: kubernetes-monitoring/dbm.md
       - Prometheus scraping: kubernetes-monitoring/prometheus.md
+      - Tuning: kubernetes-monitoring/tuning.md
+      - Other backends: kubernetes-monitoring/other-backends.md
+      - Custom collector config: kubernetes-monitoring/custom-config.md
+      - eBPF profiling: kubernetes-monitoring/profiling.md
       - Collector API: reference/tsugacollectorconfig.md
       - PostgreSQL API: reference/tsugapostgresmonitoring.md
       - Instrumentation API: reference/tsugamonitoring.md

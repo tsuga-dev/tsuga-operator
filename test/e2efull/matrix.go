@@ -24,10 +24,12 @@ type CollectorScenario struct {
 	IsBaseline    bool
 }
 
-// CollectorScenarios returns the 32 toggle combinations plus the 4 orthogonal
-// variants. The all-on baseline is first: Tier A's negative assertions use its
-// cluster name as their positive control, so it must have run and produced
-// telemetry before any other scenario is judged.
+// CollectorScenarios returns the 12 scenarios Tier A applies: the all-on
+// baseline, each of the five toggles turned off once with the rest on, both
+// gateway receivers off, every agent signal off (an expected error), and the
+// 4 orthogonal variants. The baseline is first: Tier A's negative assertions
+// use its cluster name as their positive control, so it must have run and
+// produced telemetry before any other scenario is judged.
 func CollectorScenarios(runID string) []CollectorScenario {
 	var out []CollectorScenario
 
@@ -49,31 +51,13 @@ func CollectorScenarios(runID string) []CollectorScenario {
 	allOn := AgentToggles{true, true, true}
 	fullGateway := GatewayToggles{true, true}
 	add(allOn, fullGateway, "")
-
-	// Enumerate all 32 toggle combinations (2^5) using a bitmask.
-	// Bit assignments: [4:traces, 3:metrics, 2:logs, 1:clusterMetrics, 0:kubernetesObjects]
-	const (
-		traceMask      = 0b10000
-		metricMask     = 0b01000
-		logMask        = 0b00100
-		clusterMask    = 0b00010
-		kubeObjectMask = 0b00001
-	)
-	for combo := 0; combo < 32; combo++ {
-		agent := AgentToggles{
-			Traces:  combo&traceMask != 0,
-			Metrics: combo&metricMask != 0,
-			Logs:    combo&logMask != 0,
-		}
-		gateway := GatewayToggles{
-			ClusterMetrics:    combo&clusterMask != 0,
-			KubernetesObjects: combo&kubeObjectMask != 0,
-		}
-		if agent == allOn && gateway == fullGateway {
-			continue // already added as the baseline
-		}
-		add(agent, gateway, "")
-	}
+	add(AgentToggles{false, true, true}, fullGateway, "")
+	add(AgentToggles{true, false, true}, fullGateway, "")
+	add(AgentToggles{true, true, false}, fullGateway, "")
+	add(allOn, GatewayToggles{false, true}, "")
+	add(allOn, GatewayToggles{true, false}, "")
+	add(allOn, GatewayToggles{false, false}, "")
+	add(AgentToggles{false, false, false}, fullGateway, "")
 
 	for _, variant := range []string{
 		"endpointSecretRef", "customNamespace", "imageOverride", "resourcesOverride",

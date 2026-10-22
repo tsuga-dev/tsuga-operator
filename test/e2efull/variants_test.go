@@ -18,6 +18,7 @@ func TestMonitorConfigurationVariants(t *testing.T) {
 	want := []string{
 		"metric", "log", "trace", "anomaly-log", "anomaly-metric",
 		"anomaly-trace", "log-error-pattern", "certificate-expiry",
+		"log-error-pattern-increase",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("want %d monitor configurations, got %d: %v", len(want), len(got), got)
@@ -285,17 +286,19 @@ func TestMinimalMonitorConfigurationCarriesEachVariantsRequiredFields(t *testing
 }
 
 func TestMinimalLogErrorPatternConfigurationSelectsAService(t *testing.T) {
-	body, err := MinimalMonitorConfiguration(specPath, "log-error-pattern")
-	if err != nil {
-		t.Fatal(err)
-	}
-	filter, ok := body["filter"].(map[string]any)
-	if !ok {
-		t.Fatalf("filter is %T, want an object", body["filter"])
-	}
-	services, ok := filter["services"].([]any)
-	if !ok || len(services) == 0 {
-		t.Fatalf("filter.services = %v, want a non-empty list", filter["services"])
+	for _, variant := range []string{"log-error-pattern", "log-error-pattern-increase"} {
+		body, err := MinimalMonitorConfiguration(specPath, variant)
+		if err != nil {
+			t.Fatalf("%s: %v", variant, err)
+		}
+		filter, ok := body["filter"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s: filter is %T, want an object", variant, body["filter"])
+		}
+		services, ok := filter["services"].([]any)
+		if !ok || len(services) == 0 {
+			t.Errorf("%s: filter.services = %v, want a non-empty list", variant, filter["services"])
+		}
 	}
 }
 

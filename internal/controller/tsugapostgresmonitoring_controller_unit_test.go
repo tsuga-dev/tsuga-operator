@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -40,7 +41,7 @@ func newTestPG(mode string) *v1alpha1.TsugaPostgresMonitoring {
 func newTestCluster() *v1alpha1.TsugaCollectorConfig {
 	return &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-		Spec: v1alpha1.TsugaCollectorConfigSpec{Export: v1alpha1.ExportSpec{
+		Spec: v1alpha1.TsugaCollectorConfigSpec{Export: &v1alpha1.ExportSpec{
 			Endpoint: "https://otlp.tsuga.com", TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"},
 		}},
 	}
@@ -385,5 +386,42 @@ func TestPostgresReconcileRejectsUnownedExistingConfigMap(t *testing.T) {
 	}
 	if len(got.OwnerReferences) != 0 {
 		t.Fatalf("unowned ConfigMap must not be adopted, got %v", got.OwnerReferences)
+	}
+}
+
+func assertPGDisabled(t *testing.T, cl client.Client, reason, message string) {
+	t.Helper()
+	_, cond := pgReady(t, cl)
+	if cond.Status != metav1.ConditionFalse || cond.Reason != reason || cond.Message != message {
+		t.Fatalf("want Ready=False/%s %q, got %+v", reason, message, cond)
+	}
+	collector := &unstructured.Unstructured{}
+	collector.SetGroupVersionKind(collectorGVK)
+	key := types.NamespacedName{Name: "orders-db-pg", Namespace: "orders"}
+	if err := cl.Get(context.Background(), key, collector); !apierrors.IsNotFound(err) {
+		t.Fatalf("want the owned collector deleted, got err=%v", err)
+	}
+}
+
+func reconcilePGAfterConfigChange(t *testing.T, change func(*v1alpha1.TsugaCollectorConfigSpec)) client.Client {
+	t.Helper()
+	cl, r := newPGClient(t, newTestCluster(), newTestPG("managed"))
+	reconcilePG(t, r)
+	updateClusterSpec(t, cl, change)
+	if err := cl.Delete(context.Background(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: collection.PostgresMonitorSecretName(pgKey.Name), Namespace: pgKey.Namespace}}); client.IgnoreNotFound(err) != nil {
+		t.Fatal(err)
+	}
+	reconcilePG(t, r)
+	return cl
+}
+
+func TestPostgresAgentDisabledRemovesCollector(t *testing.T) {
+	cl := reconcilePGAfterConfigChange(t, func(s *v1alpha1.TsugaCollectorConfigSpec) {
+		s.Agent.Enabled = ptr.To(false)
+	})
+	assertPGDisabled(t, cl, reasonAgentDisabled, "the cluster config disables the node agent, which database monitoring exports to")
+	key := types.NamespacedName{Name: collection.PostgresMonitorSecretName(pgKey.Name), Namespace: pgKey.Namespace}
+	if err := cl.Get(context.Background(), key, &corev1.Secret{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("want no monitor Secret created, got err=%v", err)
 	}
 }

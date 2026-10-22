@@ -1,7 +1,10 @@
 package collection
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
 )
@@ -26,14 +29,25 @@ const (
 )
 
 // renderTargetAllocator builds the TargetAllocator custom resource paired
-// with the scraper collector.
+// with the scraper collector. It is placed like the scraper, but keeps the OTel
+// Operator's default resources.
 //
-// spec.serviceAccount points at the scraper collector's own ServiceAccount,
-// which keeps the collector ClusterRoleBinding to a single subject. That
-// costs a startup race: the allocator pod fails admission while the OTel
-// Operator has yet to create that ServiceAccount. Kubernetes retries with
-// backoff, so it self-heals.
-func renderTargetAllocator(cfg v1alpha1.TsugaCollectorConfigSpec) *unstructured.Unstructured {
+// spec.serviceAccount is the scraper collector's ServiceAccount, which keeps
+// the collector ClusterRoleBinding to a single subject.
+func renderTargetAllocator(cfg v1alpha1.TsugaCollectorConfigSpec) (*unstructured.Unstructured, error) {
+	spec, err := podPlacement(cfg.Prometheus.CollectorPodSpec, cfg)
+	if err != nil {
+		return nil, err
+	}
+	spec["allocationStrategy"] = cfg.Prometheus.TargetAllocator.AllocationStrategy
+	spec["serviceAccount"] = ServiceAccountName(cfg, scraperName)
+	if cfg.Prometheus.PrometheusCR.Enabled {
+		cr, err := renderPrometheusCR(cfg.Prometheus.PrometheusCR)
+		if err != nil {
+			return nil, err
+		}
+		spec["prometheusCR"] = cr
+	}
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": targetAllocatorAPIVersion,
 		"kind":       targetAllocatorKind,
@@ -41,9 +55,23 @@ func renderTargetAllocator(cfg v1alpha1.TsugaCollectorConfigSpec) *unstructured.
 			"name":      targetAllocatorName,
 			"namespace": cfg.CollectorNamespace,
 		},
-		"spec": map[string]interface{}{
-			"allocationStrategy": cfg.Prometheus.TargetAllocator.AllocationStrategy,
-			"serviceAccount":     ScraperServiceAccountName,
-		},
-	}}
+		"spec": spec,
+	}}, nil
+}
+
+// renderPrometheusCR always renders the monitor selectors as {} when unset:
+// upstream passes a missing selector through to prometheus-operator, where nil
+// selects nothing. Namespace selectors stay omitted because the Target
+// Allocator defaults them to {}.
+func renderPrometheusCR(cr v1alpha1.PrometheusCRSpec) (map[string]interface{}, error) {
+	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&cr)
+	if err != nil {
+		return nil, fmt.Errorf("convert prometheusCR: %w", err)
+	}
+	for _, key := range []string{"serviceMonitorSelector", "podMonitorSelector"} {
+		if _, ok := out[key]; !ok {
+			out[key] = map[string]interface{}{}
+		}
+	}
+	return out, nil
 }

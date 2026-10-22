@@ -11,12 +11,14 @@ import (
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func main() {
@@ -31,6 +33,14 @@ func main() {
 	if err := emit(endpoint, service, 2*time.Second, make(chan struct{})); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// spanAttributes go on every span: a Visa-shaped test card number for the
+// redaction processor to mask, and a span-metrics dimension.
+var spanAttributes = []attribute.KeyValue{
+	// Matched by the kitchen sink's redaction pattern, see test/e2efull/render_test.go.
+	attribute.String("e2e.card", "4111111111111111"),
+	attribute.String("e2e.dimension", "d1"),
 }
 
 // shutdownTimeout bounds the deferred provider Shutdown calls so that
@@ -93,7 +103,7 @@ func emit(endpoint, service string, interval time.Duration, stop <-chan struct{}
 		case <-stop:
 			return nil
 		case <-ticker.C:
-			_, span := tracer.Start(ctx, "e2e.tick")
+			_, span := tracer.Start(ctx, "e2e.tick", trace.WithAttributes(spanAttributes...))
 			counter.Add(ctx, 1)
 			// stdout is what the file_log receiver collects, so the logs
 			// pipeline is exercised without an OTLP log exporter.

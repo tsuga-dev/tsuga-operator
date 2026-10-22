@@ -49,7 +49,7 @@ func decodeLogs(out []byte) ([]json.RawMessage, error) {
 // cluster name. Used by AssertAbsentWithControl.
 type SignalCounter func(clusterName string) (int, error)
 
-// clusterFilter is the query predicate selecting one cluster's telemetry.
+// ClusterFilter is the query predicate selecting one cluster's telemetry.
 //
 // Tsuga indexes OTel resource attributes under a `context.` namespace, so the
 // bare attribute name a collector config writes is NOT what a query matches on:
@@ -62,7 +62,7 @@ type SignalCounter func(clusterName string) (int, error)
 // survive: an empty result that looks exactly like a correctly pruned
 // pipeline. Keep the prefix in one place so a positive and its control can
 // never drift apart.
-func clusterFilter(clusterName string) string {
+func ClusterFilter(clusterName string) string {
 	return fmt.Sprintf("context.k8s.cluster.name:%q", clusterName)
 }
 
@@ -84,8 +84,23 @@ func clusterFilter(clusterName string) string {
 // call outright. JSON is their default output regardless, so the flag buys
 // nothing. Do not add it elsewhere for consistency's sake.
 func (c *Client) CountContainerLogs(clusterName, from string) (int, error) {
+	return c.CountLogs(clusterName, `log.iostream:"stdout"`, from)
+}
+
+// andClusterFilter narrows the cluster filter by extraQuery, or returns the
+// cluster filter alone when there is none.
+func andClusterFilter(clusterName, extraQuery string) string {
+	if extraQuery == "" {
+		return ClusterFilter(clusterName)
+	}
+	return ClusterFilter(clusterName) + " AND " + extraQuery
+}
+
+// CountLogs returns how many log records on this cluster match extraQuery,
+// or every record for the cluster when extraQuery is empty.
+func (c *Client) CountLogs(clusterName, extraQuery, from string) (int, error) {
 	out, err := c.Run("logs", "search",
-		"--query", clusterFilter(clusterName)+` AND log.iostream:"stdout"`,
+		"--query", andClusterFilter(clusterName, extraQuery),
 		"--from="+from, "--max-results", "100", "-o", "json")
 	if err != nil {
 		return 0, err
@@ -95,6 +110,24 @@ func (c *Client) CountContainerLogs(clusterName, from string) (int, error) {
 		return 0, fmt.Errorf("decode logs response: %w: %s", err, c.redact(string(out)))
 	}
 	return len(logs), nil
+}
+
+// CountSpans returns how many spans on this cluster match extraQuery, or every
+// span for the cluster when extraQuery is empty.
+func (c *Client) CountSpans(clusterName, extraQuery, from string) (int, error) {
+	out, err := c.Run("traces", "search",
+		"--query", andClusterFilter(clusterName, extraQuery),
+		"--from="+from, "--max-results", "100")
+	if err != nil {
+		return 0, err
+	}
+	var body struct {
+		Spans []json.RawMessage `json:"spans"`
+	}
+	if err := json.Unmarshal(unwrapData(out), &body); err != nil {
+		return 0, fmt.Errorf("decode traces response: %w: %s", err, c.redact(string(out)))
+	}
+	return len(body.Spans), nil
 }
 
 // k8sObjectsScope is the instrumentation scope the k8s_objects receiver stamps
@@ -113,61 +146,25 @@ const k8sObjectsScope = "github.com/open-telemetry/opentelemetry-collector-contr
 // with the toggles the other way round puts eight pods there while emitting
 // no k8s_objects logs at all.
 func (c *Client) CountK8sObjectLogs(clusterName, from string) (int, error) {
-	out, err := c.Run("logs", "search",
-		"--query", fmt.Sprintf("%s AND context.scope.name:%q", clusterFilter(clusterName), k8sObjectsScope),
-		"--from="+from, "--max-results", "100", "-o", "json")
-	if err != nil {
-		return 0, err
-	}
-	logs, err := decodeLogs(out)
-	if err != nil {
-		return 0, fmt.Errorf("decode k8s object logs response: %w: %s", err, c.redact(string(out)))
-	}
-	return len(logs), nil
+	return c.CountLogs(clusterName, fmt.Sprintf("context.scope.name:%q", k8sObjectsScope), from)
 }
 
 // CountTraces returns how many spans carry this cluster name.
 func (c *Client) CountTraces(clusterName, from string) (int, error) {
-	out, err := c.Run("traces", "search",
-		"--query", clusterFilter(clusterName),
-		"--from="+from, "--max-results", "100")
-	if err != nil {
-		return 0, err
-	}
-	var body struct {
-		Spans []json.RawMessage `json:"spans"`
-	}
-	if err := json.Unmarshal(unwrapData(out), &body); err != nil {
-		return 0, fmt.Errorf("decode traces response: %w: %s", err, c.redact(string(out)))
-	}
-	return len(body.Spans), nil
+	return c.CountSpans(clusterName, "", from)
 }
 
 // CountTracesForWorkload counts spans for one workload on one cluster. Tier B
 // needs this: asserting spans exist for the whole cluster lets one language's
 // scenario pass on the spans another language's scenario produced.
 //
-// The discriminator is the Deployment name, not service.name. Spans are not
-// indexed on `context.service.name` — the query parses and matches nothing,
-// while logs from the very same pod do match it. The k8s_attributes processor's
-// output is indexed for spans, so `context.k8s.deployment.name` is the handle
-// that works, and Tier B already names each language's Deployment
-// app-<language>, which is exactly the per-scenario scope the assertion wants.
+// The discriminator is the Deployment name, not service.name. Tier B sets no
+// OTEL_SERVICE_NAME, so each language's service.name is whatever the injected
+// SDK derives, while the k8s_attributes processor stamps
+// `context.k8s.deployment.name` with the Deployment Tier B names
+// app-<language>: exactly the per-scenario scope the assertion wants.
 func (c *Client) CountTracesForWorkload(workloadName, clusterName, from string) (int, error) {
-	out, err := c.Run("traces", "search",
-		"--query", fmt.Sprintf("%s AND context.k8s.deployment.name:%q",
-			clusterFilter(clusterName), workloadName),
-		"--from="+from, "--max-results", "100")
-	if err != nil {
-		return 0, err
-	}
-	var body struct {
-		Spans []json.RawMessage `json:"spans"`
-	}
-	if err := json.Unmarshal(unwrapData(out), &body); err != nil {
-		return 0, fmt.Errorf("decode traces response: %w: %s", err, c.redact(string(out)))
-	}
-	return len(body.Spans), nil
+	return c.CountSpans(clusterName, fmt.Sprintf("context.k8s.deployment.name:%q", workloadName), from)
 }
 
 // AssertAbsentWithControl checks that scenarioCluster has no data of this
@@ -224,6 +221,16 @@ var aggregationScalarTemplate string
 // logs/traces search, which take a relative --from string), so `from` is
 // parsed as a duration relative to now rather than substituted verbatim.
 func (c *Client) CountMetricSeries(metricName, clusterName, from string) (int, error) {
+	return c.CountMetricSeriesWhere(metricName, clusterName, "", from)
+}
+
+// CountMetricSeriesWhere is CountMetricSeries with extraFilter ANDed into the
+// aggregation's filter, for metrics that must be narrowed by an attribute.
+func (c *Client) CountMetricSeriesWhere(metricName, clusterName, extraFilter, from string) (int, error) {
+	filter, err := json.Marshal(andClusterFilter(clusterName, extraFilter))
+	if err != nil {
+		return 0, err
+	}
 	relative, err := time.ParseDuration(from)
 	if err != nil {
 		return 0, fmt.Errorf("parsing relative time %q: %w", from, err)
@@ -231,7 +238,7 @@ func (c *Client) CountMetricSeries(metricName, clusterName, from string) (int, e
 	to := time.Now()
 	body := strings.NewReplacer(
 		"__METRIC__", metricName,
-		"__CLUSTER__", clusterName,
+		"__FILTER__", string(filter),
 		"__FROM__", strconv.FormatInt(to.Add(relative).Unix(), 10),
 		"__TO__", strconv.FormatInt(to.Unix(), 10),
 	).Replace(aggregationScalarTemplate)
@@ -312,8 +319,7 @@ func countOtherThan(names []string, prefix string) int {
 // A counter rather than a boolean so cluster metrics can sit in Tier A's
 // signals table alongside logs, traces and pods, and get the same treatment:
 // a positive when the toggle is on, and a negative against a live control
-// when it is off. Sixteen of the 32 toggle scenarios have clusterMetrics off
-// and previously asserted nothing at all about it.
+// when it is off.
 func (c *Client) CountK8sClusters(clusterName string) (int, error) {
 	rows, err := c.explorerRows("clusters")
 	if err != nil {
@@ -396,32 +402,78 @@ type TaggedResource struct {
 	Name string `json:"name"`
 }
 
-// ResourcesTaggedWithRun extracts the resources in a `tsuga <kind> list`
-// payload whose name carries runID.
-//
-// `tsuga <kind> list` returns a BARE JSON array of resources, not an object
-// keyed by kind. Verified against the live CLI for both dashboards and
-// monitors. An earlier version decoded a kind-keyed map, which failed to
-// unmarshal entirely and made the sweep a silent no-op: every run leaked its
-// dashboards and monitors into the org.
-//
-// Matching is narrow by construction: only resources whose NAME carries the
-// run id are returned, and every name the suite creates is built from runID.
-// Do not widen this to match on anything else - the sweep deletes what it
-// returns, against an org that holds resources this suite did not create.
-//
-// kind is used only to give a decode failure useful context; the payload
-// holds one kind's resources, because the caller lists each kind separately.
-func ResourcesTaggedWithRun(payload []byte, kind, runID string) ([]TaggedResource, error) {
+// SweptKinds lists the Tsuga resource kinds the suite creates and the sweeps
+// delete. It lives here because sweep/main.go cannot import package e2efull.
+var SweptKinds = []string{"dashboards", "monitors", "slos"}
+
+// listPageSize is the largest page `tsuga <kind> list --limit` accepts.
+const listPageSize = 1000
+
+// maxListPages bounds ListTaggedWithRun, so a CLI that keeps returning full
+// pages cannot loop it forever.
+const maxListPages = 100
+
+// ListTaggedWithRun returns every resource of kind whose name carries runID,
+// reading every page of `tsuga <kind> list`: the CLI returns 100 items by
+// default, and a run's resources can sit past the first page of a busy org.
+// A page that starts with the previous page's first item means the CLI
+// ignored --offset, so the listing stops there.
+func (c *Client) ListTaggedWithRun(kind, runID string) ([]TaggedResource, error) {
+	var tagged []TaggedResource
+	previousFirst := ""
+	for page := range maxListPages {
+		offset := page * listPageSize
+		out, err := c.Run(kind, "list",
+			"--limit", strconv.Itoa(listPageSize), "--offset", strconv.Itoa(offset))
+		if err != nil {
+			return nil, fmt.Errorf("listing %s: %w", kind, err)
+		}
+		items, err := decodeResources(out, kind)
+		if err != nil {
+			return nil, err
+		}
+		if len(items) > 0 && items[0].ID == previousFirst {
+			return tagged, nil
+		}
+		tagged = append(tagged, filterTagged(items, runID)...)
+		if len(items) < listPageSize {
+			return tagged, nil
+		}
+		previousFirst = items[0].ID
+	}
+	return nil, fmt.Errorf("listing %s: more than %d pages", kind, maxListPages)
+}
+
+// decodeResources decodes a `tsuga <kind> list` payload. The CLI prints a
+// "Showing 100 of 104 (offset 0). Use --limit ..." line on stdout before the
+// JSON when the listing is paged, so lines before the first one that opens
+// the JSON array are skipped.
+func decodeResources(payload []byte, kind string) ([]TaggedResource, error) {
+	text := string(payload)
+	for !strings.HasPrefix(text, "[") && !strings.HasPrefix(text, "{") {
+		_, rest, found := strings.Cut(text, "\n")
+		if !found {
+			break
+		}
+		text = rest
+	}
 	var items []TaggedResource
-	if err := json.Unmarshal(payload, &items); err != nil {
+	if err := json.Unmarshal([]byte(text), &items); err != nil {
 		return nil, fmt.Errorf("decoding %s list: %w", kind, err)
 	}
+	return items, nil
+}
+
+// filterTagged keeps only the resources whose NAME carries runID; every name
+// the suite creates is built from runID. Do not widen this to match on
+// anything else - the sweep deletes what it returns, against an org that
+// holds resources this suite did not create.
+func filterTagged(items []TaggedResource, runID string) []TaggedResource {
 	var tagged []TaggedResource
 	for _, item := range items {
 		if strings.Contains(item.Name, runID) {
 			tagged = append(tagged, item)
 		}
 	}
-	return tagged, nil
+	return tagged
 }

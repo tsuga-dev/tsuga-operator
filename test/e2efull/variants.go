@@ -23,8 +23,7 @@ var (
 )
 
 // specCache holds parsed OpenAPI documents. The spec is 2 MB and Tier C
-// renders roughly 150 resources from it, so parsing it per render would cost
-// more than the HTTP calls the tier is actually testing.
+// renders every resource from it, so it is parsed once per URL.
 var (
 	specMu    sync.Mutex
 	specCache = map[string]map[string]any{}
@@ -174,7 +173,8 @@ func MinimalMonitorConfiguration(specPath, variant string) (map[string]any, erro
 	// The spec marks only filter.env required, but its description (and the
 	// API, with a 400) demands a non-empty teamIds or services as well - a
 	// rule `required` cannot express, so the generator never emits either.
-	if filter, ok := body["filter"].(map[string]any); ok && variant == "log-error-pattern" {
+	isLogErrorPattern := variant == "log-error-pattern" || variant == "log-error-pattern-increase"
+	if filter, ok := body["filter"].(map[string]any); ok && isLogErrorPattern {
 		filter["services"] = []any{"e2e"}
 	}
 	return body, nil

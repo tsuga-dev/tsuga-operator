@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,21 +51,31 @@ type TsugaCollectorConfigReconciler struct {
 // list and watch stay unscoped: the Owns() informers need both.
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=list;watch
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=create
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=patch;delete,resourceNames=tsuga-operator-collector-tsuga-agent;tsuga-operator-collector-tsuga-gateway;tsuga-operator-collector-tsuga-scraper
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=patch;delete,resourceNames=tsuga-operator-collector-tsuga-agent;tsuga-operator-collector-tsuga-gateway;tsuga-operator-collector-tsuga-scraper;tsuga-operator-collector-tsuga-profiler
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=delete,resourceNames=tsuga-operator-collector
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=list;watch;create
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=patch;delete,resourceNames=tsuga-operator-collector-tsuga-scraper
 
-// The markers below mirror the union of the collector ClusterRoles (see
-// collection.RenderCollectorRBAC). Kubernetes forbids creating a ClusterRole
+// Same shape for ServiceAccounts: the Owns() informer needs list and watch,
+// and create cannot be scoped by name.
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=list;watch;create
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;patch;delete,resourceNames=tsuga-agent;tsuga-gateway;tsuga-scraper;tsuga-profiler
+
+// The markers below mirror the union of the collector ClusterRoles and Roles
+// (see collection.RenderCollectorRBAC). Kubernetes forbids creating a role
 // conferring permissions the creator does not itself hold, so the operator's
 // manager ClusterRole must carry all of these for the escalation check to
-// pass.
-//+kubebuilder:rbac:groups="",resources=pods;namespaces;nodes;services;endpoints;replicationcontrollers;resourcequotas;persistentvolumes;persistentvolumeclaims,verbs=get;list;watch
+// pass. Secrets are granted cluster-wide here because the collector namespace
+// is configurable; the scraper itself only gets them in that namespace.
+//+kubebuilder:rbac:groups="",resources=pods;namespaces;nodes;services;endpoints;events;replicationcontrollers;resourcequotas;persistentvolumes;persistentvolumeclaims,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=nodes/stats;nodes/proxy,verbs=get
 //+kubebuilder:rbac:groups=apps,resources=replicasets;deployments;daemonsets;statefulsets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=extensions,resources=replicasets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=batch,resources=jobs;cronjobs,verbs=get;list;watch
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch
 //+kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
+//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;podmonitors;probes;scrapeconfigs,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *TsugaCollectorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	cc := &v1alpha1.TsugaCollectorConfig{}
@@ -80,7 +93,7 @@ func (r *TsugaCollectorConfigReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, r.recordFailure(ctx, cc, reasonRenderFailed, err)
 	}
 
-	desiredObjs := make([]client.Object, 0, len(objs))
+	desiredObjs := collection.RenderCollectorServiceAccounts(cfg)
 	for _, o := range objs {
 		desiredObjs = append(desiredObjs, o)
 	}
@@ -105,15 +118,53 @@ func (r *TsugaCollectorConfigReconciler) Reconcile(ctx context.Context, req ctrl
 		ManagedResources:   managed,
 		Conditions:         slices.Clone(cc.Status.Conditions),
 	}
-	setReady(&desired, cc.Generation, true, reasonReconciled,
-		fmt.Sprintf("%d resources applied", len(managed)))
+	var result ctrl.Result
+	ready, reason, message := true, reasonReconciled, fmt.Sprintf("%d resources applied", len(managed))
+	if cfg.Prometheus.Enabled && cfg.Prometheus.TargetAllocator.Enabled && cfg.Prometheus.PrometheusCR.Enabled {
+		installed, err := prometheusOperatorCRDsInstalled(r.RESTMapper())
+		if err != nil {
+			return r.fail(ctx, cc, reasonApplyFailed, err)
+		}
+		if !installed {
+			ready, reason, message = false, reasonPrometheusCRDsMissing, prometheusCRDsMissingMessage
+			result.RequeueAfter = prometheusCRDsRecheckInterval
+		}
+	}
+	if !ready {
+		desired.Phase, desired.Message = phaseError, message
+	}
+	setReady(&desired, cc.Generation, ready, reason, message)
 	if collectionStatusEqual(cc.Status, desired) {
-		return ctrl.Result{}, nil
+		return result, nil
 	}
 	now := metav1.Now()
 	desired.LastSyncedAt = &now
 	cc.Status = desired
-	return ctrl.Result{}, r.Status().Update(ctx, cc)
+	return result, r.Status().Update(ctx, cc)
+}
+
+// prometheusCRDsRecheckInterval exists because nothing watches CRD installs, so
+// without it the missing-CRDs condition would stay stale after they appear.
+const prometheusCRDsRecheckInterval = 5 * time.Minute
+
+const prometheusCRDsMissingMessage = "prometheus.prometheusCR is enabled but the monitoring.coreos.com ServiceMonitor/PodMonitor CRDs are not installed; install the Prometheus Operator CRDs, then restart the tsuga-scraper-ta-targetallocator Deployment, or disable prometheusCR"
+
+// prometheusOperatorCRDsInstalled reports whether the Target Allocator's
+// ServiceMonitor or PodMonitor kind is served. The Target Allocator starts
+// without those informers and does not recheck until restarted, so the
+// condition surfaces it on our CR. One kind alone is enough to discover
+// monitors, so only both missing counts.
+func prometheusOperatorCRDsInstalled(mapper meta.RESTMapper) (bool, error) {
+	for _, kind := range []string{"ServiceMonitor", "PodMonitor"} {
+		_, err := mapper.RESTMapping(schema.GroupKind{Group: "monitoring.coreos.com", Kind: kind}, "v1")
+		if err == nil {
+			return true, nil
+		}
+		if !meta.IsNoMatchError(err) {
+			return false, err
+		}
+	}
+	return false, nil
 }
 
 // pruneChildren deletes collectors, target allocators and collector RBAC
@@ -132,15 +183,18 @@ func (r *TsugaCollectorConfigReconciler) pruneChildren(ctx context.Context, cc *
 		}
 		keep[childKey{gvk, client.ObjectKeyFromObject(o)}] = true
 	}
-	for _, gvk := range []schema.GroupVersionKind{collectorGVK, targetAllocatorGVK, clusterRoleGVK, clusterRoleBindingGVK} {
-		list := &unstructured.UnstructuredList{}
-		list.SetGroupVersionKind(gvk.GroupVersion().WithKind(gvk.Kind + "List"))
+	for _, gvk := range []schema.GroupVersionKind{collectorGVK, targetAllocatorGVK, clusterRoleGVK, clusterRoleBindingGVK, roleGVK, roleBindingGVK, serviceAccountGVK} {
+		list := r.newChildList(gvk)
 		if err := r.List(ctx, list); err != nil {
 			return fmt.Errorf("listing %s: %w", gvk.Kind, err)
 		}
-		for i := range list.Items {
-			obj := &list.Items[i]
-			if !metav1.IsControlledBy(obj, cc) || keep[childKey{gvk, client.ObjectKeyFromObject(obj)}] {
+		items, err := meta.ExtractList(list)
+		if err != nil {
+			return err
+		}
+		for _, item := range items {
+			obj, ok := item.(client.Object)
+			if !ok || !metav1.IsControlledBy(obj, cc) || keep[childKey{gvk, client.ObjectKeyFromObject(obj)}] {
 				continue
 			}
 			if err := r.Delete(ctx, obj); client.IgnoreNotFound(err) != nil {
@@ -149,6 +203,22 @@ func (r *TsugaCollectorConfigReconciler) pruneChildren(ctx context.Context, cc *
 		}
 	}
 	return nil
+}
+
+// newChildList returns a typed list for kinds in the scheme, which the client
+// serves from the informer cache, and an unstructured list for the OTel CRDs,
+// which the scheme has no Go type for.
+func (r *TsugaCollectorConfigReconciler) newChildList(gvk schema.GroupVersionKind) client.ObjectList {
+	listGVK := gvk.GroupVersion().WithKind(gvk.Kind + "List")
+	obj, err := r.Scheme.New(listGVK)
+	if _, isUnstructured := obj.(runtime.Unstructured); err == nil && !isUnstructured {
+		if list, ok := obj.(client.ObjectList); ok {
+			return list
+		}
+	}
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(listGVK)
+	return list
 }
 
 func (r *TsugaCollectorConfigReconciler) fail(ctx context.Context, cc *v1alpha1.TsugaCollectorConfig, reason string, cause error) (ctrl.Result, error) {
@@ -192,6 +262,9 @@ var targetAllocatorGVK = schema.GroupVersionKind{
 var (
 	clusterRoleGVK        = rbacv1.SchemeGroupVersion.WithKind("ClusterRole")
 	clusterRoleBindingGVK = rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding")
+	roleGVK               = rbacv1.SchemeGroupVersion.WithKind("Role")
+	roleBindingGVK        = rbacv1.SchemeGroupVersion.WithKind("RoleBinding")
+	serviceAccountGVK     = corev1.SchemeGroupVersion.WithKind("ServiceAccount")
 )
 
 func (r *TsugaCollectorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -205,6 +278,9 @@ func (r *TsugaCollectorConfigReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		Owns(allocator).
 		Owns(&rbacv1.ClusterRole{}).
 		Owns(&rbacv1.ClusterRoleBinding{}).
+		Owns(&rbacv1.Role{}).
+		Owns(&rbacv1.RoleBinding{}).
+		Owns(&corev1.ServiceAccount{}).
 		Named("tsugacollectorconfig").
 		Complete(r)
 }

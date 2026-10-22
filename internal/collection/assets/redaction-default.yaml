@@ -1,0 +1,23 @@
+allow_all_keys: true
+redact_all_types: true
+ignored_key_patterns: ['^service\..*', '^otel\..*', '^k8s\..*']
+blocked_key_patterns:
+  - '(?i).*(password|passwd|pwd).*'
+  - '(?i).*(secret|credential).*'
+  - '(?i).*api[._-]?key.*'
+  - '(?i).*(access|refresh|auth)[._-]?token.*'
+  - '(?i)(^|.*[._-])token$'
+  - '(?i).*authorization.*'
+  - '(?i).*session[._-]?id.*'
+  - '(?i).*private[._-]?key.*'
+blocked_values:
+  - 'AKIA[0-9A-Z]{16}'
+  - 'ASIA[0-9A-Z]{16}'
+  - 'AIza[0-9A-Za-z\-_]{35}'
+  - 'gh[pousr]_[0-9a-zA-Z]{36,}'
+  - 'glpat-[0-9a-zA-Z\-_]{20}'
+  - 'xox[baprs]-[0-9a-zA-Z-]{10,72}'
+  - 'sk_live_[0-9a-zA-Z]{24,}'
+  - 'eyJ[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+'
+  - '(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----'
+  - '://[^/\s:]*:[^/\s@]+@'

@@ -70,7 +70,8 @@ var _ = BeforeSuite(func() {
 	for _, image := range []string{
 		"tsuga-e2e/otlp-emitter:latest", "tsuga-e2e/app-java:latest",
 		"tsuga-e2e/app-nodejs:latest", "tsuga-e2e/app-python:latest",
-		"tsuga-e2e/app-dotnet:latest",
+		"tsuga-e2e/app-dotnet:latest", "tsuga-e2e/app-go:latest",
+		"tsuga-e2e/app-nginx:latest",
 	} {
 		_, err = runAtRepoRoot("kind", "load", "docker-image",
 			image, "--name", KindClusterName)
@@ -133,8 +134,13 @@ var _ = AfterSuite(func() {
 var _ = Describe("tsuga-operator", Ordered, ContinueOnFailure, func() {
 	tierCDashboardSpecs()
 	tierCMonitorSpecs()
+	tierSLOSpecs()
 	tierASpecs()
+	tierAKitchenSinkSpecs()
+	tierAServiceAccountSpecs()
+	tierAConflictingTuningSpecs()
 	tierBSpecs()
+	tierPostgresSpecs()
 })
 
 var _ = AfterEach(func() {

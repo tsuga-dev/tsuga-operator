@@ -22,12 +22,15 @@ const (
 	reasonReconciled           = "Reconciled"
 	reasonInstrumentationOff   = "InstrumentationDisabled"
 	reasonClusterConfigMissing = "ClusterConfigMissing"
+	reasonAgentDisabled        = "AgentDisabled"
 	reasonRenderFailed         = "RenderFailed"
 	reasonApplyFailed          = "ApplyFailed"
 	reasonWorkloadPatchFailed  = "WorkloadPatchFailed"
 	reasonInjectConflict       = "InjectAnnotationConflict"
 	reasonProvisioningPending  = "ProvisioningPending"
 	reasonProvisioningFailed   = "ProvisioningFailed"
+
+	reasonPrometheusCRDsMissing = "PrometheusOperatorCRDsMissing"
 )
 
 // setReady sets the Ready condition on status. Conditions already present are

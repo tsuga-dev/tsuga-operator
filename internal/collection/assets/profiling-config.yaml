@@ -1,0 +1,101 @@
+extensions:
+  health_check:
+    endpoint: ${env:MY_POD_IP}:13133
+receivers:
+  profiling:
+    # Tsuga converts samples into CPU time assuming 20 Hz and ignores the
+    # period on the profile, so any other rate skews every CPU figure.
+    samples_per_second: 20
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  k8s_attributes:
+    extract:
+      # Workload, node, container and image rather than individual pod:
+      # what a profile is grouped and filtered by.
+      metadata:
+        - k8s.namespace.name
+        - k8s.deployment.name
+        - k8s.statefulset.name
+        - k8s.daemonset.name
+        - k8s.cronjob.name
+        - k8s.job.name
+        - k8s.node.name
+        - k8s.container.name
+        - container.image.name
+        - container.image.tags
+        - service.name
+        - service.version
+      annotations:
+        - tag_name: service.name
+          key: resource.opentelemetry.io/service.name
+          from: pod
+        - tag_name: service.version
+          key: resource.opentelemetry.io/service.version
+          from: pod
+    filter:
+      node_from_env_var: K8S_NODE_NAME
+    passthrough: false
+    # container.id is the only key the receiver gives a profiled process;
+    # there is no pod IP or UID to match on.
+    pod_association:
+      - sources:
+        - from: resource_attribute
+          name: container.id
+  # Host processes, which no pod matches. containerd names every shim
+  # containerd-shim-<container id>, which would add one service per pod.
+  # The rest get the OTel SDK fallback, unknown_service:<executable>.
+  transform/host_processes:
+    error_mode: ignore
+    profile_statements:
+      - context: resource
+        statements:
+          - set(resource.attributes["service.name"], "containerd-shim") where IsMatch(resource.attributes["service.name"], "^containerd-shim-[0-9a-f]{64}$")
+          - set(resource.attributes["service.name"], Concat(["unknown_service", resource.attributes["process.executable.name"]], ":")) where resource.attributes["service.name"] == nil and resource.attributes["process.executable.name"] != nil
+  resource:
+    attributes:
+      - key: k8s.cluster.name
+        value: "__CLUSTER_NAME__"
+        action: upsert
+exporters:
+  # Tsuga's profiles intake takes OTLP/HTTP protobuf only. The exporter
+  # appends /v1development/profiles to the endpoint.
+  otlp_http/tsuga:
+    endpoint: "__TSUGA_ENDPOINT__"
+    headers:
+      Authorization: Bearer ${env:TSUGA_API_KEY}
+    encoding: proto
+    compression: gzip
+service:
+  extensions:
+    - health_check
+  pipelines:
+    # No batch processor: it registers traces, metrics and logs only, and a
+    # profiles pipeline naming it fails at startup. The receiver's own
+    # reporter interval groups profiles for export.
+    profiles:
+      receivers:
+        - profiling
+      processors:
+        - memory_limiter
+        - k8s_attributes
+        - transform/host_processes
+        - resource
+      exporters:
+        - otlp_http/tsuga
+  telemetry:
+    resource:
+      k8s.cluster.name: "__CLUSTER_NAME__"
+      service.instance.id: ${POD_UID}
+    metrics:
+      readers:
+        - periodic:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                headers:
+                  - name: Authorization
+                    value: Bearer ${env:TSUGA_API_KEY}
+                endpoint: "__TSUGA_ENDPOINT__/v1/metrics"

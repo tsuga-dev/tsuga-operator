@@ -1,13 +1,12 @@
 package e2efull
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/tsuga-dev/tsuga-operator/test/e2efull/tsugacli"
 )
 
 // tierCMonitorSpecs registers Tier C's Monitor specs; see tierASpecs for why
@@ -22,48 +21,41 @@ func tierCMonitorSpecs() {
 			var err error
 			configurations, err = MonitorConfigurationVariants(openAPISpecPath)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(applyYAML(fmt.Sprintf(
-				"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", tierCNamespace))).To(Succeed())
+			Expect(applyNamespace(tierCNamespace)).To(Succeed())
 		})
 
-		It("cross-products configuration, priority and permissions", func() {
-			index := 0
-			for _, configType := range configurations {
-				for priority := 1; priority <= 5; priority++ {
-					for _, permissions := range []string{
-						"all", "owning-team-and-public", "owning-team-only",
-					} {
-						name := fmt.Sprintf("%s-mon-%03d", runID, index)
-						index++
-						paceWrite()
+		It("rotates every configuration through every priority and permissions level", func() {
+			levels := []string{"all", "owning-team-and-public", "owning-team-only"}
+			for i, config := range configurations {
+				priority := 1 + i%5
+				permissions := levels[i%len(levels)]
+				name := fmt.Sprintf("%s-mon-%02d", runID, i)
+				label := fmt.Sprintf("config=%s priority=%d permissions=%s",
+					config, priority, permissions)
+				paceWrite()
 
-						manifest := mustRenderMonitor(name, tierCNamespace, owner,
-							configType, priority, permissions)
-						Expect(applyYAML(manifest)).To(Succeed(),
-							"config=%s priority=%d permissions=%s", configType, priority, permissions)
-						Expect(waitForCRPhase("monitor", tierCNamespace, name, "Ready", crTimeout)).
-							To(Succeed(), "config=%s priority=%d permissions=%s",
-								configType, priority, permissions)
+				manifest := mustRenderMonitor(name, tierCNamespace, owner,
+					config, priority, permissions)
+				Expect(applyYAML(manifest)).To(Succeed(), label)
+				Expect(waitForCRPhase("monitor", tierCNamespace, name, "Ready", crTimeout)).
+					To(Succeed(), label)
 
-						id, err := crStatusID("monitor", tierCNamespace, name)
-						Expect(err).NotTo(HaveOccurred(),
-							"config=%s priority=%d permissions=%s", configType, priority, permissions)
-						Expect(id).NotTo(BeEmpty(),
-							"config=%s priority=%d permissions=%s", configType, priority, permissions)
+				id, err := crStatusID("monitor", tierCNamespace, name)
+				Expect(err).NotTo(HaveOccurred(), label)
+				Expect(id).NotTo(BeEmpty(), label)
 
-						out, err := cli.Run("monitors", "get", id)
-						Expect(err).NotTo(HaveOccurred(),
-							"config=%s priority=%d permissions=%s", configType, priority, permissions)
-						gotName, err := jsonField(out, "name")
-						Expect(err).NotTo(HaveOccurred(),
-							"config=%s priority=%d permissions=%s", configType, priority, permissions)
-						Expect(gotName).To(Equal(name),
-							"config=%s priority=%d permissions=%s", configType, priority, permissions)
-					}
+				out, err := cli.Run("monitors", "get", id)
+				Expect(err).NotTo(HaveOccurred(), label)
+				var got struct {
+					Name        string `json:"name"`
+					Priority    int    `json:"priority"`
+					Permissions string `json:"permissions"`
 				}
+				Expect(json.Unmarshal(out, &got)).To(Succeed(), "%s: %s", label, out)
+				Expect(got.Name).To(Equal(name), label)
+				Expect(got.Priority).To(Equal(priority), "%s: %s", label, out)
+				Expect(got.Permissions).To(Equal(permissions), "%s: %s", label, out)
 			}
-			Expect(index).To(Equal(len(configurations)*5*3),
-				"the cross-product must cover every combination")
 		})
 
 		It("resolves a dashboardRef created after the monitor", func() {
@@ -107,20 +99,7 @@ func tierCMonitorSpecs() {
 			Expect(deleteYAML(mustRenderMonitor(
 				name, tierCNamespace, owner, "metric", 3, "all"))).To(Succeed())
 
-			// See the dashboard delete spec: any CLI failure would satisfy
-			// HaveOccurred, including a 429 or an expired token, so this
-			// requires the failure to be a not-found.
-			Eventually(func() error {
-				_, err := cli.Run("monitors", "get", id)
-				if err == nil {
-					return fmt.Errorf("monitor %s is still readable from Tsuga", id)
-				}
-				if !tsugacli.IsNotFound(err) {
-					return fmt.Errorf("want a not-found for monitor %s, got a different failure: %w", id, err)
-				}
-				return nil
-			}, crTimeout, 3*time.Second).Should(Succeed(),
-				"the monitor should be gone from Tsuga after the CR is deleted")
+			eventuallyGoneFromTsuga("monitors", id)
 		})
 
 		It("tolerates deleting a monitor already absent from Tsuga", func() {

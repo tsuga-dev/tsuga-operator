@@ -1,6 +1,6 @@
 # Development
 
-You need Go 1.26+, Docker, `kubectl`, and Kind for local cluster tests.
+You need Go 1.27+, Docker, `kubectl`, and Kind for local cluster tests.
 
 ```sh
 git clone https://github.com/tsuga-dev/tsuga-operator.git
@@ -60,19 +60,28 @@ Use an isolated environment for end-to-end tests. Consult [test/e2e](https://git
 
 ## Full end-to-end suite
 
-`test/e2efull` exercises dashboards, monitors, cluster collection, and application instrumentation against Kind and a real Tsuga organization. Use a dedicated test organization: the suite creates remote objects and sends telemetry that remains until retention expires. It runs locally, outside CI.
+`test/e2efull` exercises dashboards, monitors, SLOs, cluster collection, application instrumentation, and Postgres monitoring against Kind and a real Tsuga organization. Use a dedicated test organization: the suite creates remote objects and sends telemetry that remains until retention expires. It runs locally, outside CI, and a full run takes up to two hours.
 
-Install Docker, Kind, kubectl, and Tsuga CLI v1.3.0 or newer. Supply `TSUGA_E2E_API_TOKEN`, `TSUGA_E2E_OTLP_ENDPOINT`, `TSUGA_E2E_INGESTION_KEY`, and `TSUGA_E2E_CLUSTER_ID` through your environment. `TSUGA_E2E_BASE_URL` optionally selects a different API endpoint.
+Install Docker, Kind, kubectl, and Tsuga CLI v1.3.0 or newer. Put `TSUGA_E2E_API_TOKEN`, `TSUGA_E2E_OTLP_ENDPOINT`, `TSUGA_E2E_INGESTION_KEY`, and `TSUGA_E2E_CLUSTER_ID` in the repository's gitignored `.env` file, which the Makefile loads, or export them in your environment. `TSUGA_E2E_BASE_URL` optionally selects a different API endpoint for the operator. `E2E_INGEST_TIMEOUT` (default `180s`) bounds each wait for data in Tsuga, and `E2E_WRITE_INTERVAL` (default `30s`) paces Tsuga writes; set it to `0s` for an organisation that does not throttle.
 
 ```sh
 make test-e2e-full
-# Or select one tier:
+# Or select specs by label: tier-a, kitchen-sink, service-account, conflicting-tuning, tier-b, tier-c, slo, postgres
 make test-e2e-full LABEL=tier-a
+# Kitchen-sink absence checks compare against Tier A's baseline, so focus both:
+make test-e2e-full FOCUS='s00|kitchen sink'
 # Run its unit tests without the live suite:
 go test ./test/e2efull/... -skip TestE2EFull
 ```
 
-Set `E2E_KEEP_CLUSTER=1` to retain the cluster for debugging. After a crashed run, `make e2e-sweep RUNID=<run-id>` cleans up its dashboards and monitors; `make cleanup-test-e2e-full` removes the suite's Kind cluster. Ingested telemetry is not removed. See [the suite source](https://github.com/tsuga-dev/tsuga-operator/tree/main/test/e2efull) for scenarios and cleanup implementation.
+Some checks stop at the cluster and do not wait for telemetry in Tsuga:
+
+- nginx instrumentation: the OpenTelemetry Operator's nginx module image is amd64-only, so the injected pod cannot start on arm64 hosts.
+- Profiling: the eBPF profiler fails on Docker Desktop's arm64 kernel (`failed to load eBPF tracer ... system analysis request was not handled`), so the suite checks its rendered DaemonSet and configuration without waiting for it to become ready.
+- Dropping the `filesystem` host-metrics scraper: on Kind every filesystem is one the default scraper already excludes, so Tsuga receives no filesystem metric either way.
+- `collectOtelLogs`: the kitchen sink's `fileLog.include` only reads the `e2e-tier-a` namespace, so the collectors' own logs never reach Tsuga; the suite checks that the built-in collector-log excludes are dropped from the rendered `file_log` receiver.
+
+Set `E2E_KEEP_CLUSTER=1` to retain the cluster for debugging. After a crashed run, `make e2e-sweep RUNID=<run-id>` cleans up its dashboards, monitors, and SLOs; `make cleanup-test-e2e-full` removes the suite's Kind cluster. Ingested telemetry is not removed. See [the suite source](https://github.com/tsuga-dev/tsuga-operator/tree/main/test/e2efull) for scenarios and cleanup implementation.
 
 ## Change an API
 

@@ -8,7 +8,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/yaml"
@@ -85,12 +87,28 @@ func TestRendersValidateAgainstPinnedOperatorCRDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render collectors: %v", err)
 	}
-	objs = append(objs, RenderInstrumentation(
+	inst, err := RenderInstrumentation(
 		cfg.CollectorNamespace,
 		"tsuga-instrumentation",
 		v1alpha1.InstrumentationSpec{Languages: []string{"java", "nodejs", "python", "dotnet"}},
-		cfg.Export.Endpoint,
-	))
+		cfg.Export.Endpoint, "",
+	)
+	if err != nil {
+		t.Fatalf("render instrumentation: %v", err)
+	}
+	fullInst, err := RenderInstrumentation(
+		cfg.CollectorNamespace,
+		"tsuga-instrumentation-full",
+		v1alpha1.InstrumentationSpec{
+			Languages: []string{"java", "nodejs", "python", "dotnet", "go", "apache-httpd", "nginx"},
+			Spec:      &apiextensionsv1.JSON{Raw: []byte(`{"sampler":{"type":"parentbased_traceidratio","argument":"0.25"},"env":[{"name":"A","value":"1"}],"nginx":{"attrs":[{"name":"NginxModuleTraceAsError","value":"OFF"}]}}`)},
+		},
+		cfg.Export.Endpoint, "http://tsuga-agent-collector.tsuga-system.svc.cluster.local:4317",
+	)
+	if err != nil {
+		t.Fatalf("render full instrumentation: %v", err)
+	}
+	objs = append(objs, inst, fullInst)
 	pgCollector, err := RenderPostgresCollector("orders-db", cfg.CollectorNamespace,
 		ResolvePostgres(v1alpha1.TsugaPostgresMonitoringSpec{Host: "orders-pg-rw.orders.svc"}),
 		"", "tsuga-agent-collector."+cfg.CollectorNamespace+".svc.cluster.local:4317")
@@ -117,5 +135,23 @@ func everythingEnabled() v1alpha1.TsugaCollectorConfigSpec {
 			TargetAllocator: v1alpha1.TargetAllocatorSpec{Enabled: true},
 		},
 	}).Prometheus
+	cfg.Prometheus.PrometheusCR = v1alpha1.PrometheusCRSpec{
+		Enabled:                         true,
+		ServiceMonitorSelector:          &metav1.LabelSelector{MatchLabels: map[string]string{"team": "payments"}},
+		PodMonitorSelector:              &metav1.LabelSelector{MatchLabels: map[string]string{"team": "payments"}},
+		ServiceMonitorNamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+		PodMonitorNamespaceSelector:     &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+		AllowNamespaces:                 []string{"payments"},
+		DenyNamespaces:                  []string{"kube-system"},
+		ScrapeInterval:                  "60s",
+	}
+	cfg.Profiling.Enabled = true
+	cfg.NodeSelector = map[string]string{"pool": "observability"}
+	cfg.Tolerations = []corev1.Toleration{{Key: "dedicated", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}}
+	cfg.Affinity = &corev1.Affinity{PodAntiAffinity: &corev1.PodAntiAffinity{}}
+	cfg.Agent.ExtraEnvs = []corev1.EnvVar{{Name: "GOMEMLIMIT", Value: "400MiB"}}
+	cfg.Agent.CollectLogs = ptr.To(false)
+	cfg.Agent.AddLogsVolumes = ptr.To(true)
+	cfg.Gateway.Resources = &corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")}}
 	return cfg
 }

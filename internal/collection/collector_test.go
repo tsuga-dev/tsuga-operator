@@ -1,12 +1,15 @@
 package collection
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
@@ -15,12 +18,12 @@ import (
 func effective() v1alpha1.TsugaCollectorConfigSpec {
 	return ResolveCollector(v1alpha1.TsugaCollectorConfigSpec{
 		ClusterName: "prod-eu",
-		Export: v1alpha1.ExportSpec{
+		Export: &v1alpha1.ExportSpec{
 			TokenSecretRef: v1alpha1.SecretKeyRef{Name: "tsuga-credentials", Key: "api-key"},
 			Endpoint:       "https://otlp.tsuga.com",
 		},
 		Agent:   v1alpha1.TelemetryToggles{Traces: true, Metrics: true, Logs: true},
-		Gateway: v1alpha1.GatewayToggles{ClusterMetrics: true, KubernetesObjects: true},
+		Gateway: v1alpha1.GatewayToggles{ClusterMetrics: true, KubernetesObjects: true, KubernetesEvents: true},
 	})
 }
 
@@ -684,5 +687,423 @@ func TestRenderKeepsEndpointInsideItsScalar(t *testing.T) {
 		if found {
 			t.Fatalf("%s: endpoint injected a tls key into the exporter", obj.GetName())
 		}
+	}
+}
+
+func TestRenderUsesImageTagsAttribute(t *testing.T) {
+	cfg := effective()
+	cfg.Prometheus.Enabled = true
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, obj := range objs {
+		md, found, err := unstructured.NestedStringSlice(obj.Object, "spec", "config", "processors", "k8s_attributes", "extract", "metadata")
+		if err != nil || !found {
+			t.Fatalf("%s: k8s_attributes metadata not found: %v", obj.GetName(), err)
+		}
+		if !slices.Contains(md, "container.image.tags") || slices.Contains(md, "container.image.tag") {
+			t.Fatalf("%s: want container.image.tags and not container.image.tag, got %v", obj.GetName(), md)
+		}
+	}
+}
+
+func TestRenderGatewayCollectsWarningEvents(t *testing.T) {
+	objs, err := RenderCollectors(effective())
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := objs[1]
+	if !nestedStringSliceContains(gw, "k8s_objects/events", "spec", "config", "service", "pipelines", "logs/events", "receivers") {
+		t.Fatal("logs/events must read from k8s_objects/events")
+	}
+	objects, _, _ := unstructured.NestedSlice(gw.Object, "spec", "config", "receivers", "k8s_objects/events", "objects")
+	if len(objects) != 1 {
+		t.Fatalf("want one watched object, got %v", objects)
+	}
+	o := objects[0].(map[string]interface{})
+	if o["name"] != "events" || o["group"] != "" || o["field_selector"] != "type=Warning" {
+		t.Fatalf("want core/v1 events filtered to Warning, got %v", o)
+	}
+	if initial, _, _ := unstructured.NestedBool(gw.Object, "spec", "config", "receivers", "k8s_objects/events", "include_initial_state"); initial {
+		t.Fatal("events must not replay the retained window on restart")
+	}
+	procs, _, _ := unstructured.NestedStringSlice(gw.Object, "spec", "config", "service", "pipelines", "logs/events", "processors")
+	if !slices.Equal(procs, []string{"memory_limiter", "transform/k8s_event_severity", "resource", "batch"}) {
+		t.Fatalf("unexpected logs/events processors %v", procs)
+	}
+}
+
+func TestRenderGatewayEventsOnly(t *testing.T) {
+	cfg := effective()
+	cfg.Gateway = v1alpha1.GatewayToggles{KubernetesEvents: true}
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objs) != 2 {
+		t.Fatalf("want agent and gateway, got %d", len(objs))
+	}
+	gw := objs[1]
+	pipelines, _, _ := unstructured.NestedMap(gw.Object, "spec", "config", "service", "pipelines")
+	if len(pipelines) != 1 || pipelines["logs/events"] == nil {
+		t.Fatalf("want only logs/events, got %v", pipelines)
+	}
+	for _, r := range []string{"k8s_cluster", "k8s_objects"} {
+		if hasNestedField(gw, "spec", "config", "receivers", r) {
+			t.Fatalf("%s should be pruned", r)
+		}
+	}
+}
+
+func TestRenderGatewayEventsToggleOff(t *testing.T) {
+	cfg := effective()
+	cfg.Gateway.KubernetesEvents = false
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := objs[1]
+	if hasNestedField(gw, "spec", "config", "service", "pipelines", "logs/events") ||
+		hasNestedField(gw, "spec", "config", "receivers", "k8s_objects/events") {
+		t.Fatal("events pipeline and receiver should be pruned when KubernetesEvents is off")
+	}
+}
+
+func TestRenderNoGatewayWhenAllTogglesOff(t *testing.T) {
+	cfg := effective()
+	cfg.Gateway = v1alpha1.GatewayToggles{}
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objs) != 1 {
+		t.Fatalf("want agent only, got %d", len(objs))
+	}
+}
+
+func TestRenderNoProfilerByDefault(t *testing.T) {
+	objs, err := RenderCollectors(effective())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, obj := range objs {
+		if obj.GetName() == profilerName {
+			t.Fatal("profiler must be opt-in")
+		}
+	}
+}
+
+func TestRenderProfilerShape(t *testing.T) {
+	p := collectorByName(t, allCollectorsOn(), profilerName)
+	if mode, _, _ := unstructuredString(p, "spec", "mode"); mode != modeDaemonset {
+		t.Fatalf("want daemonset, got %q", mode)
+	}
+	if hostPID, _, _ := unstructured.NestedBool(p.Object, "spec", "hostPID"); !hostPID {
+		t.Fatal("profiler needs hostPID to see other processes")
+	}
+	if priv, _, _ := unstructured.NestedBool(p.Object, "spec", "securityContext", "privileged"); !priv {
+		t.Fatal("profiler must be privileged to load eBPF programs")
+	}
+	if gate, _, _ := unstructuredString(p, "spec", "args", "feature-gates"); gate != "+service.profilesSupport" {
+		t.Fatalf("want profiles feature gate, got %q", gate)
+	}
+	mounts, _, _ := unstructured.NestedSlice(p.Object, "spec", "volumeMounts")
+	paths := make([]string, 0, len(mounts))
+	for _, m := range mounts {
+		mm := m.(map[string]interface{})
+		if mm["readOnly"] != true {
+			t.Fatalf("mount %v must be read-only", mm)
+		}
+		paths = append(paths, mm["mountPath"].(string))
+	}
+	if !slices.Equal(paths, []string{"/sys/kernel", "/sys/kernel/tracing", "/lib/modules"}) {
+		t.Fatalf("unexpected mounts %v", paths)
+	}
+	procs, _, _ := unstructured.NestedStringSlice(p.Object, "spec", "config", "service", "pipelines", "profiles", "processors")
+	if slices.Contains(procs, "batch") {
+		t.Fatal("batch does not register profiles; the collector refuses to start")
+	}
+	if enc, _, _ := unstructuredString(p, "spec", "config", "exporters", "otlp_http/tsuga", "encoding"); enc != "proto" {
+		t.Fatalf("profiles intake takes protobuf, got %q", enc)
+	}
+	if rate, _, _ := unstructured.NestedFieldNoCopy(p.Object, "spec", "config", "receivers", "profiling", "samples_per_second"); rate != float64(20) && rate != int64(20) {
+		t.Fatalf("Tsuga assumes 20 Hz, got %v", rate)
+	}
+}
+
+func TestRenderProfilerIgnoresSpecImage(t *testing.T) {
+	cfg := allCollectorsOn()
+	cfg.Image = "example.com/custom-collector:v9"
+	if image, _, _ := unstructuredString(collectorByName(t, cfg, profilerName), "spec", "image"); image != defaultProfilerImage {
+		t.Fatalf("spec.image must not reach the profiler, got %q", image)
+	}
+	cfg.Profiling.Image = "mirror.example.com/ebpf-profiler:0.161.0"
+	if image, _, _ := unstructuredString(collectorByName(t, cfg, profilerName), "spec", "image"); image != cfg.Profiling.Image {
+		t.Fatalf("profiling.image must override, got %q", image)
+	}
+}
+
+func TestRenderSpanMetricsAreDelta(t *testing.T) {
+	objs, err := RenderCollectors(effective())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _, _ := unstructuredString(objs[0], "spec", "config", "connectors", "span_metrics", "aggregation_temporality")
+	if got != "AGGREGATION_TEMPORALITY_DELTA" {
+		t.Fatalf("cumulative span metrics re-export idle series forever; want delta, got %q", got)
+	}
+}
+
+func TestRenderGatewayReportsAllocatablePods(t *testing.T) {
+	objs, err := RenderCollectors(effective())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !nestedStringSliceContains(objs[1], "pods", "spec", "config", "receivers", "k8s_cluster", "allocatable_types_to_report") {
+		t.Fatal("k8s.node.allocatable_pods needs pods in allocatable_types_to_report")
+	}
+}
+
+func collectorByName(t *testing.T, cfg v1alpha1.TsugaCollectorConfigSpec, name string) *unstructured.Unstructured {
+	t.Helper()
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range objs {
+		if o.GetName() == name {
+			return o
+		}
+	}
+	t.Fatalf("collector %q not rendered", name)
+	return nil
+}
+
+func allCollectorsOn() v1alpha1.TsugaCollectorConfigSpec {
+	cfg := effective()
+	cfg.Prometheus.Enabled = true
+	cfg.Profiling.Enabled = true
+	return cfg
+}
+
+func TestRenderPodDefaultsWhenNothingSet(t *testing.T) {
+	cfg := allCollectorsOn()
+	for _, name := range []string{agentName, gatewayName, scraperName, profilerName} {
+		obj := collectorByName(t, cfg, name)
+		for _, f := range []string{"nodeSelector", "tolerations", "affinity"} {
+			// See TestRenderProfilerDefaultsToLinuxNodes.
+			if name == profilerName && f == "nodeSelector" {
+				continue
+			}
+			if hasNestedField(obj, "spec", f) {
+				t.Fatalf("%s: %s must be absent when unset", name, f)
+			}
+		}
+	}
+	limit, _, _ := unstructuredString(collectorByName(t, cfg, gatewayName), "spec", "resources", "limits", "memory")
+	if limit != "512Mi" {
+		t.Fatalf("gateway keeps the built-in 512Mi limit, got %q", limit)
+	}
+}
+
+func TestRenderSpecLevelSchedulingAppliesToEveryCollector(t *testing.T) {
+	cfg := allCollectorsOn()
+	cfg.NodeSelector = map[string]string{"pool": "observability"}
+	cfg.Tolerations = []corev1.Toleration{{Key: "dedicated", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}}
+	cfg.Affinity = &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "zone", Operator: corev1.NodeSelectorOpIn, Values: []string{"a"}}}}},
+	}}}
+	for _, name := range []string{agentName, gatewayName, scraperName, profilerName} {
+		obj := collectorByName(t, cfg, name)
+		if v, _, _ := unstructuredString(obj, "spec", "nodeSelector", "pool"); v != "observability" {
+			t.Fatalf("%s: nodeSelector not applied", name)
+		}
+		tol, _, _ := unstructured.NestedSlice(obj.Object, "spec", "tolerations")
+		if len(tol) != 1 || tol[0].(map[string]interface{})["key"] != "dedicated" {
+			t.Fatalf("%s: tolerations not applied: %v", name, tol)
+		}
+		if !hasNestedField(obj, "spec", "affinity", "nodeAffinity") {
+			t.Fatalf("%s: affinity not applied", name)
+		}
+	}
+}
+
+func TestRenderCollectorOwnValuesReplaceDefaults(t *testing.T) {
+	cfg := allCollectorsOn()
+	cfg.NodeSelector = map[string]string{"pool": "default"}
+	cfg.Tolerations = []corev1.Toleration{{Key: "default", Operator: corev1.TolerationOpExists}}
+	cfg.Agent.NodeSelector = map[string]string{"pool": "agents"}
+	cfg.Agent.Tolerations = []corev1.Toleration{{Operator: corev1.TolerationOpExists}}
+	cfg.Gateway.Resources = &corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")}}
+	cfg.Affinity = &corev1.Affinity{PodAntiAffinity: &corev1.PodAntiAffinity{}}
+	cfg.Agent.Affinity = &apiextensionsv1.JSON{Raw: []byte(`{"nodeAffinity":{}}`)}
+
+	agent := collectorByName(t, cfg, agentName)
+	if affinity, _, _ := unstructured.NestedMap(agent.Object, "spec", "affinity"); len(affinity) != 1 || affinity["nodeAffinity"] == nil {
+		t.Fatalf("agent affinity must be its own, got %v", affinity)
+	}
+	if v, _, _ := unstructuredString(agent, "spec", "nodeSelector", "pool"); v != "agents" {
+		t.Fatalf("agent nodeSelector want agents, got %q", v)
+	}
+	if ns, _, _ := unstructured.NestedStringMap(agent.Object, "spec", "nodeSelector"); len(ns) != 1 {
+		t.Fatalf("own nodeSelector replaces, never merges: %v", ns)
+	}
+	tol, _, _ := unstructured.NestedSlice(agent.Object, "spec", "tolerations")
+	if len(tol) != 1 || tol[0].(map[string]interface{})["key"] != nil {
+		t.Fatalf("agent tolerations must be its own, got %v", tol)
+	}
+	gw := collectorByName(t, cfg, gatewayName)
+	if v, _, _ := unstructuredString(gw, "spec", "nodeSelector", "pool"); v != "default" {
+		t.Fatalf("gateway falls back to the default nodeSelector, got %q", v)
+	}
+	if v, _, _ := unstructuredString(gw, "spec", "resources", "limits", "memory"); v != "2Gi" {
+		t.Fatalf("gateway resources want 2Gi, got %q", v)
+	}
+	if hasNestedField(gw, "spec", "resources", "requests") {
+		t.Fatal("own resources replace wholesale; built-in requests must not leak in")
+	}
+}
+
+func TestRenderProfilerHasItsOwnDefaultResources(t *testing.T) {
+	cfg := allCollectorsOn()
+	cfg.Resources = &corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("3Gi")}}
+	p := collectorByName(t, cfg, profilerName)
+	if v, _, _ := unstructuredString(p, "spec", "resources", "limits", "memory"); v != "1Gi" {
+		t.Fatalf("spec.resources must not reach the profiler; want 1Gi, got %q", v)
+	}
+	if v, _, _ := unstructuredString(p, "spec", "resources", "requests", "cpu"); v != "200m" {
+		t.Fatalf("profiler request cpu want 200m, got %q", v)
+	}
+	cfg.Profiling.Resources = &corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}}
+	if v, _, _ := unstructuredString(collectorByName(t, cfg, profilerName), "spec", "resources", "limits", "cpu"); v != "2" {
+		t.Fatalf("profiling.resources must win, got %q", v)
+	}
+	if v, _, _ := unstructuredString(collectorByName(t, cfg, agentName), "spec", "resources", "limits", "memory"); v != "3Gi" {
+		t.Fatalf("spec.resources still reaches the agent, got %q", v)
+	}
+}
+
+func TestRenderExtraEnvsAppendAfterOperatorEnv(t *testing.T) {
+	cfg := effective()
+	cfg.Agent.ExtraEnvs = []corev1.EnvVar{{Name: "GOMEMLIMIT", Value: "400MiB"}, {Name: "B", Value: "2"}}
+	env, _, _ := unstructured.NestedSlice(collectorByName(t, cfg, agentName).Object, "spec", "env")
+	n := len(env)
+	if n < 3 || env[n-2].(map[string]interface{})["name"] != "GOMEMLIMIT" || env[n-1].(map[string]interface{})["name"] != "B" {
+		t.Fatalf("extraEnvs must come last, in order: %v", env)
+	}
+	if env[0].(map[string]interface{})["name"] != "TSUGA_API_KEY" {
+		t.Fatal("operator env must stay first")
+	}
+	gwEnv, _, _ := unstructured.NestedSlice(collectorByName(t, cfg, gatewayName).Object, "spec", "env")
+	for _, e := range gwEnv {
+		if e.(map[string]interface{})["name"] == "GOMEMLIMIT" {
+			t.Fatal("agent extraEnvs leaked into the gateway")
+		}
+	}
+}
+
+func TestRenderAgentHostNetwork(t *testing.T) {
+	agent := collectorByName(t, effective(), agentName)
+	if hasNestedField(agent, "spec", "hostNetwork") || hasNestedField(agent, "spec", "dnsPolicy") {
+		t.Fatal("the agent stays off the host network by default")
+	}
+	cfg := effective()
+	cfg.Agent.HostNetwork = true
+	agent = collectorByName(t, cfg, agentName)
+	if v, _, _ := unstructured.NestedBool(agent.Object, "spec", "hostNetwork"); !v {
+		t.Fatal("hostNetwork: true renders spec.hostNetwork")
+	}
+	if v, _, _ := unstructuredString(agent, "spec", "dnsPolicy"); v != "ClusterFirstWithHostNet" {
+		t.Fatalf("host-network pods need ClusterFirstWithHostNet for cluster DNS, got %q", v)
+	}
+	if hasNestedField(collectorByName(t, cfg, gatewayName), "spec", "hostNetwork") {
+		t.Fatal("only the agent uses the host network")
+	}
+}
+
+func TestRenderNoAgentWhenDisabled(t *testing.T) {
+	cfg := effective()
+	cfg.Agent.Enabled = ptr.To(false)
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(objs))
+	for _, o := range objs {
+		names = append(names, o.GetName())
+	}
+	if !slices.Contains(names, "tsuga-gateway") || slices.Contains(names, "tsuga-agent") {
+		t.Fatalf("want the gateway and no agent, got %v", names)
+	}
+	for _, o := range RenderCollectorServiceAccounts(cfg) {
+		if o.GetName() == "tsuga-agent" {
+			t.Fatal("agent ServiceAccount rendered")
+		}
+	}
+	for _, o := range RenderCollectorRBAC(cfg) {
+		if strings.Contains(o.GetName(), "tsuga-agent") {
+			t.Fatalf("agent RBAC rendered: %s", o.GetName())
+		}
+	}
+}
+
+func TestAgentDisabledWithNoOtherCollectorRendersNothing(t *testing.T) {
+	cfg := effective()
+	cfg.Agent.Enabled = ptr.To(false)
+	cfg.Gateway = v1alpha1.GatewayToggles{}
+	objs, err := RenderCollectors(cfg)
+	if err != nil || len(objs) != 0 {
+		t.Fatalf("want no objects and no error, got %d, %v", len(objs), err)
+	}
+}
+
+func TestAgentOTLPPort(t *testing.T) {
+	cases := []struct {
+		name     string
+		protocol string
+		endpoint string
+		port     int32
+	}{
+		{"unset http", "http", "", 4318},
+		{"unset grpc", "grpc", "", 4317},
+		{"custom host and port", "http", "0.0.0.0:14318", 14318},
+		{"env host", "grpc", "${env:MY_POD_IP}:4320", 4320},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var otlp v1alpha1.AgentOTLP
+			if c.protocol == "http" {
+				otlp.HTTPEndpoint = c.endpoint
+			} else {
+				otlp.GRPCEndpoint = c.endpoint
+			}
+			cfg := v1alpha1.TsugaCollectorConfigSpec{Agent: v1alpha1.TelemetryToggles{OTLP: otlp}}
+			if port := AgentOTLPPort(cfg, c.protocol); port != c.port {
+				t.Fatalf("got %d, want %d", port, c.port)
+			}
+		})
+	}
+}
+
+func TestRenderProfilerDefaultsToLinuxNodes(t *testing.T) {
+	cfg := allCollectorsOn()
+	ns, _, _ := unstructured.NestedStringMap(collectorByName(t, cfg, profilerName).Object, "spec", "nodeSelector")
+	if len(ns) != 1 || ns["kubernetes.io/os"] != "linux" {
+		t.Fatalf("profiler nodeSelector want kubernetes.io/os=linux, got %v", ns)
+	}
+	if hasNestedField(collectorByName(t, cfg, agentName), "spec", "nodeSelector") {
+		t.Fatal("agent must keep no default nodeSelector")
+	}
+	cfg.NodeSelector = map[string]string{"pool": "observability"}
+	ns, _, _ = unstructured.NestedStringMap(collectorByName(t, cfg, profilerName).Object, "spec", "nodeSelector")
+	if len(ns) != 1 || ns["pool"] != "observability" {
+		t.Fatalf("spec.nodeSelector must replace the linux default, got %v", ns)
+	}
+	cfg.NodeSelector = nil
+	cfg.Profiling.NodeSelector = map[string]string{"pool": "profiling"}
+	ns, _, _ = unstructured.NestedStringMap(collectorByName(t, cfg, profilerName).Object, "spec", "nodeSelector")
+	if len(ns) != 1 || ns["pool"] != "profiling" {
+		t.Fatalf("profiling.nodeSelector must replace the linux default, got %v", ns)
 	}
 }

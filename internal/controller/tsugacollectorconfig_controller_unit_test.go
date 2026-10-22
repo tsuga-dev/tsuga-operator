@@ -5,7 +5,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -13,13 +15,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
-	"github.com/tsuga-dev/tsuga-operator/internal/collection"
 )
 
 // newTestCollectorConfig returns a fully-enabled cluster TsugaCollectorConfig
@@ -28,7 +30,7 @@ func newTestCollectorConfig() *v1alpha1.TsugaCollectorConfig {
 	return &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: v1alpha1.TsugaCollectorConfigSpec{
-			Export:  v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}, Endpoint: "https://otlp.tsuga.com"},
+			Export:  &v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}, Endpoint: "https://otlp.tsuga.com"},
 			Agent:   v1alpha1.TelemetryToggles{Traces: true, Metrics: true, Logs: true},
 			Gateway: v1alpha1.GatewayToggles{ClusterMetrics: true, KubernetesObjects: true},
 		},
@@ -67,7 +69,7 @@ func TestCollectorConfigReconcileCreatesCollectors(t *testing.T) {
 	cc := &v1alpha1.TsugaCollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: v1alpha1.TsugaCollectorConfigSpec{
-			Export:  v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}, Endpoint: "https://otlp.tsuga.com"},
+			Export:  &v1alpha1.ExportSpec{TokenSecretRef: v1alpha1.SecretKeyRef{Name: "s", Key: "k"}, Endpoint: "https://otlp.tsuga.com"},
 			Agent:   v1alpha1.TelemetryToggles{Traces: true, Metrics: true, Logs: true},
 			Gateway: v1alpha1.GatewayToggles{ClusterMetrics: true, KubernetesObjects: true},
 		},
@@ -90,9 +92,9 @@ func TestCollectorConfigReconcileCreatesCollectors(t *testing.T) {
 	if got.Status.Phase != phaseReady {
 		t.Fatalf("want Ready, got %q", got.Status.Phase)
 	}
-	// 2 collectors + a ClusterRole and ClusterRoleBinding for each.
-	if len(got.Status.ManagedResources) != 6 {
-		t.Fatalf("want 6 managed resources, got %v", got.Status.ManagedResources)
+	// 2 collectors, their ServiceAccounts, and a ClusterRole and ClusterRoleBinding for each.
+	if len(got.Status.ManagedResources) != 8 {
+		t.Fatalf("want 8 managed resources, got %v", got.Status.ManagedResources)
 	}
 
 	for _, name := range []string{"tsuga-agent", "tsuga-gateway"} {
@@ -147,8 +149,8 @@ func TestCollectorConfigReconcileCreatesRBAC(t *testing.T) {
 	}
 
 	for collector, sa := range map[string]string{
-		"tsuga-agent":   collection.AgentServiceAccountName,
-		"tsuga-gateway": collection.GatewayServiceAccountName,
+		"tsuga-agent":   "tsuga-agent",
+		"tsuga-gateway": "tsuga-gateway",
 	} {
 		name := "tsuga-operator-collector-" + collector
 		role := &rbacv1.ClusterRole{}
@@ -426,5 +428,252 @@ func TestCollectorConfigReconcileRejectsUnownedExistingChild(t *testing.T) {
 	}
 	if len(got.OwnerReferences) != 0 {
 		t.Fatalf("unowned ClusterRole must not be adopted, got %v", got.OwnerReferences)
+	}
+}
+
+func reconcileCluster(t *testing.T, r *TsugaCollectorConfigReconciler) {
+	t.Helper()
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "cluster"}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func updateClusterSpec(t *testing.T, cl client.Client, mutate func(*v1alpha1.TsugaCollectorConfigSpec)) {
+	t.Helper()
+	cc := &v1alpha1.TsugaCollectorConfig{}
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cluster"}, cc); err != nil {
+		t.Fatal(err)
+	}
+	mutate(&cc.Spec)
+	if err := cl.Update(context.Background(), cc); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCollectorConfigReconcileCreatesAndPrunesServiceAccounts(t *testing.T) {
+	scheme := testScheme(t)
+	cc := newTestCollectorConfig()
+	cc.Spec.Profiling.Enabled = true
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(cc).WithStatusSubresource(cc).
+		WithInterceptorFuncs(applyAsCreateOrUpdate()).
+		Build()
+	r := &TsugaCollectorConfigReconciler{Client: cl, Scheme: scheme}
+
+	reconcileCluster(t, r)
+	profilerKey := types.NamespacedName{Name: "tsuga-profiler", Namespace: collectorConfigDefaultNamespace}
+	sa := &corev1.ServiceAccount{}
+	if err := cl.Get(context.Background(), profilerKey, sa); err != nil {
+		t.Fatalf("expected ServiceAccount tsuga-profiler: %v", err)
+	}
+	if !ownedByCollectorConfig(sa.GetOwnerReferences()) {
+		t.Fatalf("ServiceAccount must be controlled by the config, got %v", sa.GetOwnerReferences())
+	}
+
+	updateClusterSpec(t, cl, func(s *v1alpha1.TsugaCollectorConfigSpec) { s.Profiling.Enabled = false })
+	reconcileCluster(t, r)
+	if err := cl.Get(context.Background(), profilerKey, &corev1.ServiceAccount{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("profiler ServiceAccount must be pruned, got %v", err)
+	}
+	agentKey := types.NamespacedName{Name: "tsuga-agent", Namespace: collectorConfigDefaultNamespace}
+	if err := cl.Get(context.Background(), agentKey, &corev1.ServiceAccount{}); err != nil {
+		t.Fatalf("agent ServiceAccount must stay: %v", err)
+	}
+
+	updateClusterSpec(t, cl, func(s *v1alpha1.TsugaCollectorConfigSpec) {
+		s.ServiceAccount = v1alpha1.ServiceAccountSpec{Create: ptr.To(false), Name: "my-sa"}
+	})
+	reconcileCluster(t, r)
+	if err := cl.Get(context.Background(), agentKey, &corev1.ServiceAccount{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("create: false must prune operator ServiceAccounts, got %v", err)
+	}
+}
+
+func TestCollectorConfigReconcilePrunesRBACWhenRBACCreateOff(t *testing.T) {
+	scheme := testScheme(t)
+	cc := newTestCollectorConfig()
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(cc).WithStatusSubresource(cc).
+		WithInterceptorFuncs(applyAsCreateOrUpdate()).
+		Build()
+	r := &TsugaCollectorConfigReconciler{Client: cl, Scheme: scheme}
+
+	reconcileCluster(t, r)
+	roleKey := types.NamespacedName{Name: "tsuga-operator-collector-tsuga-agent"}
+	if err := cl.Get(context.Background(), roleKey, &rbacv1.ClusterRole{}); err != nil {
+		t.Fatalf("expected ClusterRole before rbac.create is turned off: %v", err)
+	}
+
+	updateClusterSpec(t, cl, func(s *v1alpha1.TsugaCollectorConfigSpec) { s.RBAC.Create = ptr.To(false) })
+	reconcileCluster(t, r)
+	if err := cl.Get(context.Background(), roleKey, &rbacv1.ClusterRole{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("rbac.create: false must prune the ClusterRole, got %v", err)
+	}
+	if err := cl.Get(context.Background(), roleKey, &rbacv1.ClusterRoleBinding{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("rbac.create: false must prune the ClusterRoleBinding, got %v", err)
+	}
+}
+
+func TestCollectorConfigReconcilePrunesScraperSecretsRole(t *testing.T) {
+	scheme := testScheme(t)
+	cc := prometheusCRCollectorConfig()
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(cc).WithStatusSubresource(cc).
+		WithInterceptorFuncs(applyAsCreateOrUpdate()).
+		Build()
+	r := &TsugaCollectorConfigReconciler{Client: cl, Scheme: scheme}
+	exists := func(namespace string) bool {
+		key := types.NamespacedName{Name: "tsuga-operator-collector-tsuga-scraper", Namespace: namespace}
+		roleErr := cl.Get(context.Background(), key, &rbacv1.Role{})
+		bindingErr := cl.Get(context.Background(), key, &rbacv1.RoleBinding{})
+		for _, err := range []error{roleErr, bindingErr} {
+			if err != nil && !apierrors.IsNotFound(err) {
+				t.Fatal(err)
+			}
+		}
+		return roleErr == nil && bindingErr == nil
+	}
+
+	reconcileCluster(t, r)
+	if !exists(collectorConfigDefaultNamespace) {
+		t.Fatal("prometheusCR must render the scraper secrets Role and RoleBinding")
+	}
+
+	updateClusterSpec(t, cl, func(s *v1alpha1.TsugaCollectorConfigSpec) { s.CollectorNamespace = "observability" })
+	reconcileCluster(t, r)
+	if exists(collectorConfigDefaultNamespace) || !exists("observability") {
+		t.Fatal("a collector namespace change must move the scraper secrets Role and RoleBinding")
+	}
+
+	updateClusterSpec(t, cl, func(s *v1alpha1.TsugaCollectorConfigSpec) { s.Prometheus.PrometheusCR.Enabled = false })
+	reconcileCluster(t, r)
+	if exists("observability") {
+		t.Fatal("prometheusCR off must prune the scraper secrets Role and RoleBinding")
+	}
+}
+
+func prometheusCRCollectorConfig() *v1alpha1.TsugaCollectorConfig {
+	cc := newTestCollectorConfig()
+	cc.Spec.Prometheus.Enabled = true
+	cc.Spec.Prometheus.TargetAllocator.Enabled = true
+	cc.Spec.Prometheus.PrometheusCR.Enabled = true
+	return cc
+}
+
+func reconcileForReadyCondition(t *testing.T, cc *v1alpha1.TsugaCollectorConfig, mapper func(meta.RESTMapper) meta.RESTMapper) (client.Client, ctrl.Result, *metav1.Condition) {
+	t.Helper()
+	scheme := testScheme(t)
+	b := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(cc).WithStatusSubresource(cc).
+		WithInterceptorFuncs(applyAsCreateOrUpdate())
+	if mapper != nil {
+		b = b.WithRESTMapper(mapper(fake.NewClientBuilder().WithScheme(scheme).Build().RESTMapper()))
+	}
+	cl := b.Build()
+	r := &TsugaCollectorConfigReconciler{Client: cl, Scheme: scheme}
+	res, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: cc.Name}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := &v1alpha1.TsugaCollectorConfig{}
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: cc.Name}, got); err != nil {
+		t.Fatal(err)
+	}
+	return cl, res, meta.FindStatusCondition(got.Status.Conditions, conditionReady)
+}
+
+func TestCollectorConfigReportsMissingPrometheusCRDs(t *testing.T) {
+	cl, res, cond := reconcileForReadyCondition(t, prometheusCRCollectorConfig(), nil)
+	if res.RequeueAfter != 5*time.Minute {
+		t.Fatalf("RequeueAfter = %v, want 5m", res.RequeueAfter)
+	}
+
+	if cond == nil || cond.Status != metav1.ConditionFalse || cond.Reason != reasonPrometheusCRDsMissing {
+		t.Fatalf("want Ready=False/%s, got %+v", reasonPrometheusCRDsMissing, cond)
+	}
+	const wantMsg = "prometheus.prometheusCR is enabled but the monitoring.coreos.com ServiceMonitor/PodMonitor CRDs are not installed; install the Prometheus Operator CRDs, then restart the tsuga-scraper-ta-targetallocator Deployment, or disable prometheusCR"
+	if cond.Message != wantMsg {
+		t.Fatalf("message = %q", cond.Message)
+	}
+	got := &v1alpha1.TsugaCollectorConfig{}
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cluster"}, got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Status.Phase != phaseError || got.Status.Message != wantMsg {
+		t.Fatalf("phase=%q message=%q, want %q with the condition message", got.Status.Phase, got.Status.Message, phaseError)
+	}
+	ta := &unstructured.Unstructured{}
+	ta.SetGroupVersionKind(targetAllocatorGVK)
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "tsuga-scraper-ta", Namespace: collectorConfigDefaultNamespace}, ta); err != nil {
+		t.Fatalf("children should still be applied: %v", err)
+	}
+}
+
+func TestCollectorConfigReadyWithPrometheusCR(t *testing.T) {
+	cases := []struct {
+		name      string
+		kinds     []string
+		scraperOn bool
+	}{
+		{"both CRDs present", []string{"ServiceMonitor", "PodMonitor"}, true},
+		{"only ServiceMonitor present", []string{"ServiceMonitor"}, true},
+		{"scraper off", nil, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cc := prometheusCRCollectorConfig()
+			cc.Spec.Prometheus.Enabled = tc.scraperOn
+			var mapper func(meta.RESTMapper) meta.RESTMapper
+			if tc.kinds != nil {
+				mapper = func(base meta.RESTMapper) meta.RESTMapper {
+					gv := schema.GroupVersion{Group: "monitoring.coreos.com", Version: "v1"}
+					m := meta.NewDefaultRESTMapper([]schema.GroupVersion{gv})
+					for _, k := range tc.kinds {
+						m.Add(gv.WithKind(k), meta.RESTScopeNamespace)
+					}
+					return meta.MultiRESTMapper{base, m}
+				}
+			}
+			_, res, cond := reconcileForReadyCondition(t, cc, mapper)
+			if res.RequeueAfter != 0 {
+				t.Fatalf("RequeueAfter = %v, want 0", res.RequeueAfter)
+			}
+			if cond == nil || cond.Status != metav1.ConditionTrue || cond.Reason != reasonReconciled {
+				t.Fatalf("want Ready=True/%s, got %+v", reasonReconciled, cond)
+			}
+		})
+	}
+}
+
+func TestCollectorConfigMissingCRDsSteadyStateKeepsStatus(t *testing.T) {
+	scheme := testScheme(t)
+	cc := prometheusCRCollectorConfig()
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(cc).WithStatusSubresource(cc).
+		WithInterceptorFuncs(applyAsCreateOrUpdate()).
+		Build()
+	r := &TsugaCollectorConfigReconciler{Client: cl, Scheme: scheme}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: cc.Name}}
+
+	resourceVersion := func() string {
+		got := &v1alpha1.TsugaCollectorConfig{}
+		if err := cl.Get(context.Background(), req.NamespacedName, got); err != nil {
+			t.Fatal(err)
+		}
+		return got.ResourceVersion
+	}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	first := resourceVersion()
+	res, err := r.Reconcile(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.RequeueAfter != 5*time.Minute {
+		t.Fatalf("RequeueAfter = %v, want 5m", res.RequeueAfter)
+	}
+	if second := resourceVersion(); second != first {
+		t.Fatalf("status rewritten on steady state: resourceVersion %s -> %s", first, second)
 	}
 }

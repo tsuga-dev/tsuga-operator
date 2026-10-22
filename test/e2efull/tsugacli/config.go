@@ -15,7 +15,9 @@ type Config struct {
 	OTLPEndpoint string
 	IngestionKey string
 	ClusterID    string
-	BaseURL      string
+	// BaseURL is only handed to `make deploy` as TSUGA_BASE_URL. The CLI does not
+	// read it: it takes its API from the user's own config (or TSUGA_API_URL).
+	BaseURL string
 }
 
 // ConfigFromEnv reads the suite's credentials from the environment. The four

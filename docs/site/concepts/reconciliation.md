@@ -32,15 +32,19 @@ Check condition `observedGeneration` against the CR's `metadata.generation`, ins
 | --- | --- |
 | `Reconciled` | Desired children and/or annotations applied |
 | `InstrumentationDisabled` | Instrumentation disabled, owned annotations removed, and the owned `Instrumentation` deleted |
+| `AgentDisabled` | The cluster config turns the node agent off; auto-instrumentation and database monitoring removed their children |
 | `ClusterConfigMissing` | Monitoring cannot find the config named `cluster` |
 | `RenderFailed` | Collection config could not be rendered, such as all agent signals disabled. It is not retried; the previously applied collectors keep running until the spec is fixed |
 | `ApplyFailed` | Kubernetes rejected a generated resource, or an object with the same name already exists without a controller reference to this CR. The operator does not adopt such objects; delete or rename them to let it proceed |
 | `WorkloadPatchFailed` | Annotation updates failed |
+| `InjectAnnotationConflict` | Another TsugaMonitoring or a manual annotation already sets an inject annotation on a workload; the phase is `Error` and the operator rechecks when the workload changes |
+| `ProvisioningPending` / `ProvisioningFailed` | Database monitoring setup is running or failed; see [Database monitoring](../kubernetes-monitoring/dbm.md) |
+| `PrometheusOperatorCRDsMissing` | prometheusCR is enabled but the Prometheus Operator CRDs are not installed; other collection is applied and the operator rechecks every 5 minutes |
 
 ## Current lifecycle limits
 
 - Changing `collectorNamespace` deletes the collectors and allocator in the old namespace and recreates them in the new one. The token Secret and namespace instrumentation endpoints are not migrated; treat the change as a migration.
-- Namespace instrumentation depends on the config named `cluster`. Changes to that config are not directly watched by the monitoring controller; reconcile affected monitoring resources when moving the collector endpoint.
-- Deleting a TsugaMonitoring does not clean workload annotations. Disable it first and remove any manually managed annotations separately.
+- Namespace instrumentation depends on the config named `cluster`. The monitoring controller watches that config and reconciles every TsugaMonitoring when it changes.
+- Deleting a TsugaMonitoring removes the inject annotations the operator added, through a finalizer. Annotations set by hand stay in place and must be removed separately. The operator must be running for the deletion to complete.
 
 These are implementation limits, not guarantees of future behavior. Check the code and release notes for the version you deploy.

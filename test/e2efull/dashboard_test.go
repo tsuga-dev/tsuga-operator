@@ -1,6 +1,7 @@
 package e2efull
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -17,13 +18,10 @@ const (
 	// holds, so this only bounds how long the suite is willing to wait while
 	// the Tsuga API is throttling it.
 	//
-	// Measured against a real org: creating Tier C's ~150 resources exhausts
-	// the API's rate limit, after which it returns 429 for minutes — read-only
-	// list calls were still throttled well after a run ended. The operator
-	// handles this correctly by requeuing every 30s (rateLimitRequeueAfter in
-	// generic_tsuga_reconciler.go), so a CR does reach Ready, just slowly. At
-	// the previous 90s this allowed only ~3 requeues and the first monitor of
-	// the 120-combination cross-product failed. Ten minutes allows ~20.
+	// Once the API's rate limit is exhausted it returns 429 for minutes. The
+	// operator requeues every 30s (rateLimitRequeueAfter in
+	// generic_tsuga_reconciler.go), so a CR does reach Ready, just slowly.
+	// Ten minutes allows ~20 requeues.
 	crTimeout = 10 * time.Minute
 )
 
@@ -32,7 +30,7 @@ const (
 // rather than an operator one and should say so at the line that asked for
 // it. ExpectWithOffset(1, ...) attributes the failure to the caller.
 func mustRenderDashboard(name, namespace, owner, visualization string) string {
-	manifest, err := renderDashboard(name, namespace, owner, visualization)
+	manifest, err := renderDashboardWithGraphs(name, namespace, owner, []string{visualization})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(),
 		"rendering dashboard %s for visualization %s", name, visualization)
 	return manifest
@@ -53,6 +51,23 @@ func mustRenderMonitorWithDashboardRef(name, namespace, owner, dashboardName str
 	return manifest
 }
 
+// eventuallyGoneFromTsuga waits until `tsuga <kind> get <id>` reports a
+// not-found. A failed get alone is not proof of deletion: Client.Run errors on
+// a 429, a 500, a network blip or an expired token just as readily.
+func eventuallyGoneFromTsuga(kind, id string) {
+	EventuallyWithOffset(1, func() error {
+		_, err := cli.Run(kind, "get", id)
+		if err == nil {
+			return fmt.Errorf("%s %s is still readable from Tsuga", kind, id)
+		}
+		if !tsugacli.IsNotFound(err) {
+			return fmt.Errorf("want a not-found for %s %s, got a different failure: %w", kind, id, err)
+		}
+		return nil
+	}, crTimeout, signalPollInterval).Should(Succeed(),
+		"%s %s should be gone from Tsuga after the CR is deleted", kind, id)
+}
+
 // tierCDashboardSpecs registers Tier C's Dashboard specs; see tierASpecs for
 // why the tiers are functions rather than top-level containers.
 func tierCDashboardSpecs() {
@@ -65,39 +80,58 @@ func tierCDashboardSpecs() {
 			var err error
 			visualizations, err = VisualizationVariants(openAPISpecPath)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(applyYAML(fmt.Sprintf(
-				"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", tierCNamespace))).To(Succeed())
+			Expect(applyNamespace(tierCNamespace)).To(Succeed())
 		})
 
-		It("creates a dashboard for every visualization variant", func() {
+		It("creates one dashboard carrying every visualization variant", func() {
+			name := runID + "-viz"
+			manifest, err := renderDashboardWithGraphs(name, tierCNamespace, owner, visualizations)
+			Expect(err).NotTo(HaveOccurred())
+			paceWrite()
+			Expect(applyYAML(manifest)).To(Succeed())
+			Expect(waitForCRPhase("dashboard", tierCNamespace, name, "Ready", crTimeout)).To(Succeed())
+
+			id, err := crStatusID("dashboard", tierCNamespace, name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(id).NotTo(BeEmpty(), "operator must record the Tsuga id in status")
+
+			By("reading it back through the CLI")
+			out, err := cli.Run("dashboards", "get", id)
+			Expect(err).NotTo(HaveOccurred())
+			var got struct {
+				Name       string `json:"name"`
+				TimePreset string `json:"timePreset"`
+				Filters    []struct {
+					Key    string   `json:"key"`
+					Values []string `json:"values"`
+				} `json:"filters"`
+				Graphs []struct {
+					Visualization struct {
+						Type string `json:"type"`
+					} `json:"visualization"`
+					Layout *struct {
+						W float64 `json:"w"`
+						H float64 `json:"h"`
+					} `json:"layout"`
+				} `json:"graphs"`
+			}
+			Expect(json.Unmarshal(out, &got)).To(Succeed(), string(out))
+			Expect(got.Name).To(Equal(name))
+			Expect(got.TimePreset).To(Equal(dashboardTimePreset), "timePreset did not round-trip")
+			Expect(got.Filters).To(HaveLen(1), "filters did not round-trip: %s", out)
+			Expect(got.Filters[0].Key).To(Equal("service"))
+			Expect(got.Filters[0].Values).To(Equal([]string{"e2e"}))
+
+			// If the API normalizes or renames a type on read, the fix is to
+			// compare against its canonical value, not to drop this check.
+			Expect(got.Graphs).To(HaveLen(len(visualizations)))
 			for i, visualization := range visualizations {
-				name := fmt.Sprintf("%s-viz-%02d", runID, i)
-				manifest := mustRenderDashboard(name, tierCNamespace, owner, visualization)
-				paceWrite()
-
-				By("applying " + visualization)
-				Expect(applyYAML(manifest)).To(Succeed())
-				Expect(waitForCRPhase("dashboard", tierCNamespace, name, "Ready", crTimeout)).
-					To(Succeed(), "visualization %s", visualization)
-
-				id, err := crStatusID("dashboard", tierCNamespace, name)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(id).NotTo(BeEmpty(), "operator must record the Tsuga id in status")
-
-				By("reading it back through the CLI")
-				out, err := cli.Run("dashboards", "get", id)
-				Expect(err).NotTo(HaveOccurred())
-				gotName, err := jsonField(out, "name")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(gotName).To(Equal(name))
-
-				// name is identical across every variant, so it cannot prove the
-				// visualization round-tripped; the type must be checked too. If the
-				// API normalizes or renames the type on read, the fix is to compare
-				// against its canonical value, not to drop this check.
-				gotType, err := jsonField(out, "graphs", "0", "visualization", "type")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(gotType).To(Equal(visualization), "dashboard %s: visualization type did not round-trip", name)
+				graph := got.Graphs[i]
+				Expect(graph.Visualization.Type).To(Equal(visualization),
+					"graph %d: visualization type did not round-trip", i)
+				Expect(graph.Layout).NotTo(BeNil(), "graph %d (%s): layout did not round-trip", i, visualization)
+				Expect(graph.Layout.W).To(BeEquivalentTo(dashboardGraphWidth), "graph %d (%s)", i, visualization)
+				Expect(graph.Layout.H).To(BeEquivalentTo(dashboardGraphHeight), "graph %d (%s)", i, visualization)
 			}
 		})
 
@@ -129,21 +163,7 @@ func tierCDashboardSpecs() {
 
 			Expect(deleteYAML(mustRenderDashboard(name, tierCNamespace, owner, "timeseries"))).To(Succeed())
 
-			// Asserting only that the get failed is not proof of deletion:
-			// Client.Run errors on a 429, a 500, a network blip or an
-			// expired token just as readily, so this assertion could pass
-			// with the dashboard still live. Only a not-found counts.
-			Eventually(func() error {
-				_, err := cli.Run("dashboards", "get", id)
-				if err == nil {
-					return fmt.Errorf("dashboard %s is still readable from Tsuga", id)
-				}
-				if !tsugacli.IsNotFound(err) {
-					return fmt.Errorf("want a not-found for dashboard %s, got a different failure: %w", id, err)
-				}
-				return nil
-			}, crTimeout, signalPollInterval).Should(Succeed(),
-				"the dashboard should be gone from Tsuga after the CR is deleted")
+			eventuallyGoneFromTsuga("dashboards", id)
 		})
 	})
 }

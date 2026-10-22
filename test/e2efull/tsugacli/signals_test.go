@@ -236,16 +236,6 @@ func TestCountOtherThanExcludesEveryClusterOfThisRun(t *testing.T) {
 	}
 }
 
-func TestCountMatchingCountsDuplicateRows(t *testing.T) {
-	names := []string{"a", "b", "a"}
-	if got := countMatching(names, "a"); got != 2 {
-		t.Fatalf("want 2, got %d", got)
-	}
-	if got := countMatching(names, "zzz"); got != 0 {
-		t.Fatalf("want 0 for an absent cluster, got %d", got)
-	}
-}
-
 // The scope term is the whole point of this query: without it the count picks
 // up the agent's ordinary container logs, which carry the same cluster name,
 // and the kubernetesObjects toggle would appear to work whenever the agent's
@@ -275,5 +265,143 @@ esac`)
 	}
 	if n != 0 {
 		t.Fatalf("want 0 for a different cluster, got %d", n)
+	}
+}
+
+func TestCountLogsAndsTheExtraQueryOntoTheClusterFilter(t *testing.T) {
+	bin := stubCLI(t, `
+case "$*" in
+  *'--query context.k8s.cluster.name:"c1" AND context.k8s.event.reason:* '*)
+    echo '{"logs":[{"message":"a"},{"message":"b"}]}' ;;
+  *) echo '{"logs":[]}' ;;
+esac`)
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = bin
+
+	n, err := c.CountLogs("c1", "context.k8s.event.reason:*", "-15m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("want 2 logs for the combined query, got %d", n)
+	}
+}
+
+func TestCountLogsWithNoExtraQueryUsesTheClusterFilterAlone(t *testing.T) {
+	bin := stubCLI(t, `
+case "$*" in
+  *'--query context.k8s.cluster.name:"c1" --from'*)
+    echo '{"logs":[{"message":"a"}]}' ;;
+  *) echo '{"logs":[]}' ;;
+esac`)
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = bin
+
+	n, err := c.CountLogs("c1", "", "-15m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("want 1 log for the cluster filter alone, got %d", n)
+	}
+}
+
+func TestCountSpansAndsTheExtraQueryOntoTheClusterFilter(t *testing.T) {
+	bin := stubCLI(t, `
+case "$*" in
+  *'--query context.k8s.cluster.name:"c1" AND span.kind:server '*)
+    echo '{"spans":[{"spanId":"1"},{"spanId":"2"}]}' ;;
+  *) echo '{"spans":[]}' ;;
+esac`)
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = bin
+
+	n, err := c.CountSpans("c1", "span.kind:server", "-15m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("want 2 spans for the combined query, got %d", n)
+	}
+}
+
+func TestCountMetricSeriesWhereAndsTheExtraFilter(t *testing.T) {
+	bin := stubCLI(t, `
+case "$*" in
+  *'"filter": "context.k8s.cluster.name:\"c1\" AND context.k8s.namespace.name:\"ns\""'*)
+    echo '{"results":[{"id":"q1","group":{},"value":4}]}' ;;
+  *) echo '{"results":[]}' ;;
+esac`)
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = bin
+
+	n, err := c.CountMetricSeriesWhere("cpu.usage", "c1", `context.k8s.namespace.name:"ns"`, "-15m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 4 {
+		t.Fatalf("want 4 series when the extra filter is ANDed in, got %d", n)
+	}
+}
+
+// pagedStub serves a 1000-item first page (one match, prefixed with the
+// "Showing" line) and a short second page, keyed on --offset.
+func pagedStub(t *testing.T) string {
+	t.Helper()
+	return stubCLI(t, `
+case "$*" in
+  *"--offset 0"*)
+    echo "Showing 1000 of 1001 (offset 0). Use --limit (max 1000) and --offset 1000 for the next page."
+    printf '['
+    printf '{"id":"p1","name":"e2e-abc12345-first"}'
+    i=0
+    while [ $i -lt 999 ]; do printf ',{"id":"f%s","name":"filler"}' $i; i=$((i+1)); done
+    echo ']' ;;
+  *"--offset 1000"*) echo '[{"id":"p2","name":"e2e-abc12345-second"}]' ;;
+  *) echo "unexpected offset: $*" >&2; exit 1 ;;
+esac`)
+}
+
+func TestListTaggedWithRunReadsEveryPageAndStopsOnShortPage(t *testing.T) {
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = pagedStub(t)
+
+	got, err := c.ListTaggedWithRun("dashboards", "e2e-abc12345")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID != "p1" || got[1].ID != "p2" {
+		t.Fatalf("want p1 and p2 from both pages, got %+v", got)
+	}
+}
+
+func TestListTaggedWithRunStopsWhenTheCLIIgnoresOffset(t *testing.T) {
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = stubCLI(t, `
+printf '[{"id":"p1","name":"e2e-abc12345"}'
+i=0
+while [ $i -lt 999 ]; do printf ',{"id":"f%s","name":"filler"}' $i; i=$((i+1)); done
+echo ']'`)
+
+	got, err := c.ListTaggedWithRun("monitors", "e2e-abc12345")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "p1" {
+		t.Fatalf("want p1 once, got %+v", got)
+	}
+}
+
+func TestListTaggedWithRunGivesUpAfterThePageCap(t *testing.T) {
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = stubCLI(t, `
+offset=$(echo "$*" | sed 's/.*--offset \([0-9]*\).*/\1/')
+printf '[{"id":"first-%s","name":"filler"}' "$offset"
+i=0
+while [ $i -lt 999 ]; do printf ',{"id":"f%s","name":"filler"}' $i; i=$((i+1)); done
+echo ']'`)
+
+	if _, err := c.ListTaggedWithRun("monitors", "e2e-abc12345"); err == nil {
+		t.Fatal("want an error once the page cap is reached")
 	}
 }

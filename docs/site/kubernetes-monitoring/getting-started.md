@@ -18,7 +18,7 @@ kubectl -n tsuga-operator-system create secret generic tsuga-credentials \
 
 ## 2. Declare the collection topology
 
-Save [collector.yaml](../examples/collector.yaml) as `collector.yaml`. Set `clusterName` to a meaningful name for your environment.
+Save [collector.yaml](../examples/collector.yaml) as `collector.yaml`. Set `clusterName`, which is required, to a meaningful name for your environment. It becomes `k8s.cluster.name` on all collected telemetry.
 
 ```yaml
 --8<-- "examples/collector.yaml"
@@ -35,6 +35,8 @@ kubectl -n tsuga-operator-system get pods
 
 Expect `tsuga-agent` (DaemonSet) and `tsuga-gateway` (Deployment) collector resources. The OpenTelemetry Operator creates their pods asynchronously.
 
+On clusters with tainted nodes, add matching `agent.tolerations` (and `profiling.tolerations` if profiling is on) so an agent runs on every node. `spec.tolerations` also applies to the gateway and scraper; a key-less `operator: Exists` there keeps the single gateway pod on a dead node.
+
 ## 3. Verify data, not just configuration
 
 `Ready` means the Tsuga operator applied its child resources. It does **not** confirm pod health or successful delivery to Tsuga.
@@ -47,6 +49,14 @@ kubectl -n tsuga-operator-system logs \
 ```
 
 Check that collector pods are running and ready. Investigate export, authentication, and connectivity errors. In Tsuga, select a recent time range and verify fresh metrics or logs from your `k8s.cluster.name`. Absence of errors alone is not proof of delivery.
+
+## Kubernetes events
+
+The gateway sends Kubernetes `Warning` events, such as failed scheduling, image pull errors, OOM kills and failed probes, as logs with `WARN` severity. They fill Tsuga's Kubernetes Events view. `Normal` events are filtered out at the API server and never collected.
+
+Collection starts from the moment the gateway starts: events the API server already retained are not sent, so a gateway restart does not duplicate them. Repeated warnings for the same object are sent each time Kubernetes updates them.
+
+To turn events off, set `gateway.kubernetesEvents: false`.
 
 ## Next steps
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -156,6 +157,10 @@ func applyYAML(manifest string) error {
 	return pipeToKubectl(manifest, "apply", "-f", "-")
 }
 
+func applyNamespace(namespace string) error {
+	return applyYAML(fmt.Sprintf("apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace))
+}
+
 // deleteYAML pipes a manifest to kubectl delete, tolerating absent objects.
 func deleteYAML(manifest string) error {
 	return pipeToKubectl(manifest, "delete", "--ignore-not-found", "-f", "-")
@@ -228,11 +233,8 @@ func createCredentialSecrets(cfg tsugacli.Config) error {
 		"--dry-run=client", "-o", "yaml"); err != nil {
 		return err
 	}
-	apply := kubectlCommand("apply", "-f", "-")
-	apply.Stdin = strings.NewReader(fmt.Sprintf(
-		"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", operatorNS))
-	if out, err := apply.CombinedOutput(); err != nil {
-		return fmt.Errorf("create namespace: %w: %s", err, string(out))
+	if err := applyNamespace(operatorNS); err != nil {
+		return fmt.Errorf("create namespace: %w", err)
 	}
 
 	for _, secret := range []struct{ name, key, value string }{
@@ -253,25 +255,20 @@ func createCredentialSecrets(cfg tsugacli.Config) error {
 	return nil
 }
 
-// sweepTsugaResources deletes every dashboard and monitor tagged with this
-// run id. Ingested telemetry cannot be deleted and ages out with retention.
-//
-// The list call is unpaged, which is an unverified assumption: a run creates
-// roughly 150 Tsuga resources, so if the CLI caps a page below that, this
-// sweep deletes only the first page and `make e2e-sweep` cannot recover the
-// rest either - re-running it re-reads the same page. Check `tsuga <kind>
-// list` for a paging flag before concluding the sweep is broken.
+// sweepTsugaResources deletes every dashboard, monitor and SLO tagged with
+// this run id, across every page of each listing. Ingested telemetry cannot
+// be deleted and ages out with retention.
 func sweepTsugaResources(id string) {
-	for _, kind := range []string{"dashboards", "monitors"} {
-		out, err := cli.Run(kind, "list")
+	for _, kind := range tsugacli.SweptKinds {
+		tagged, err := cli.ListTaggedWithRun(kind, id)
 		if err != nil {
-			ginkgo.GinkgoWriter.Printf("sweep: listing %s failed: %v\n", kind, err)
+			ginkgo.GinkgoWriter.Printf("sweep: %v\n", err)
 			continue
 		}
-		for _, resourceID := range idsTaggedWithRun(out, kind, id) {
-			if _, err := cli.Run(kind, "delete", resourceID); err != nil {
+		for _, item := range tagged {
+			if _, err := cli.Run(kind, "delete", item.ID); err != nil {
 				ginkgo.GinkgoWriter.Printf(
-					"sweep: deleting %s %s failed: %v\n", kind, resourceID, err)
+					"sweep: deleting %s %s failed: %v\n", kind, item.ID, err)
 			}
 		}
 	}
@@ -298,22 +295,6 @@ func requireTeamID() string {
 	return teams[0].ID
 }
 
-// idsTaggedWithRun extracts resource ids whose name carries the run id. The
-// matching itself lives in tsugacli so the sweep command, which cannot import
-// this Ginkgo-dependent package, shares one implementation with it.
-func idsTaggedWithRun(payload []byte, kind, id string) []string {
-	tagged, err := tsugacli.ResourcesTaggedWithRun(payload, kind, id)
-	if err != nil {
-		ginkgo.GinkgoWriter.Printf("sweep: %v\n", err)
-		return nil
-	}
-	var ids []string
-	for _, item := range tagged {
-		ids = append(ids, item.ID)
-	}
-	return ids
-}
-
 // waitForCollectorReady waits for an OpenTelemetryCollector's pods to be ready.
 //
 // This polls rather than calling `kubectl wait`. Every scenario in a tier
@@ -327,6 +308,8 @@ func idsTaggedWithRun(payload []byte, kind, id string) []string {
 // Pods carrying a deletionTimestamp are ignored for the same reason: a
 // terminating pod never becomes Ready, so counting it would make the wait
 // depend on the previous scenario's teardown finishing first.
+//
+//nolint:unparam // every caller passes collectorTimeout today; the timeout stays a parameter of a generic wait
 func waitForCollectorReady(namespace, name string, timeout time.Duration) error {
 	selector := "app.kubernetes.io/name=" + name + "-collector"
 	deadline := time.Now().Add(timeout)
@@ -394,8 +377,12 @@ func readyPodCounts(raw string) (ready, total int, describe string) {
 	return ready, total, strings.Join(states, " ")
 }
 
-// waitForCollectorsGone waits for every OpenTelemetryCollector in namespace to
-// be deleted.
+// collectorNames are the OpenTelemetryCollectors a TsugaCollectorConfig can
+// render: agent, gateway, Prometheus scraper and profiler.
+var collectorNames = []string{"tsuga-agent", "tsuga-gateway", "tsuga-scraper", "tsuga-profiler"}
+
+// waitForCollectorsGone waits for every collector in collectorNames to be
+// deleted from namespace.
 //
 // Deleting a TsugaCollectorConfig removes that object immediately, but its
 // OpenTelemetryCollector children are removed by the Kubernetes garbage
@@ -408,15 +395,18 @@ func readyPodCounts(raw string) (ready, total int, describe string) {
 // --ignore-not-found and kubectlStdout are both load-bearing. Without them
 // an empty list still yields kubectl's "No resources found in <ns>
 // namespace." on stderr, the emptiness check never fires, and this burns
-// the whole timeout and then fails - on every one of Tier A's 36 scenarios,
+// the whole timeout and then fails - on every Tier A scenario,
 // from DeferCleanup, where the failure is attributed to the scenario that
 // just passed.
+//
+//nolint:unparam // every caller passes 90s today; the timeout stays a parameter of a generic wait
 func waitForCollectorsGone(namespace string, timeout time.Duration) error {
+	args := append([]string{"get", "opentelemetrycollectors"}, collectorNames...)
+	args = append(args, "-n", namespace, "--ignore-not-found", "-o", "name")
 	deadline := time.Now().Add(timeout)
 	var last string
 	for time.Now().Before(deadline) {
-		out, err := kubectlStdout("get", "opentelemetrycollectors", "-n", namespace,
-			"--ignore-not-found", "-o", "name")
+		out, err := kubectlStdout(args...)
 		if err == nil {
 			last = out
 			if strings.TrimSpace(out) == "" {
@@ -432,27 +422,36 @@ func waitForCollectorsGone(namespace string, timeout time.Duration) error {
 // assertPipelines checks the rendered collector config against the scenario's
 // toggles, including the orphan pruning the operator performs.
 //
-// It fetches spec.config via `-o jsonpath-as-json`, which serializes the
-// matched value as real JSON, and hands the decoded structure to
-// checkAgentPipelines rather than substring-matching the raw text: the
-// agent's own service.telemetry.metrics self-monitoring block contains the
-// literal text "metrics" unconditionally, so a substring check reports every
+// It hands the decoded config from collectorConfig to checkAgentPipelines
+// rather than substring-matching the raw text: the agent's own
+// service.telemetry.metrics self-monitoring block contains the literal text
+// "metrics" unconditionally, so a substring check reports every
 // metrics-disabled scenario as broken even when pruning worked correctly.
 func assertPipelines(namespace string, s CollectorScenario) {
-	raw, err := kubectl("get", "opentelemetrycollector", "tsuga-agent",
-		"-n", namespace, "-o", "jsonpath-as-json={.spec.config}")
+	config, err := collectorConfig(namespace, "tsuga-agent")
 	if err != nil {
-		ginkgo.Fail(fmt.Sprintf("reading agent config: %v", err))
+		ginkgo.Fail(err.Error())
 		return
 	}
-	var wrapped []map[string]interface{}
-	if err := json.Unmarshal([]byte(raw), &wrapped); err != nil || len(wrapped) == 0 {
-		ginkgo.Fail(fmt.Sprintf("decoding agent config: %v: %s", err, raw))
-		return
-	}
-	for _, problem := range checkAgentPipelines(wrapped[0], s) {
+	for _, problem := range checkAgentPipelines(config, s) {
 		ginkgo.Fail(problem)
 	}
+}
+
+// collectorConfig returns the decoded .spec.config of an
+// OpenTelemetryCollector. `-o jsonpath-as-json` serializes the matched value
+// as real JSON, wrapped in a one-element array.
+func collectorConfig(namespace, name string) (map[string]any, error) {
+	raw, err := kubectl("get", "opentelemetrycollector", name,
+		"-n", namespace, "-o", "jsonpath-as-json={.spec.config}")
+	if err != nil {
+		return nil, fmt.Errorf("reading %s config: %w", name, err)
+	}
+	var wrapped []map[string]any
+	if err := json.Unmarshal([]byte(raw), &wrapped); err != nil || len(wrapped) == 0 {
+		return nil, fmt.Errorf("decoding %s config: %v: %s", name, err, raw)
+	}
+	return wrapped[0], nil
 }
 
 // checkAgentPipelines inspects a decoded agent OpenTelemetryCollector config
@@ -511,24 +510,15 @@ func nestedMap(v interface{}, path ...string) map[string]interface{} {
 }
 
 // sliceContainsString reports whether a decoded JSON/YAML array contains target.
-func sliceContainsString(v interface{}, target string) bool {
-	list, ok := v.([]interface{})
-	if !ok {
-		return false
-	}
-	for _, item := range list {
-		if s, ok := item.(string); ok && s == target {
-			return true
-		}
-	}
-	return false
+func sliceContainsString(v any, target string) bool {
+	list, _ := v.([]any)
+	return slices.Contains(list, any(target))
 }
 
 // copyIngestionSecret duplicates the ingestion secret into another namespace,
 // which the customNamespace variant needs.
 func copyIngestionSecret(namespace string) error {
-	if err := applyYAML(fmt.Sprintf(
-		"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace)); err != nil {
+	if err := applyNamespace(namespace); err != nil {
 		return err
 	}
 	cmd := kubectlCommand("-n", namespace, "create", "secret", "generic",
@@ -607,8 +597,7 @@ func restoreKustomization() {
 //
 // Each resource costs TWO requests — the operator's create and the suite's
 // verification read — so 30s per resource runs at 4 requests per minute and
-// leaves headroom under that ceiling. Tier C's 146 resources then take a little
-// over an hour.
+// leaves headroom under that ceiling.
 //
 // Pacing only helps from a full bucket. A run that starts with an empty one is
 // immediately in deficit, and the operator's 30s requeues then consume tokens

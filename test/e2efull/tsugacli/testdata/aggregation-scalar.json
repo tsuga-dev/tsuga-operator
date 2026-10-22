@@ -10,7 +10,7 @@
         "type": "count",
         "field": "__METRIC__"
       },
-      "filter": "context.k8s.cluster.name:\"__CLUSTER__\""
+      "filter": __FILTER__
     }
   ]
 }
