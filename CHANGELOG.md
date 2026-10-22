@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+
 ### Added
 
 - Kubernetes `Warning` events, collected by the gateway and sent as logs with `WARN` severity, so Tsuga's Kubernetes Events view has data. On by default; turn off with `gateway.kubernetesEvents: false`. The gateway's ClusterRole gains read access to `events`. Installs that manage the operator's own ClusterRole outside this repository's manifests must add `get`, `list`, `watch` on `events`, or the gateway's ClusterRole is rejected. The gateway's ClusterRole only grants what the enabled gateway toggles need; installs with `gateway.clusterMetrics` and `gateway.kubernetesObjects` both `false` now get an events-only gateway unless they also set `gateway.kubernetesEvents: false`.
