@@ -32,6 +32,576 @@ func (e DeleteResponseSuccess) Valid() bool {
 	}
 }
 
+// Defines values for CreateDashboardJSONBodyGraphsDescriptionAlign.
+const (
+	CreateDashboardJSONBodyGraphsDescriptionAlignCenter    CreateDashboardJSONBodyGraphsDescriptionAlign = "center"
+	CreateDashboardJSONBodyGraphsDescriptionAlignFlexEnd   CreateDashboardJSONBodyGraphsDescriptionAlign = "flex-end"
+	CreateDashboardJSONBodyGraphsDescriptionAlignFlexStart CreateDashboardJSONBodyGraphsDescriptionAlign = "flex-start"
+)
+
+// Valid indicates whether the value is a known member of the CreateDashboardJSONBodyGraphsDescriptionAlign enum.
+func (e CreateDashboardJSONBodyGraphsDescriptionAlign) Valid() bool {
+	switch e {
+	case CreateDashboardJSONBodyGraphsDescriptionAlignCenter:
+		return true
+	case CreateDashboardJSONBodyGraphsDescriptionAlignFlexEnd:
+		return true
+	case CreateDashboardJSONBodyGraphsDescriptionAlignFlexStart:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateDashboardJSONBodyGraphsDescriptionJustifyContent.
+const (
+	CreateDashboardJSONBodyGraphsDescriptionJustifyContentCenter    CreateDashboardJSONBodyGraphsDescriptionJustifyContent = "center"
+	CreateDashboardJSONBodyGraphsDescriptionJustifyContentFlexEnd   CreateDashboardJSONBodyGraphsDescriptionJustifyContent = "flex-end"
+	CreateDashboardJSONBodyGraphsDescriptionJustifyContentFlexStart CreateDashboardJSONBodyGraphsDescriptionJustifyContent = "flex-start"
+)
+
+// Valid indicates whether the value is a known member of the CreateDashboardJSONBodyGraphsDescriptionJustifyContent enum.
+func (e CreateDashboardJSONBodyGraphsDescriptionJustifyContent) Valid() bool {
+	switch e {
+	case CreateDashboardJSONBodyGraphsDescriptionJustifyContentCenter:
+		return true
+	case CreateDashboardJSONBodyGraphsDescriptionJustifyContentFlexEnd:
+		return true
+	case CreateDashboardJSONBodyGraphsDescriptionJustifyContentFlexStart:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateDashboardJSONBodyTimePreset.
+const (
+	CreateDashboardJSONBodyTimePresetCurrentDay      CreateDashboardJSONBodyTimePreset = "current-day"
+	CreateDashboardJSONBodyTimePresetCurrentMonth    CreateDashboardJSONBodyTimePreset = "current-month"
+	CreateDashboardJSONBodyTimePresetCurrentWeek     CreateDashboardJSONBodyTimePreset = "current-week"
+	CreateDashboardJSONBodyTimePresetCurrentYear     CreateDashboardJSONBodyTimePreset = "current-year"
+	CreateDashboardJSONBodyTimePresetPast12Hours     CreateDashboardJSONBodyTimePreset = "past-12-hours"
+	CreateDashboardJSONBodyTimePresetPast15Days      CreateDashboardJSONBodyTimePreset = "past-15-days"
+	CreateDashboardJSONBodyTimePresetPast15Minutes   CreateDashboardJSONBodyTimePreset = "past-15-minutes"
+	CreateDashboardJSONBodyTimePresetPast1Hour       CreateDashboardJSONBodyTimePreset = "past-1-hour"
+	CreateDashboardJSONBodyTimePresetPast24Hours     CreateDashboardJSONBodyTimePreset = "past-24-hours"
+	CreateDashboardJSONBodyTimePresetPast2Days       CreateDashboardJSONBodyTimePreset = "past-2-days"
+	CreateDashboardJSONBodyTimePresetPast2Hours      CreateDashboardJSONBodyTimePreset = "past-2-hours"
+	CreateDashboardJSONBodyTimePresetPast30Days      CreateDashboardJSONBodyTimePreset = "past-30-days"
+	CreateDashboardJSONBodyTimePresetPast30Minutes   CreateDashboardJSONBodyTimePreset = "past-30-minutes"
+	CreateDashboardJSONBodyTimePresetPast3Days       CreateDashboardJSONBodyTimePreset = "past-3-days"
+	CreateDashboardJSONBodyTimePresetPast3Months     CreateDashboardJSONBodyTimePreset = "past-3-months"
+	CreateDashboardJSONBodyTimePresetPast4Hours      CreateDashboardJSONBodyTimePreset = "past-4-hours"
+	CreateDashboardJSONBodyTimePresetPast5Minutes    CreateDashboardJSONBodyTimePreset = "past-5-minutes"
+	CreateDashboardJSONBodyTimePresetPast6Hours      CreateDashboardJSONBodyTimePreset = "past-6-hours"
+	CreateDashboardJSONBodyTimePresetPast7Days       CreateDashboardJSONBodyTimePreset = "past-7-days"
+	CreateDashboardJSONBodyTimePresetPrevious3Months CreateDashboardJSONBodyTimePreset = "previous-3-months"
+	CreateDashboardJSONBodyTimePresetPreviousDay     CreateDashboardJSONBodyTimePreset = "previous-day"
+	CreateDashboardJSONBodyTimePresetPreviousMonth   CreateDashboardJSONBodyTimePreset = "previous-month"
+	CreateDashboardJSONBodyTimePresetPreviousWeek    CreateDashboardJSONBodyTimePreset = "previous-week"
+	CreateDashboardJSONBodyTimePresetPreviousYear    CreateDashboardJSONBodyTimePreset = "previous-year"
+)
+
+// Valid indicates whether the value is a known member of the CreateDashboardJSONBodyTimePreset enum.
+func (e CreateDashboardJSONBodyTimePreset) Valid() bool {
+	switch e {
+	case CreateDashboardJSONBodyTimePresetCurrentDay:
+		return true
+	case CreateDashboardJSONBodyTimePresetCurrentMonth:
+		return true
+	case CreateDashboardJSONBodyTimePresetCurrentWeek:
+		return true
+	case CreateDashboardJSONBodyTimePresetCurrentYear:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast12Hours:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast15Days:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast15Minutes:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast1Hour:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast24Hours:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast2Days:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast2Hours:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast30Days:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast30Minutes:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast3Days:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast3Months:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast4Hours:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast5Minutes:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast6Hours:
+		return true
+	case CreateDashboardJSONBodyTimePresetPast7Days:
+		return true
+	case CreateDashboardJSONBodyTimePresetPrevious3Months:
+		return true
+	case CreateDashboardJSONBodyTimePresetPreviousDay:
+		return true
+	case CreateDashboardJSONBodyTimePresetPreviousMonth:
+		return true
+	case CreateDashboardJSONBodyTimePresetPreviousWeek:
+		return true
+	case CreateDashboardJSONBodyTimePresetPreviousYear:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryDashboardsJSONBodySortBy.
+const (
+	QueryDashboardsJSONBodySortByName        QueryDashboardsJSONBodySortBy = "name"
+	QueryDashboardsJSONBodySortByOwner       QueryDashboardsJSONBodySortBy = "owner"
+	QueryDashboardsJSONBodySortByTags        QueryDashboardsJSONBodySortBy = "tags"
+	QueryDashboardsJSONBodySortByUpdatedAt   QueryDashboardsJSONBodySortBy = "updatedAt"
+	QueryDashboardsJSONBodySortByWidgetCount QueryDashboardsJSONBodySortBy = "widgetCount"
+)
+
+// Valid indicates whether the value is a known member of the QueryDashboardsJSONBodySortBy enum.
+func (e QueryDashboardsJSONBodySortBy) Valid() bool {
+	switch e {
+	case QueryDashboardsJSONBodySortByName:
+		return true
+	case QueryDashboardsJSONBodySortByOwner:
+		return true
+	case QueryDashboardsJSONBodySortByTags:
+		return true
+	case QueryDashboardsJSONBodySortByUpdatedAt:
+		return true
+	case QueryDashboardsJSONBodySortByWidgetCount:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryDashboardsJSONBodySortDirection.
+const (
+	QueryDashboardsJSONBodySortDirectionAsc  QueryDashboardsJSONBodySortDirection = "asc"
+	QueryDashboardsJSONBodySortDirectionDesc QueryDashboardsJSONBodySortDirection = "desc"
+)
+
+// Valid indicates whether the value is a known member of the QueryDashboardsJSONBodySortDirection enum.
+func (e QueryDashboardsJSONBodySortDirection) Valid() bool {
+	switch e {
+	case QueryDashboardsJSONBodySortDirectionAsc:
+		return true
+	case QueryDashboardsJSONBodySortDirectionDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateDashboardJSONBodyGraphsDescriptionAlign.
+const (
+	UpdateDashboardJSONBodyGraphsDescriptionAlignCenter    UpdateDashboardJSONBodyGraphsDescriptionAlign = "center"
+	UpdateDashboardJSONBodyGraphsDescriptionAlignFlexEnd   UpdateDashboardJSONBodyGraphsDescriptionAlign = "flex-end"
+	UpdateDashboardJSONBodyGraphsDescriptionAlignFlexStart UpdateDashboardJSONBodyGraphsDescriptionAlign = "flex-start"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDashboardJSONBodyGraphsDescriptionAlign enum.
+func (e UpdateDashboardJSONBodyGraphsDescriptionAlign) Valid() bool {
+	switch e {
+	case UpdateDashboardJSONBodyGraphsDescriptionAlignCenter:
+		return true
+	case UpdateDashboardJSONBodyGraphsDescriptionAlignFlexEnd:
+		return true
+	case UpdateDashboardJSONBodyGraphsDescriptionAlignFlexStart:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateDashboardJSONBodyGraphsDescriptionJustifyContent.
+const (
+	UpdateDashboardJSONBodyGraphsDescriptionJustifyContentCenter    UpdateDashboardJSONBodyGraphsDescriptionJustifyContent = "center"
+	UpdateDashboardJSONBodyGraphsDescriptionJustifyContentFlexEnd   UpdateDashboardJSONBodyGraphsDescriptionJustifyContent = "flex-end"
+	UpdateDashboardJSONBodyGraphsDescriptionJustifyContentFlexStart UpdateDashboardJSONBodyGraphsDescriptionJustifyContent = "flex-start"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDashboardJSONBodyGraphsDescriptionJustifyContent enum.
+func (e UpdateDashboardJSONBodyGraphsDescriptionJustifyContent) Valid() bool {
+	switch e {
+	case UpdateDashboardJSONBodyGraphsDescriptionJustifyContentCenter:
+		return true
+	case UpdateDashboardJSONBodyGraphsDescriptionJustifyContentFlexEnd:
+		return true
+	case UpdateDashboardJSONBodyGraphsDescriptionJustifyContentFlexStart:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateDashboardJSONBodyTimePreset.
+const (
+	UpdateDashboardJSONBodyTimePresetCurrentDay      UpdateDashboardJSONBodyTimePreset = "current-day"
+	UpdateDashboardJSONBodyTimePresetCurrentMonth    UpdateDashboardJSONBodyTimePreset = "current-month"
+	UpdateDashboardJSONBodyTimePresetCurrentWeek     UpdateDashboardJSONBodyTimePreset = "current-week"
+	UpdateDashboardJSONBodyTimePresetCurrentYear     UpdateDashboardJSONBodyTimePreset = "current-year"
+	UpdateDashboardJSONBodyTimePresetPast12Hours     UpdateDashboardJSONBodyTimePreset = "past-12-hours"
+	UpdateDashboardJSONBodyTimePresetPast15Days      UpdateDashboardJSONBodyTimePreset = "past-15-days"
+	UpdateDashboardJSONBodyTimePresetPast15Minutes   UpdateDashboardJSONBodyTimePreset = "past-15-minutes"
+	UpdateDashboardJSONBodyTimePresetPast1Hour       UpdateDashboardJSONBodyTimePreset = "past-1-hour"
+	UpdateDashboardJSONBodyTimePresetPast24Hours     UpdateDashboardJSONBodyTimePreset = "past-24-hours"
+	UpdateDashboardJSONBodyTimePresetPast2Days       UpdateDashboardJSONBodyTimePreset = "past-2-days"
+	UpdateDashboardJSONBodyTimePresetPast2Hours      UpdateDashboardJSONBodyTimePreset = "past-2-hours"
+	UpdateDashboardJSONBodyTimePresetPast30Days      UpdateDashboardJSONBodyTimePreset = "past-30-days"
+	UpdateDashboardJSONBodyTimePresetPast30Minutes   UpdateDashboardJSONBodyTimePreset = "past-30-minutes"
+	UpdateDashboardJSONBodyTimePresetPast3Days       UpdateDashboardJSONBodyTimePreset = "past-3-days"
+	UpdateDashboardJSONBodyTimePresetPast3Months     UpdateDashboardJSONBodyTimePreset = "past-3-months"
+	UpdateDashboardJSONBodyTimePresetPast4Hours      UpdateDashboardJSONBodyTimePreset = "past-4-hours"
+	UpdateDashboardJSONBodyTimePresetPast5Minutes    UpdateDashboardJSONBodyTimePreset = "past-5-minutes"
+	UpdateDashboardJSONBodyTimePresetPast6Hours      UpdateDashboardJSONBodyTimePreset = "past-6-hours"
+	UpdateDashboardJSONBodyTimePresetPast7Days       UpdateDashboardJSONBodyTimePreset = "past-7-days"
+	UpdateDashboardJSONBodyTimePresetPrevious3Months UpdateDashboardJSONBodyTimePreset = "previous-3-months"
+	UpdateDashboardJSONBodyTimePresetPreviousDay     UpdateDashboardJSONBodyTimePreset = "previous-day"
+	UpdateDashboardJSONBodyTimePresetPreviousMonth   UpdateDashboardJSONBodyTimePreset = "previous-month"
+	UpdateDashboardJSONBodyTimePresetPreviousWeek    UpdateDashboardJSONBodyTimePreset = "previous-week"
+	UpdateDashboardJSONBodyTimePresetPreviousYear    UpdateDashboardJSONBodyTimePreset = "previous-year"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDashboardJSONBodyTimePreset enum.
+func (e UpdateDashboardJSONBodyTimePreset) Valid() bool {
+	switch e {
+	case UpdateDashboardJSONBodyTimePresetCurrentDay:
+		return true
+	case UpdateDashboardJSONBodyTimePresetCurrentMonth:
+		return true
+	case UpdateDashboardJSONBodyTimePresetCurrentWeek:
+		return true
+	case UpdateDashboardJSONBodyTimePresetCurrentYear:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast12Hours:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast15Days:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast15Minutes:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast1Hour:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast24Hours:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast2Days:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast2Hours:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast30Days:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast30Minutes:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast3Days:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast3Months:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast4Hours:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast5Minutes:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast6Hours:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPast7Days:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPrevious3Months:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPreviousDay:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPreviousMonth:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPreviousWeek:
+		return true
+	case UpdateDashboardJSONBodyTimePresetPreviousYear:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateMonitorJSONBodyPermissions.
+const (
+	CreateMonitorJSONBodyPermissionsAll                 CreateMonitorJSONBodyPermissions = "all"
+	CreateMonitorJSONBodyPermissionsOwningTeamAndPublic CreateMonitorJSONBodyPermissions = "owning-team-and-public"
+	CreateMonitorJSONBodyPermissionsOwningTeamOnly      CreateMonitorJSONBodyPermissions = "owning-team-only"
+)
+
+// Valid indicates whether the value is a known member of the CreateMonitorJSONBodyPermissions enum.
+func (e CreateMonitorJSONBodyPermissions) Valid() bool {
+	switch e {
+	case CreateMonitorJSONBodyPermissionsAll:
+		return true
+	case CreateMonitorJSONBodyPermissionsOwningTeamAndPublic:
+		return true
+	case CreateMonitorJSONBodyPermissionsOwningTeamOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateMonitorJSONBodyPriority.
+const (
+	CreateMonitorJSONBodyPriorityN1 CreateMonitorJSONBodyPriority = 1
+	CreateMonitorJSONBodyPriorityN2 CreateMonitorJSONBodyPriority = 2
+	CreateMonitorJSONBodyPriorityN3 CreateMonitorJSONBodyPriority = 3
+	CreateMonitorJSONBodyPriorityN4 CreateMonitorJSONBodyPriority = 4
+	CreateMonitorJSONBodyPriorityN5 CreateMonitorJSONBodyPriority = 5
+)
+
+// Valid indicates whether the value is a known member of the CreateMonitorJSONBodyPriority enum.
+func (e CreateMonitorJSONBodyPriority) Valid() bool {
+	switch e {
+	case CreateMonitorJSONBodyPriorityN1:
+		return true
+	case CreateMonitorJSONBodyPriorityN2:
+		return true
+	case CreateMonitorJSONBodyPriorityN3:
+		return true
+	case CreateMonitorJSONBodyPriorityN4:
+		return true
+	case CreateMonitorJSONBodyPriorityN5:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryMonitorsJSONBodyFiltersActivity.
+const (
+	Active  QueryMonitorsJSONBodyFiltersActivity = "active"
+	Snoozed QueryMonitorsJSONBodyFiltersActivity = "snoozed"
+)
+
+// Valid indicates whether the value is a known member of the QueryMonitorsJSONBodyFiltersActivity enum.
+func (e QueryMonitorsJSONBodyFiltersActivity) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Snoozed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryMonitorsJSONBodyFiltersPrioritiesValues.
+const (
+	QueryMonitorsJSONBodyFiltersPrioritiesValuesN1 QueryMonitorsJSONBodyFiltersPrioritiesValues = 1
+	QueryMonitorsJSONBodyFiltersPrioritiesValuesN2 QueryMonitorsJSONBodyFiltersPrioritiesValues = 2
+	QueryMonitorsJSONBodyFiltersPrioritiesValuesN3 QueryMonitorsJSONBodyFiltersPrioritiesValues = 3
+	QueryMonitorsJSONBodyFiltersPrioritiesValuesN4 QueryMonitorsJSONBodyFiltersPrioritiesValues = 4
+	QueryMonitorsJSONBodyFiltersPrioritiesValuesN5 QueryMonitorsJSONBodyFiltersPrioritiesValues = 5
+)
+
+// Valid indicates whether the value is a known member of the QueryMonitorsJSONBodyFiltersPrioritiesValues enum.
+func (e QueryMonitorsJSONBodyFiltersPrioritiesValues) Valid() bool {
+	switch e {
+	case QueryMonitorsJSONBodyFiltersPrioritiesValuesN1:
+		return true
+	case QueryMonitorsJSONBodyFiltersPrioritiesValuesN2:
+		return true
+	case QueryMonitorsJSONBodyFiltersPrioritiesValuesN3:
+		return true
+	case QueryMonitorsJSONBodyFiltersPrioritiesValuesN4:
+		return true
+	case QueryMonitorsJSONBodyFiltersPrioritiesValuesN5:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryMonitorsJSONBodyFiltersTypesValues.
+const (
+	AnomalyDetection        QueryMonitorsJSONBodyFiltersTypesValues = "anomaly-detection"
+	CertificateExpiry       QueryMonitorsJSONBodyFiltersTypesValues = "certificate-expiry"
+	K8sFaultyDeployment     QueryMonitorsJSONBodyFiltersTypesValues = "k8s-faulty-deployment"
+	LogErrorPattern         QueryMonitorsJSONBodyFiltersTypesValues = "log-error-pattern"
+	LogErrorPatternIncrease QueryMonitorsJSONBodyFiltersTypesValues = "log-error-pattern-increase"
+	Threshold               QueryMonitorsJSONBodyFiltersTypesValues = "threshold"
+)
+
+// Valid indicates whether the value is a known member of the QueryMonitorsJSONBodyFiltersTypesValues enum.
+func (e QueryMonitorsJSONBodyFiltersTypesValues) Valid() bool {
+	switch e {
+	case AnomalyDetection:
+		return true
+	case CertificateExpiry:
+		return true
+	case K8sFaultyDeployment:
+		return true
+	case LogErrorPattern:
+		return true
+	case LogErrorPatternIncrease:
+		return true
+	case Threshold:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryMonitorsJSONBodySortBy.
+const (
+	QueryMonitorsJSONBodySortByAssetUpdatedAt QueryMonitorsJSONBodySortBy = "assetUpdatedAt"
+	QueryMonitorsJSONBodySortByClusterIds     QueryMonitorsJSONBodySortBy = "clusterIds"
+	QueryMonitorsJSONBodySortByName           QueryMonitorsJSONBodySortBy = "name"
+	QueryMonitorsJSONBodySortByOwner          QueryMonitorsJSONBodySortBy = "owner"
+	QueryMonitorsJSONBodySortByPauseUntil     QueryMonitorsJSONBodySortBy = "pauseUntil"
+	QueryMonitorsJSONBodySortByPriority       QueryMonitorsJSONBodySortBy = "priority"
+	QueryMonitorsJSONBodySortByTags           QueryMonitorsJSONBodySortBy = "tags"
+	QueryMonitorsJSONBodySortByType           QueryMonitorsJSONBodySortBy = "type"
+)
+
+// Valid indicates whether the value is a known member of the QueryMonitorsJSONBodySortBy enum.
+func (e QueryMonitorsJSONBodySortBy) Valid() bool {
+	switch e {
+	case QueryMonitorsJSONBodySortByAssetUpdatedAt:
+		return true
+	case QueryMonitorsJSONBodySortByClusterIds:
+		return true
+	case QueryMonitorsJSONBodySortByName:
+		return true
+	case QueryMonitorsJSONBodySortByOwner:
+		return true
+	case QueryMonitorsJSONBodySortByPauseUntil:
+		return true
+	case QueryMonitorsJSONBodySortByPriority:
+		return true
+	case QueryMonitorsJSONBodySortByTags:
+		return true
+	case QueryMonitorsJSONBodySortByType:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryMonitorsJSONBodySortDirection.
+const (
+	QueryMonitorsJSONBodySortDirectionAsc  QueryMonitorsJSONBodySortDirection = "asc"
+	QueryMonitorsJSONBodySortDirectionDesc QueryMonitorsJSONBodySortDirection = "desc"
+)
+
+// Valid indicates whether the value is a known member of the QueryMonitorsJSONBodySortDirection enum.
+func (e QueryMonitorsJSONBodySortDirection) Valid() bool {
+	switch e {
+	case QueryMonitorsJSONBodySortDirectionAsc:
+		return true
+	case QueryMonitorsJSONBodySortDirectionDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateMonitorJSONBodyPermissions.
+const (
+	UpdateMonitorJSONBodyPermissionsAll                 UpdateMonitorJSONBodyPermissions = "all"
+	UpdateMonitorJSONBodyPermissionsOwningTeamAndPublic UpdateMonitorJSONBodyPermissions = "owning-team-and-public"
+	UpdateMonitorJSONBodyPermissionsOwningTeamOnly      UpdateMonitorJSONBodyPermissions = "owning-team-only"
+)
+
+// Valid indicates whether the value is a known member of the UpdateMonitorJSONBodyPermissions enum.
+func (e UpdateMonitorJSONBodyPermissions) Valid() bool {
+	switch e {
+	case UpdateMonitorJSONBodyPermissionsAll:
+		return true
+	case UpdateMonitorJSONBodyPermissionsOwningTeamAndPublic:
+		return true
+	case UpdateMonitorJSONBodyPermissionsOwningTeamOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateMonitorJSONBodyPriority.
+const (
+	UpdateMonitorJSONBodyPriorityN1 UpdateMonitorJSONBodyPriority = 1
+	UpdateMonitorJSONBodyPriorityN2 UpdateMonitorJSONBodyPriority = 2
+	UpdateMonitorJSONBodyPriorityN3 UpdateMonitorJSONBodyPriority = 3
+	UpdateMonitorJSONBodyPriorityN4 UpdateMonitorJSONBodyPriority = 4
+	UpdateMonitorJSONBodyPriorityN5 UpdateMonitorJSONBodyPriority = 5
+)
+
+// Valid indicates whether the value is a known member of the UpdateMonitorJSONBodyPriority enum.
+func (e UpdateMonitorJSONBodyPriority) Valid() bool {
+	switch e {
+	case UpdateMonitorJSONBodyPriorityN1:
+		return true
+	case UpdateMonitorJSONBodyPriorityN2:
+		return true
+	case UpdateMonitorJSONBodyPriorityN3:
+		return true
+	case UpdateMonitorJSONBodyPriorityN4:
+		return true
+	case UpdateMonitorJSONBodyPriorityN5:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateSloJSONBodyAlertsPriority.
+const (
+	CreateSloJSONBodyAlertsPriorityN1 CreateSloJSONBodyAlertsPriority = 1
+	CreateSloJSONBodyAlertsPriorityN2 CreateSloJSONBodyAlertsPriority = 2
+	CreateSloJSONBodyAlertsPriorityN3 CreateSloJSONBodyAlertsPriority = 3
+	CreateSloJSONBodyAlertsPriorityN4 CreateSloJSONBodyAlertsPriority = 4
+	CreateSloJSONBodyAlertsPriorityN5 CreateSloJSONBodyAlertsPriority = 5
+)
+
+// Valid indicates whether the value is a known member of the CreateSloJSONBodyAlertsPriority enum.
+func (e CreateSloJSONBodyAlertsPriority) Valid() bool {
+	switch e {
+	case CreateSloJSONBodyAlertsPriorityN1:
+		return true
+	case CreateSloJSONBodyAlertsPriorityN2:
+		return true
+	case CreateSloJSONBodyAlertsPriorityN3:
+		return true
+	case CreateSloJSONBodyAlertsPriorityN4:
+		return true
+	case CreateSloJSONBodyAlertsPriorityN5:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateSloJSONBodyPermissions.
+const (
+	CreateSloJSONBodyPermissionsAll                 CreateSloJSONBodyPermissions = "all"
+	CreateSloJSONBodyPermissionsOwningTeamAndPublic CreateSloJSONBodyPermissions = "owning-team-and-public"
+	CreateSloJSONBodyPermissionsOwningTeamOnly      CreateSloJSONBodyPermissions = "owning-team-only"
+)
+
+// Valid indicates whether the value is a known member of the CreateSloJSONBodyPermissions enum.
+func (e CreateSloJSONBodyPermissions) Valid() bool {
+	switch e {
+	case CreateSloJSONBodyPermissionsAll:
+		return true
+	case CreateSloJSONBodyPermissionsOwningTeamAndPublic:
+		return true
+	case CreateSloJSONBodyPermissionsOwningTeamOnly:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateSloJSONBodyTimeframeDays.
 const (
 	CreateSloJSONBodyTimeframeDaysN30 CreateSloJSONBodyTimeframeDays = 30
@@ -47,6 +617,126 @@ func (e CreateSloJSONBodyTimeframeDays) Valid() bool {
 	case CreateSloJSONBodyTimeframeDaysN7:
 		return true
 	case CreateSloJSONBodyTimeframeDaysN90:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QuerySlosJSONBodyFiltersStatusesValues.
+const (
+	Breached QuerySlosJSONBodyFiltersStatusesValues = "breached"
+	Healthy  QuerySlosJSONBodyFiltersStatusesValues = "healthy"
+	NoData   QuerySlosJSONBodyFiltersStatusesValues = "no_data"
+)
+
+// Valid indicates whether the value is a known member of the QuerySlosJSONBodyFiltersStatusesValues enum.
+func (e QuerySlosJSONBodyFiltersStatusesValues) Valid() bool {
+	switch e {
+	case Breached:
+		return true
+	case Healthy:
+		return true
+	case NoData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QuerySlosJSONBodySortBy.
+const (
+	QuerySlosJSONBodySortByErrorBudget QuerySlosJSONBodySortBy = "errorBudget"
+	QuerySlosJSONBodySortByName        QuerySlosJSONBodySortBy = "name"
+	QuerySlosJSONBodySortByOwner       QuerySlosJSONBodySortBy = "owner"
+	QuerySlosJSONBodySortBySli         QuerySlosJSONBodySortBy = "sli"
+	QuerySlosJSONBodySortByStatus      QuerySlosJSONBodySortBy = "status"
+	QuerySlosJSONBodySortByTags        QuerySlosJSONBodySortBy = "tags"
+	QuerySlosJSONBodySortByUpdatedAt   QuerySlosJSONBodySortBy = "updatedAt"
+)
+
+// Valid indicates whether the value is a known member of the QuerySlosJSONBodySortBy enum.
+func (e QuerySlosJSONBodySortBy) Valid() bool {
+	switch e {
+	case QuerySlosJSONBodySortByErrorBudget:
+		return true
+	case QuerySlosJSONBodySortByName:
+		return true
+	case QuerySlosJSONBodySortByOwner:
+		return true
+	case QuerySlosJSONBodySortBySli:
+		return true
+	case QuerySlosJSONBodySortByStatus:
+		return true
+	case QuerySlosJSONBodySortByTags:
+		return true
+	case QuerySlosJSONBodySortByUpdatedAt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QuerySlosJSONBodySortDirection.
+const (
+	QuerySlosJSONBodySortDirectionAsc  QuerySlosJSONBodySortDirection = "asc"
+	QuerySlosJSONBodySortDirectionDesc QuerySlosJSONBodySortDirection = "desc"
+)
+
+// Valid indicates whether the value is a known member of the QuerySlosJSONBodySortDirection enum.
+func (e QuerySlosJSONBodySortDirection) Valid() bool {
+	switch e {
+	case QuerySlosJSONBodySortDirectionAsc:
+		return true
+	case QuerySlosJSONBodySortDirectionDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateSloJSONBodyAlertsPriority.
+const (
+	UpdateSloJSONBodyAlertsPriorityN1 UpdateSloJSONBodyAlertsPriority = 1
+	UpdateSloJSONBodyAlertsPriorityN2 UpdateSloJSONBodyAlertsPriority = 2
+	UpdateSloJSONBodyAlertsPriorityN3 UpdateSloJSONBodyAlertsPriority = 3
+	UpdateSloJSONBodyAlertsPriorityN4 UpdateSloJSONBodyAlertsPriority = 4
+	UpdateSloJSONBodyAlertsPriorityN5 UpdateSloJSONBodyAlertsPriority = 5
+)
+
+// Valid indicates whether the value is a known member of the UpdateSloJSONBodyAlertsPriority enum.
+func (e UpdateSloJSONBodyAlertsPriority) Valid() bool {
+	switch e {
+	case UpdateSloJSONBodyAlertsPriorityN1:
+		return true
+	case UpdateSloJSONBodyAlertsPriorityN2:
+		return true
+	case UpdateSloJSONBodyAlertsPriorityN3:
+		return true
+	case UpdateSloJSONBodyAlertsPriorityN4:
+		return true
+	case UpdateSloJSONBodyAlertsPriorityN5:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateSloJSONBodyPermissions.
+const (
+	UpdateSloJSONBodyPermissionsAll                 UpdateSloJSONBodyPermissions = "all"
+	UpdateSloJSONBodyPermissionsOwningTeamAndPublic UpdateSloJSONBodyPermissions = "owning-team-and-public"
+	UpdateSloJSONBodyPermissionsOwningTeamOnly      UpdateSloJSONBodyPermissions = "owning-team-only"
+)
+
+// Valid indicates whether the value is a known member of the UpdateSloJSONBodyPermissions enum.
+func (e UpdateSloJSONBodyPermissions) Valid() bool {
+	switch e {
+	case UpdateSloJSONBodyPermissionsAll:
+		return true
+	case UpdateSloJSONBodyPermissionsOwningTeamAndPublic:
+		return true
+	case UpdateSloJSONBodyPermissionsOwningTeamOnly:
 		return true
 	default:
 		return false
@@ -298,10 +988,10 @@ type CreateDashboardJSONBody struct {
 		Description *string `json:"description,omitempty"`
 
 		// DescriptionAlign Flex alignment keyword used for widget layout
-		DescriptionAlign interface{} `json:"descriptionAlign,omitempty"`
+		DescriptionAlign *CreateDashboardJSONBodyGraphsDescriptionAlign `json:"descriptionAlign,omitempty"`
 
 		// DescriptionJustifyContent Flex alignment keyword used for widget layout
-		DescriptionJustifyContent interface{} `json:"descriptionJustifyContent,omitempty"`
+		DescriptionJustifyContent *CreateDashboardJSONBodyGraphsDescriptionJustifyContent `json:"descriptionJustifyContent,omitempty"`
 
 		// Id Unique identifier of the graph widget inside the dashboard. Assign it when the graph is created; use it to target the graph in later update requests.
 		Id string `json:"id"`
@@ -344,8 +1034,17 @@ type CreateDashboardJSONBody struct {
 	} `json:"tags,omitempty"`
 
 	// TimePreset Relative time preset used when opening the dashboard. Optional; create defaults to `past-30-minutes` when omitted, and update omission preserves the current value.
-	TimePreset interface{} `json:"timePreset,omitempty"`
+	TimePreset *CreateDashboardJSONBodyTimePreset `json:"timePreset,omitempty"`
 }
+
+// CreateDashboardJSONBodyGraphsDescriptionAlign defines parameters for CreateDashboard.
+type CreateDashboardJSONBodyGraphsDescriptionAlign string
+
+// CreateDashboardJSONBodyGraphsDescriptionJustifyContent defines parameters for CreateDashboard.
+type CreateDashboardJSONBodyGraphsDescriptionJustifyContent string
+
+// CreateDashboardJSONBodyTimePreset defines parameters for CreateDashboard.
+type CreateDashboardJSONBodyTimePreset string
 
 // QueryDashboardsJSONBody defines parameters for QueryDashboards.
 type QueryDashboardsJSONBody struct {
@@ -396,12 +1095,18 @@ type QueryDashboardsJSONBody struct {
 	// Sort Optional sorting applied to the returned dashboards
 	Sort *struct {
 		// By Field to sort the returned dashboards by: `owner` sorts by owning team ID, `tags` sorts by tag key/value pairs, `widgetCount` sorts by the number of graphs on the dashboard, `updatedAt` sorts by last-updated timestamp, and `name` sorts alphabetically by dashboard name.
-		By interface{} `json:"by"`
+		By QueryDashboardsJSONBodySortBy `json:"by"`
 
 		// Direction Sort direction: ascending or descending.
-		Direction interface{} `json:"direction"`
+		Direction QueryDashboardsJSONBodySortDirection `json:"direction"`
 	} `json:"sort,omitempty"`
 }
+
+// QueryDashboardsJSONBodySortBy defines parameters for QueryDashboards.
+type QueryDashboardsJSONBodySortBy string
+
+// QueryDashboardsJSONBodySortDirection defines parameters for QueryDashboards.
+type QueryDashboardsJSONBodySortDirection string
 
 // UpdateDashboardJSONBody defines parameters for UpdateDashboard.
 type UpdateDashboardJSONBody struct {
@@ -426,10 +1131,10 @@ type UpdateDashboardJSONBody struct {
 		Description *string `json:"description,omitempty"`
 
 		// DescriptionAlign Flex alignment keyword used for widget layout
-		DescriptionAlign interface{} `json:"descriptionAlign,omitempty"`
+		DescriptionAlign *UpdateDashboardJSONBodyGraphsDescriptionAlign `json:"descriptionAlign,omitempty"`
 
 		// DescriptionJustifyContent Flex alignment keyword used for widget layout
-		DescriptionJustifyContent interface{} `json:"descriptionJustifyContent,omitempty"`
+		DescriptionJustifyContent *UpdateDashboardJSONBodyGraphsDescriptionJustifyContent `json:"descriptionJustifyContent,omitempty"`
 
 		// Id Unique identifier of the graph widget inside the dashboard. Assign it when the graph is created; use it to target the graph in later update requests.
 		Id string `json:"id"`
@@ -472,8 +1177,17 @@ type UpdateDashboardJSONBody struct {
 	} `json:"tags,omitempty"`
 
 	// TimePreset Relative time preset used when opening the dashboard. Optional; create defaults to `past-30-minutes` when omitted, and update omission preserves the current value.
-	TimePreset interface{} `json:"timePreset,omitempty"`
+	TimePreset *UpdateDashboardJSONBodyTimePreset `json:"timePreset,omitempty"`
 }
+
+// UpdateDashboardJSONBodyGraphsDescriptionAlign defines parameters for UpdateDashboard.
+type UpdateDashboardJSONBodyGraphsDescriptionAlign string
+
+// UpdateDashboardJSONBodyGraphsDescriptionJustifyContent defines parameters for UpdateDashboard.
+type UpdateDashboardJSONBodyGraphsDescriptionJustifyContent string
+
+// UpdateDashboardJSONBodyTimePreset defines parameters for UpdateDashboard.
+type UpdateDashboardJSONBodyTimePreset string
 
 // CreateMonitorJSONBody defines parameters for CreateMonitor.
 type CreateMonitorJSONBody struct {
@@ -502,10 +1216,10 @@ type CreateMonitorJSONBody struct {
 	PauseUntil *time.Time `json:"pauseUntil,omitempty"`
 
 	// Permissions `all` allows the resource to query all permitted telemetry, `owning-team-and-public` limits it to the owning team plus public data, and `owning-team-only` limits it to the owning team.
-	Permissions interface{} `json:"permissions"`
+	Permissions CreateMonitorJSONBodyPermissions `json:"permissions"`
 
 	// Priority Monitor priority from 1 through 5, where 1 is highest priority.
-	Priority interface{} `json:"priority"`
+	Priority CreateMonitorJSONBodyPriority `json:"priority"`
 
 	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
 	Tags *[]struct {
@@ -517,11 +1231,17 @@ type CreateMonitorJSONBody struct {
 	} `json:"tags,omitempty"`
 }
 
+// CreateMonitorJSONBodyPermissions defines parameters for CreateMonitor.
+type CreateMonitorJSONBodyPermissions string
+
+// CreateMonitorJSONBodyPriority defines parameters for CreateMonitor.
+type CreateMonitorJSONBodyPriority int
+
 // QueryMonitorsJSONBody defines parameters for QueryMonitors.
 type QueryMonitorsJSONBody struct {
 	Filters *struct {
 		// Activity Restrict results by activity status: active monitors or currently snoozed monitors
-		Activity interface{} `json:"activity,omitempty"`
+		Activity *QueryMonitorsJSONBodyFiltersActivity `json:"activity,omitempty"`
 
 		// ClusterIds Restrict results to monitors deployed to any of these cluster IDs (monitors with no cluster restriction are always included)
 		ClusterIds *struct {
@@ -550,7 +1270,7 @@ type QueryMonitorsJSONBody struct {
 			Exclude *bool `json:"exclude,omitempty"`
 
 			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
-			Values []interface{} `json:"values"`
+			Values []QueryMonitorsJSONBodyFiltersPrioritiesValues `json:"values"`
 		} `json:"priorities,omitempty"`
 
 		// SearchQuery Search query filter for monitors.
@@ -583,7 +1303,7 @@ type QueryMonitorsJSONBody struct {
 			Exclude *bool `json:"exclude,omitempty"`
 
 			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
-			Values []interface{} `json:"values"`
+			Values []QueryMonitorsJSONBodyFiltersTypesValues `json:"values"`
 		} `json:"types,omitempty"`
 	} `json:"filters,omitempty"`
 
@@ -596,12 +1316,27 @@ type QueryMonitorsJSONBody struct {
 	// Sort Optional sorting applied to the returned monitors. Ties are broken by creation time and monitor ID for stable pagination.
 	Sort *struct {
 		// By Field to sort the returned monitors by. For `priority`, `desc` returns highest-priority monitors first because priority 1 is highest.
-		By interface{} `json:"by"`
+		By QueryMonitorsJSONBodySortBy `json:"by"`
 
 		// Direction Sort direction: ascending or descending.
-		Direction interface{} `json:"direction"`
+		Direction QueryMonitorsJSONBodySortDirection `json:"direction"`
 	} `json:"sort,omitempty"`
 }
+
+// QueryMonitorsJSONBodyFiltersActivity defines parameters for QueryMonitors.
+type QueryMonitorsJSONBodyFiltersActivity string
+
+// QueryMonitorsJSONBodyFiltersPrioritiesValues defines parameters for QueryMonitors.
+type QueryMonitorsJSONBodyFiltersPrioritiesValues int
+
+// QueryMonitorsJSONBodyFiltersTypesValues defines parameters for QueryMonitors.
+type QueryMonitorsJSONBodyFiltersTypesValues string
+
+// QueryMonitorsJSONBodySortBy defines parameters for QueryMonitors.
+type QueryMonitorsJSONBodySortBy string
+
+// QueryMonitorsJSONBodySortDirection defines parameters for QueryMonitors.
+type QueryMonitorsJSONBodySortDirection string
 
 // UpdateMonitorJSONBody defines parameters for UpdateMonitor.
 type UpdateMonitorJSONBody struct {
@@ -630,10 +1365,10 @@ type UpdateMonitorJSONBody struct {
 	PauseUntil *time.Time `json:"pauseUntil,omitempty"`
 
 	// Permissions `all` allows the resource to query all permitted telemetry, `owning-team-and-public` limits it to the owning team plus public data, and `owning-team-only` limits it to the owning team.
-	Permissions interface{} `json:"permissions"`
+	Permissions UpdateMonitorJSONBodyPermissions `json:"permissions"`
 
 	// Priority Monitor priority from 1 through 5, where 1 is highest priority.
-	Priority interface{} `json:"priority"`
+	Priority UpdateMonitorJSONBodyPriority `json:"priority"`
 
 	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
 	Tags *[]struct {
@@ -645,6 +1380,12 @@ type UpdateMonitorJSONBody struct {
 	} `json:"tags,omitempty"`
 }
 
+// UpdateMonitorJSONBodyPermissions defines parameters for UpdateMonitor.
+type UpdateMonitorJSONBodyPermissions string
+
+// UpdateMonitorJSONBodyPriority defines parameters for UpdateMonitor.
+type UpdateMonitorJSONBodyPriority int
+
 // CreateSloJSONBody defines parameters for CreateSlo.
 type CreateSloJSONBody struct {
 	// Alerts Alerts to create on this SLO. Send an empty array for none.
@@ -653,7 +1394,7 @@ type CreateSloJSONBody struct {
 		Configuration map[string]interface{} `json:"configuration"`
 
 		// Priority Alert priority (1 is highest, 5 is lowest)
-		Priority interface{} `json:"priority"`
+		Priority CreateSloJSONBodyAlertsPriority `json:"priority"`
 	} `json:"alerts"`
 
 	// ClusterIds Cluster IDs this SLO is evaluated on. An empty array means every cluster. Omitting the field runs on every cluster when creating and preserves the current scope when updating. Values must reference existing clusters.
@@ -672,7 +1413,7 @@ type CreateSloJSONBody struct {
 	Owner string `json:"owner"`
 
 	// Permissions `all` allows the resource to query all permitted telemetry, `owning-team-and-public` limits it to the owning team plus public data, and `owning-team-only` limits it to the owning team.
-	Permissions interface{} `json:"permissions"`
+	Permissions CreateSloJSONBodyPermissions `json:"permissions"`
 
 	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
 	Tags *[]struct {
@@ -689,6 +1430,12 @@ type CreateSloJSONBody struct {
 	// TimeframeDays Rolling SLO evaluation window in days. Set by the caller on create or update and returned on read and list responses. Allowed values are 7, 30, and 90.
 	TimeframeDays CreateSloJSONBodyTimeframeDays `json:"timeframeDays"`
 }
+
+// CreateSloJSONBodyAlertsPriority defines parameters for CreateSlo.
+type CreateSloJSONBodyAlertsPriority int
+
+// CreateSloJSONBodyPermissions defines parameters for CreateSlo.
+type CreateSloJSONBodyPermissions string
 
 // CreateSloJSONBodyTimeframeDays defines parameters for CreateSlo.
 type CreateSloJSONBodyTimeframeDays int
@@ -729,7 +1476,7 @@ type QuerySlosJSONBody struct {
 			Exclude *bool `json:"exclude,omitempty"`
 
 			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
-			Values []interface{} `json:"values"`
+			Values []QuerySlosJSONBodyFiltersStatusesValues `json:"values"`
 		} `json:"statuses,omitempty"`
 
 		// Tags Restrict results to SLOs that have at least one of the listed key/value tags
@@ -757,12 +1504,21 @@ type QuerySlosJSONBody struct {
 	// Sort Optional sorting applied to the returned SLOs
 	Sort *struct {
 		// By Field to sort by
-		By interface{} `json:"by"`
+		By QuerySlosJSONBodySortBy `json:"by"`
 
 		// Direction Sort direction: ascending or descending.
-		Direction interface{} `json:"direction"`
+		Direction QuerySlosJSONBodySortDirection `json:"direction"`
 	} `json:"sort,omitempty"`
 }
+
+// QuerySlosJSONBodyFiltersStatusesValues defines parameters for QuerySlos.
+type QuerySlosJSONBodyFiltersStatusesValues string
+
+// QuerySlosJSONBodySortBy defines parameters for QuerySlos.
+type QuerySlosJSONBodySortBy string
+
+// QuerySlosJSONBodySortDirection defines parameters for QuerySlos.
+type QuerySlosJSONBodySortDirection string
 
 // UpdateSloJSONBody defines parameters for UpdateSlo.
 type UpdateSloJSONBody struct {
@@ -775,7 +1531,7 @@ type UpdateSloJSONBody struct {
 		Id *string `json:"id,omitempty"`
 
 		// Priority Alert priority (1 is highest, 5 is lowest)
-		Priority interface{} `json:"priority"`
+		Priority UpdateSloJSONBodyAlertsPriority `json:"priority"`
 	} `json:"alerts"`
 
 	// ClusterIds Cluster IDs this SLO is evaluated on. An empty array means every cluster. Omitting the field runs on every cluster when creating and preserves the current scope when updating. Values must reference existing clusters.
@@ -794,7 +1550,7 @@ type UpdateSloJSONBody struct {
 	Owner string `json:"owner"`
 
 	// Permissions `all` allows the resource to query all permitted telemetry, `owning-team-and-public` limits it to the owning team plus public data, and `owning-team-only` limits it to the owning team.
-	Permissions interface{} `json:"permissions"`
+	Permissions UpdateSloJSONBodyPermissions `json:"permissions"`
 
 	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
 	Tags *[]struct {
@@ -811,6 +1567,12 @@ type UpdateSloJSONBody struct {
 	// TimeframeDays Rolling SLO evaluation window in days. Set by the caller on create or update and returned on read and list responses. Allowed values are 7, 30, and 90.
 	TimeframeDays UpdateSloJSONBodyTimeframeDays `json:"timeframeDays"`
 }
+
+// UpdateSloJSONBodyAlertsPriority defines parameters for UpdateSlo.
+type UpdateSloJSONBodyAlertsPriority int
+
+// UpdateSloJSONBodyPermissions defines parameters for UpdateSlo.
+type UpdateSloJSONBodyPermissions string
 
 // UpdateSloJSONBodyTimeframeDays defines parameters for UpdateSlo.
 type UpdateSloJSONBodyTimeframeDays int

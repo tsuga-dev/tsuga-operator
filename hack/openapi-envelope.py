@@ -23,6 +23,11 @@ still caught, but other response body evolution is not). What remains to
 diff is the request envelope (required fields, the enums the operator emits:
 timePreset, priority, permissions, timeframeDays) plus those response fields.
 
+The spec generator has not always written `type` next to `enum`, and oasdiff
+reads a missing type as `any`, so a spec that starts spelling it out makes
+every enum look like a narrowing. Both sides get the type their enum values
+imply before the diff, so only a change in the values themselves is reported.
+
 Reads a spec on stdin, writes the filtered spec to stdout. If a target node is
 absent (e.g. the spec restructured), it is left untouched, so the drift gate
 starts reporting union noise again — a visible signal to update this filter.
@@ -71,6 +76,31 @@ def project(schema, fields):
     return out
 
 
+def scalar_kind(value):
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    return None
+
+
+def infer_enum_types(node):
+    if isinstance(node, dict):
+        if "enum" in node and "type" not in node:
+            kinds = {scalar_kind(v) for v in node["enum"] if v is not None}
+            if len(kinds) == 1 and None not in kinds:
+                node["type"] = kinds.pop()
+        for child in node.values():
+            infer_enum_types(child)
+    elif isinstance(node, list):
+        for child in node:
+            infer_enum_types(child)
+
+
 def request_schema(spec, path):
     return (
         spec.get("paths", {})
@@ -96,6 +126,7 @@ def blank(node, keys):
 
 def main():
     spec = json.load(sys.stdin)
+    infer_enum_types(spec)
     for path, keys in REQUEST_TARGETS:
         schema = request_schema(spec, path)
         if schema is None or not blank(schema, keys):
