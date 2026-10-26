@@ -2,9 +2,12 @@
 set -euo pipefail
 
 case "$*" in
-  "") check=false ;;
-  --check) check=true ;;
-  *) echo "usage: $0 [--check]" >&2; exit 2 ;;
+"") check=false ;;
+--check) check=true ;;
+*)
+	echo "usage: $0 [--check]" >&2
+	exit 2
+	;;
 esac
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,9 +15,9 @@ work_dir="$(mktemp -d /tmp/tsuga-client-gen.XXXXXX)"
 trap 'rm -rf "$work_dir"' EXIT
 
 python3 "$repo_root/hack/tsuga-openapi-slice.py" \
-  "$repo_root/public-open-api.json" "$work_dir/tsuga-api.json" --opaque
+	"$repo_root/public-open-api.json" "$work_dir/tsuga-api.json" --opaque
 
-cat > "$work_dir/config.yaml" <<EOF
+cat >"$work_dir/config.yaml" <<EOF
 package: tsugaapi
 output: $work_dir/tsuga.gen.go
 generate:
@@ -25,11 +28,11 @@ output-options:
 EOF
 
 (cd "$repo_root" && go tool -modfile="$repo_root/hack/tools/go.mod" oapi-codegen \
-  -config "$work_dir/config.yaml" "$work_dir/tsuga-api.json")
+	-config "$work_dir/config.yaml" "$work_dir/tsuga-api.json")
 
 if [[ "$check" == true ]]; then
-  cmp "$work_dir/tsuga.gen.go" "$repo_root/internal/tsugaapi/tsuga.gen.go"
+	cmp "$work_dir/tsuga.gen.go" "$repo_root/internal/tsugaapi/tsuga.gen.go"
 else
-  mkdir -p "$repo_root/internal/tsugaapi"
-  cp "$work_dir/tsuga.gen.go" "$repo_root/internal/tsugaapi/tsuga.gen.go"
+	mkdir -p "$repo_root/internal/tsugaapi"
+	cp "$work_dir/tsuga.gen.go" "$repo_root/internal/tsugaapi/tsuga.gen.go"
 fi
