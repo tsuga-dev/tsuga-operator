@@ -426,6 +426,7 @@ func (e QueryMonitorsJSONBodyFiltersPrioritiesValues) Valid() bool {
 const (
 	AnomalyDetection        QueryMonitorsJSONBodyFiltersTypesValues = "anomaly-detection"
 	CertificateExpiry       QueryMonitorsJSONBodyFiltersTypesValues = "certificate-expiry"
+	FaultyDeployment        QueryMonitorsJSONBodyFiltersTypesValues = "faulty-deployment"
 	K8sFaultyDeployment     QueryMonitorsJSONBodyFiltersTypesValues = "k8s-faulty-deployment"
 	LogErrorPattern         QueryMonitorsJSONBodyFiltersTypesValues = "log-error-pattern"
 	LogErrorPatternIncrease QueryMonitorsJSONBodyFiltersTypesValues = "log-error-pattern-increase"
@@ -438,6 +439,8 @@ func (e QueryMonitorsJSONBodyFiltersTypesValues) Valid() bool {
 	case AnomalyDetection:
 		return true
 	case CertificateExpiry:
+		return true
+	case FaultyDeployment:
 		return true
 	case K8sFaultyDeployment:
 		return true
@@ -1727,13 +1730,13 @@ type ClientInterface interface {
 	// CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 	CreateMonitorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateMonitor performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 	CreateMonitor(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryMonitorsWithBody performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
@@ -1946,7 +1949,7 @@ func (c *Client) UpdateDashboard(ctx context.Context, id string, body UpdateDash
 // CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 func (c *Client) CreateMonitorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateMonitorRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -1962,7 +1965,7 @@ func (c *Client) CreateMonitorWithBody(ctx context.Context, contentType string, 
 // CreateMonitor performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 func (c *Client) CreateMonitor(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateMonitorRequest(c.Server, body)
 	if err != nil {
@@ -2883,7 +2886,7 @@ type ClientWithResponsesInterface interface {
 	// CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateMonitorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error)
@@ -2891,7 +2894,7 @@ type ClientWithResponsesInterface interface {
 	// CreateMonitorWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 	CreateMonitorWithResponse(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error)
 
 	// QueryMonitorsWithBodyWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
@@ -4240,7 +4243,7 @@ func (c *ClientWithResponses) UpdateDashboardWithResponse(ctx context.Context, i
 // CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateMonitorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error) {
@@ -4254,7 +4257,7 @@ func (c *ClientWithResponses) CreateMonitorWithBodyWithResponse(ctx context.Cont
 // CreateMonitorWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, or Kubernetes faulty deployments depending on its configuration.
+// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
 func (c *ClientWithResponses) CreateMonitorWithResponse(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error) {
 	rsp, err := c.CreateMonitor(ctx, body, reqEditors...)
 	if err != nil {
