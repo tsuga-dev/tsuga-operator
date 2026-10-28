@@ -1718,13 +1718,13 @@ type ClientInterface interface {
 	// UpdateDashboardWithBody performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 	UpdateDashboardWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateDashboard performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 	UpdateDashboard(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
@@ -1764,13 +1764,13 @@ type ClientInterface interface {
 	// UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSloWithBody performs a POST /v1/slos (the `CreateSlo` operationId) request,
@@ -1917,7 +1917,7 @@ func (c *Client) GetDashboard(ctx context.Context, id string, reqEditors ...Requ
 // UpdateDashboardWithBody performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 func (c *Client) UpdateDashboardWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDashboardRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -1933,7 +1933,7 @@ func (c *Client) UpdateDashboardWithBody(ctx context.Context, id string, content
 // UpdateDashboard performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 func (c *Client) UpdateDashboard(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDashboardRequest(c.Server, id, body)
 	if err != nil {
@@ -2043,7 +2043,7 @@ func (c *Client) GetMonitor(ctx context.Context, id string, reqEditors ...Reques
 // UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -2059,7 +2059,7 @@ func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentTy
 // UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 func (c *Client) UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequest(c.Server, id, body)
 	if err != nil {
@@ -2872,7 +2872,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateDashboardWithBodyWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateDashboardWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error)
@@ -2880,7 +2880,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateDashboardWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 	UpdateDashboardWithResponse(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error)
 
 	// CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
@@ -2928,7 +2928,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
@@ -2936,7 +2936,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
 
 	// CreateSloWithBodyWithResponse performs a POST /v1/slos (the `CreateSlo` operationId) request,
@@ -4217,7 +4217,7 @@ func (c *ClientWithResponses) GetDashboardWithResponse(ctx context.Context, id s
 // UpdateDashboardWithBodyWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateDashboardWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error) {
@@ -4231,7 +4231,7 @@ func (c *ClientWithResponses) UpdateDashboardWithBodyWithResponse(ctx context.Co
 // UpdateDashboardWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Updates an existing dashboard by ID. Fields are patched from the request body; omitted fields keep their current values.
+// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
 func (c *ClientWithResponses) UpdateDashboardWithResponse(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error) {
 	rsp, err := c.UpdateDashboard(ctx, id, body, reqEditors...)
 	if err != nil {
@@ -4321,7 +4321,7 @@ func (c *ClientWithResponses) GetMonitorWithResponse(ctx context.Context, id str
 // UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
@@ -4335,7 +4335,7 @@ func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Cont
 // UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitting `dashboardId` clears the dashboard link.
+// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 func (c *ClientWithResponses) UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
 	rsp, err := c.UpdateMonitor(ctx, id, body, reqEditors...)
 	if err != nil {
