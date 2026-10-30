@@ -30,16 +30,19 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.graphs[].name` | string | No | — | —  |
 | `spec.graphs[].visualization` | JSON | Yes | — | Visualization is kept schemaless because the Tsuga API models this field as a discriminator-based union. The operator passes it through as opaque JSON; drift against the OpenAPI contract is gated by oasdiff in CI (see the openapi-drift-check make target) rather than encoding the full union in Go types. Opaque JSON; validated by Tsuga |
 | `spec.name` | string | Yes | — | — minLength: `1` |
-| `spec.owner` | string | Yes | — | Team ID that owns and manages the dashboard. minLength: `1` |
+| `spec.owner` | string | No | — | Team ID that owns and manages the dashboard. Exactly one of owner and ownerName is required. minLength: `1` |
+| `spec.ownerName` | string | No | — | Name of the team that owns and manages the dashboard. The operator resolves it to the team ID on every push to Tsuga. minLength: `1`; maxLength: `250` |
 | `spec.tags` | array of object | No | — | Tags applied to the dashboard.  |
 | `spec.tags[].key` | string | Yes | — | — maxLength: `128` |
 | `spec.tags[].value` | string | Yes | — | — maxLength: `256` |
 | `spec.timePreset` | string | No | — | Example: "last_1h"  |
+| `spec` validation | CEL | — | — | exactly one of owner or ownerName is required |
 | `status` | object | No | — | SyncStatus is the observed state of a resource synced to the Tsuga API.  |
 | `status.id` | string | No | — | Tsuga resource ID  |
 | `status.lastSyncedAt` | string | No | — | Last successful sync time  |
 | `status.message` | string | No | — | Last error or status message  |
 | `status.observedGeneration` | integer | No | — | Last generation successfully reconciled  |
+| `status.ownerId` | string | No | — | Team ID resolved from spec.ownerName at the last successful push, reused until the spec changes.  |
 | `status.phase` | string | No | — | Human-readable phase: Ready, Error, Deleting  |
 
 ## Source

@@ -13,7 +13,7 @@ PATHS = {
     f"/v1/{resource}{suffix}"
     for resource in RESOURCES
     for suffix in ("", "/{id}", "/query")
-}
+} | {"/v1/teams"}
 OPAQUE = {
     "type": "object",
     "additionalProperties": True,
@@ -107,6 +107,8 @@ def main():
     if missing:
         parser.error(f"missing expected paths: {sorted(missing)}")
     spec["paths"] = {path: spec["paths"][path] for path in sorted(PATHS)}
+    # The operator only looks teams up by name; it never creates them.
+    spec["paths"]["/v1/teams"] = {"get": spec["paths"]["/v1/teams"]["get"]}
     if args.opaque:
         flatten_opaque_fields(spec)
     spec["components"] = referenced_components(spec)

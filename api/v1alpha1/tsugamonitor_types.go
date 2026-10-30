@@ -11,6 +11,7 @@ type LocalObjectReference struct {
 }
 
 // MonitorSpec is the desired state of a Tsuga monitor.
+// +kubebuilder:validation:XValidation:rule="has(self.owner) != has(self.ownerName)",message="exactly one of owner or ownerName is required"
 type MonitorSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
@@ -30,9 +31,17 @@ type MonitorSpec struct {
 	// +kubebuilder:validation:Maximum=5
 	Priority int32 `json:"priority"`
 
-	// Team ID that owns and manages the monitor.
+	// Team ID that owns and manages the monitor. Exactly one of owner and ownerName is required.
+	// +optional
 	// +kubebuilder:validation:MinLength=1
-	Owner string `json:"owner"`
+	Owner string `json:"owner,omitempty"`
+
+	// Name of the team that owns and manages the monitor. The operator resolves it to
+	// the team ID on every push to Tsuga.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=250
+	OwnerName string `json:"ownerName,omitempty"`
 
 	// Optional related dashboard ID in Tsuga.
 	DashboardID *string `json:"dashboardId,omitempty"`
@@ -60,6 +69,7 @@ type MonitorStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=monitors,scope=Namespaced,singular=monitor,shortName=tmon
 // +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=".spec.owner"
+// +kubebuilder:printcolumn:name="OwnerName",type=string,JSONPath=".spec.ownerName"
 // +kubebuilder:printcolumn:name="Priority",type=number,JSONPath=".spec.priority"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="TsugaID",type=string,JSONPath=".status.id"

@@ -1,12 +1,12 @@
 # Monitors
 
-**Prerequisite: a running operator and a Tsuga team ID**
+**Prerequisite: a running operator and a Tsuga team ID or team name**
 
 This example monitors a metric and links the alert to `example-dashboard` in the same namespace. Complete the [dashboard tutorial](../dashboards/index.md) first, or remove `dashboardRef` if you do not need the link.
 
 ## Create the resource
 
-Save [monitor.yaml](../examples/monitor.yaml) and replace `<YOUR_TEAM_ID>`. Adapt the metric, filter, threshold, and no-data behavior to your environment; the sample threshold is illustrative and the monitor may alert if it has no data.
+Save [monitor.yaml](../examples/monitor.yaml) and replace `<YOUR_TEAM_ID>`, or swap `owner` for `ownerName: <YOUR_TEAM_NAME>`. Adapt the metric, filter, threshold, and no-data behavior to your environment; the sample threshold is illustrative and the monitor may alert if it has no data.
 
 ```yaml
 --8<-- "examples/monitor.yaml"

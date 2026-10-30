@@ -23,18 +23,21 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.configuration` | JSON | Yes | — | Configuration is the SLI configuration. It is kept schemaless because the Tsuga API models it as a discriminator-based union (event or time). The operator passes it through as opaque JSON; drift against the OpenAPI contract is gated by oasdiff in CI (see the openapi-drift-check make target) rather than encoding the full union in Go types. Opaque JSON; validated by Tsuga |
 | `spec.description` | string | No | — | — maxLength: `50000` |
 | `spec.name` | string | Yes | — | — minLength: `1`; maxLength: `250` |
-| `spec.owner` | string | Yes | — | Team ID that owns and manages the SLO. minLength: `1`; maxLength: `250` |
+| `spec.owner` | string | No | — | Team ID that owns and manages the SLO. Exactly one of owner and ownerName is required. minLength: `1`; maxLength: `250` |
+| `spec.ownerName` | string | No | — | Name of the team that owns and manages the SLO. The operator resolves it to the team ID on every push to Tsuga. minLength: `1`; maxLength: `250` |
 | `spec.permissions` | string | Yes | — | This controls which data the resource can see. enum: `["all", "owning-team-and-public", "owning-team-only"]` |
 | `spec.tags` | array of object | No | — | Tags applied to the SLO. maxItems: `50` |
 | `spec.tags[].key` | string | Yes | — | — maxLength: `128` |
 | `spec.tags[].value` | string | Yes | — | — maxLength: `256` |
 | `spec.target` | number | Yes | — | Target percentage the SLO must meet, exclusive of both bounds. Example: 99.9 minimum: `0`; maximum: `100`; exclusiveMinimum: `true`; exclusiveMaximum: `true` |
 | `spec.timeframeDays` | integer | Yes | — | Rolling evaluation window in days. enum: `[7, 30, 90]` |
+| `spec` validation | CEL | — | — | exactly one of owner or ownerName is required |
 | `status` | object | No | — | SyncStatus is the observed state of a resource synced to the Tsuga API.  |
 | `status.id` | string | No | — | Tsuga resource ID  |
 | `status.lastSyncedAt` | string | No | — | Last successful sync time  |
 | `status.message` | string | No | — | Last error or status message  |
 | `status.observedGeneration` | integer | No | — | Last generation successfully reconciled  |
+| `status.ownerId` | string | No | — | Team ID resolved from spec.ownerName at the last successful push, reused until the spec changes.  |
 | `status.phase` | string | No | — | Human-readable phase: Ready, Error, Deleting  |
 
 ## Source

@@ -52,6 +52,28 @@ var _ = Describe("SLO schema validation", func() {
 		Expect(k8sClient.Delete(context.Background(), slo)).To(Succeed())
 	})
 
+	It("accepts a team name instead of a team ID", func() {
+		slo := newSLO("schema-owner-name", func(s *v1alpha1.SLOSpec) {
+			s.Owner, s.OwnerName = "", "checkout"
+		})
+		Expect(k8sClient.Create(context.Background(), slo)).To(Succeed())
+		Expect(k8sClient.Delete(context.Background(), slo)).To(Succeed())
+	})
+
+	It("rejects both owner and ownerName", func() {
+		err := k8sClient.Create(context.Background(), newSLO("schema-owner-both", func(s *v1alpha1.SLOSpec) {
+			s.OwnerName = "checkout"
+		}))
+		Expect(err).To(MatchError(ContainSubstring("exactly one of owner or ownerName is required")))
+	})
+
+	It("rejects neither owner nor ownerName", func() {
+		err := k8sClient.Create(context.Background(), newSLO("schema-owner-none", func(s *v1alpha1.SLOSpec) {
+			s.Owner = ""
+		}))
+		Expect(err).To(MatchError(ContainSubstring("exactly one of owner or ownerName is required")))
+	})
+
 	It("rejects a target at the exclusive upper bound", func() {
 		err := k8sClient.Create(context.Background(), newSLO("schema-target-100", func(s *v1alpha1.SLOSpec) {
 			s.Target = 100

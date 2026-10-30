@@ -97,6 +97,7 @@ func (r *genericTsugaReconciler[T]) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		if err := r.updateStatus(ctx, obj, func(latest T) {
 			r.adapter.MarkSynced(latest, obj)
+			r.adapter.Status(latest).OwnerID = r.adapter.Status(obj).OwnerID
 			setPhase(r.adapter.Status(latest), phaseReady, "Updated in Tsuga")
 		}); err != nil {
 			return ctrl.Result{}, err
@@ -146,6 +147,7 @@ func (r *genericTsugaReconciler[T]) createOrAdopt(ctx context.Context, obj T, cr
 	if err := r.updateStatus(ctx, obj, func(latest T) {
 		r.adapter.Status(latest).ID = id
 		r.adapter.MarkSynced(latest, obj)
+		r.adapter.Status(latest).OwnerID = r.adapter.Status(obj).OwnerID
 		setPhase(r.adapter.Status(latest), phaseReady, message)
 	}); err != nil {
 		return ctrl.Result{}, err
@@ -178,6 +180,26 @@ func withOwnerTag(obj client.Object, tags []v1alpha1.ResourceTag) ([]v1alpha1.Re
 			errInvalidSpec, maxTags-1, ownerTagKey)
 	}
 	return append(tags, v1alpha1.ResourceTag{Key: ownerTagKey, Value: string(obj.GetUID())}), nil
+}
+
+// resolveOwner returns the team ID to push as owner: owner itself, or the ID
+// of the team named ownerName, recorded in status.OwnerID. Teams cannot be
+// renamed, so the recorded ID is reused until the spec changes and drift
+// resyncs and error retries make no team lookup.
+func resolveOwner(ctx context.Context, teams TeamResolver, status *v1alpha1.SyncStatus, generation int64, owner, ownerName string) (string, error) {
+	if ownerName == "" {
+		status.OwnerID = ""
+		return owner, nil
+	}
+	if status.OwnerID != "" && status.ObservedGeneration == generation {
+		return status.OwnerID, nil
+	}
+	id, err := teams.TeamID(ctx, ownerName)
+	if err != nil {
+		return "", err
+	}
+	status.OwnerID = id
+	return id, nil
 }
 
 func setPhase(status *v1alpha1.SyncStatus, phase, message string) {
@@ -303,7 +325,9 @@ func (r *genericTsugaReconciler[T]) updateStatus(ctx context.Context, obj T, mut
 	})
 }
 
-type dashboardAdapter struct{}
+type dashboardAdapter struct {
+	teams TeamResolver
+}
 
 func (dashboardAdapter) NewObject() *v1alpha1.Dashboard { return &v1alpha1.Dashboard{} }
 
@@ -319,18 +343,22 @@ func (dashboardAdapter) MarkSynced(latest, synced *v1alpha1.Dashboard) {
 	latest.Status.ObservedGeneration = synced.Generation
 }
 
-func (dashboardAdapter) Payload(_ context.Context, obj *v1alpha1.Dashboard) ([]byte, error) {
+func (a dashboardAdapter) Payload(ctx context.Context, obj *v1alpha1.Dashboard) ([]byte, error) {
 	spec := obj.Spec
 	tags, err := withOwnerTag(obj, spec.Tags)
 	if err != nil {
 		return nil, err
 	}
 	spec.Tags = tags
+	if spec.Owner, err = resolveOwner(ctx, a.teams, &obj.Status, obj.Generation, spec.Owner, spec.OwnerName); err != nil {
+		return nil, err
+	}
 	return invalidSpec(tsugamapper.DashboardSpecToPayload(spec))
 }
 
 type monitorAdapter struct {
 	KubeClient client.Client
+	Teams      TeamResolver
 }
 
 func (a *monitorAdapter) NewObject() *v1alpha1.Monitor { return &v1alpha1.Monitor{} }
@@ -370,6 +398,9 @@ func (a *monitorAdapter) Payload(ctx context.Context, obj *v1alpha1.Monitor) ([]
 	}
 
 	if spec.Tags, err = withOwnerTag(obj, spec.Tags); err != nil {
+		return nil, err
+	}
+	if spec.Owner, err = resolveOwner(ctx, a.Teams, &obj.Status.SyncStatus, obj.Generation, spec.Owner, spec.OwnerName); err != nil {
 		return nil, err
 	}
 	payload, err := invalidSpec(tsugamapper.MonitorSpecToPayload(spec))
@@ -421,7 +452,9 @@ func collectionStatusEqual(a, b v1alpha1.CollectionStatus) bool {
 		conditionsEqual(a.Conditions, b.Conditions)
 }
 
-type sloAdapter struct{}
+type sloAdapter struct {
+	teams TeamResolver
+}
 
 func (sloAdapter) NewObject() *v1alpha1.SLO { return &v1alpha1.SLO{} }
 
@@ -437,13 +470,16 @@ func (sloAdapter) MarkSynced(latest, synced *v1alpha1.SLO) {
 	latest.Status.ObservedGeneration = synced.Generation
 }
 
-func (sloAdapter) Payload(_ context.Context, obj *v1alpha1.SLO) ([]byte, error) {
+func (a sloAdapter) Payload(ctx context.Context, obj *v1alpha1.SLO) ([]byte, error) {
 	spec := obj.Spec
 	tags, err := withOwnerTag(obj, spec.Tags)
 	if err != nil {
 		return nil, err
 	}
 	spec.Tags = tags
+	if spec.Owner, err = resolveOwner(ctx, a.teams, &obj.Status, obj.Generation, spec.Owner, spec.OwnerName); err != nil {
+		return nil, err
+	}
 	return invalidSpec(tsugamapper.SLOSpecToPayload(spec))
 }
 

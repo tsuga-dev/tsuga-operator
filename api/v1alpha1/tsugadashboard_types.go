@@ -5,13 +5,22 @@ import (
 )
 
 // DashboardSpec is the desired state of a Tsuga dashboard.
+// +kubebuilder:validation:XValidation:rule="has(self.owner) != has(self.ownerName)",message="exactly one of owner or ownerName is required"
 type DashboardSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
-	// Team ID that owns and manages the dashboard.
+	// Team ID that owns and manages the dashboard. Exactly one of owner and ownerName is required.
+	// +optional
 	// +kubebuilder:validation:MinLength=1
-	Owner string `json:"owner"`
+	Owner string `json:"owner,omitempty"`
+
+	// Name of the team that owns and manages the dashboard. The operator resolves it to
+	// the team ID on every push to Tsuga.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=250
+	OwnerName string `json:"ownerName,omitempty"`
 
 	// Ordered widgets that compose the dashboard.
 	// +kubebuilder:validation:MinItems=1
@@ -31,6 +40,7 @@ type DashboardSpec struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=dashboards,scope=Namespaced,singular=dashboard,shortName=tdb
 // +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=".spec.owner"
+// +kubebuilder:printcolumn:name="OwnerName",type=string,JSONPath=".spec.ownerName"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="TsugaID",type=string,JSONPath=".status.id"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"

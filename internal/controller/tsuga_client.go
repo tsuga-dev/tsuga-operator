@@ -26,6 +26,11 @@ type TsugaResourceClient interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// TeamResolver looks up Tsuga team IDs by team name.
+type TeamResolver interface {
+	TeamID(ctx context.Context, name string) (string, error)
+}
+
 type (
 	bodyCall   func(context.Context, string, io.Reader, ...tsugaapi.RequestEditorFn) (*http.Response, error)
 	updateCall func(context.Context, string, string, io.Reader, ...tsugaapi.RequestEditorFn) (*http.Response, error)
@@ -42,6 +47,19 @@ type tsugaResourceAPI struct {
 // NewTsugaClients constructs the real monitor, dashboard and SLO clients from
 // the Tsuga API base URL and a bearer token.
 func NewTsugaClients(baseURL, token string) (monitors, dashboards, slos TsugaResourceClient) {
+	api := newAPIClient(baseURL, token)
+	return &tsugaResourceAPI{api.QueryMonitorsWithBody, api.CreateMonitorWithBody, api.UpdateMonitorWithBody, api.DeleteMonitor},
+		&tsugaResourceAPI{api.QueryDashboardsWithBody, api.CreateDashboardWithBody, api.UpdateDashboardWithBody, api.DeleteDashboard},
+		&tsugaResourceAPI{api.QuerySlosWithBody, api.CreateSloWithBody, api.UpdateSloWithBody, api.DeleteSlo}
+}
+
+// NewTeamResolver constructs the real team resolver from the Tsuga API base
+// URL and a bearer token.
+func NewTeamResolver(baseURL, token string) TeamResolver {
+	return teamsAPI{newAPIClient(baseURL, token)}
+}
+
+func newAPIClient(baseURL, token string) *tsugaapi.Client {
 	api, err := tsugaapi.NewClient(baseURL,
 		tsugaapi.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
 		tsugaapi.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
@@ -54,9 +72,38 @@ func NewTsugaClients(baseURL, token string) (monitors, dashboards, slos TsugaRes
 		// generated version changes that behavior.
 		panic(fmt.Sprintf("construct Tsuga API client: %v", err))
 	}
-	return &tsugaResourceAPI{api.QueryMonitorsWithBody, api.CreateMonitorWithBody, api.UpdateMonitorWithBody, api.DeleteMonitor},
-		&tsugaResourceAPI{api.QueryDashboardsWithBody, api.CreateDashboardWithBody, api.UpdateDashboardWithBody, api.DeleteDashboard},
-		&tsugaResourceAPI{api.QuerySlosWithBody, api.CreateSloWithBody, api.UpdateSloWithBody, api.DeleteSlo}
+	return api
+}
+
+type teamsAPI struct {
+	api *tsugaapi.Client
+}
+
+// TeamID returns the ID of the team named name. Like readQueryResponse, it
+// checks the name itself rather than trusting the server-side filter: the ID
+// decides who owns the pushed resource.
+func (t teamsAPI) TeamID(ctx context.Context, name string) (string, error) {
+	resp, err := t.api.ListTeams(ctx, &tsugaapi.ListTeamsParams{Name: &name})
+	respBody, err := readAPIBody(ctx, resp, err)
+	if err != nil {
+		return "", err
+	}
+
+	var envelope struct {
+		Data []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &envelope); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+	for _, team := range envelope.Data {
+		if team.Name == name && team.ID != "" {
+			return team.ID, nil
+		}
+	}
+	return "", fmt.Errorf("team %q not found in Tsuga", name)
 }
 
 func (a *tsugaResourceAPI) FindByTag(ctx context.Context, key, value string) (string, error) {

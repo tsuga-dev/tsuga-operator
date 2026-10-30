@@ -13,7 +13,7 @@ This is Tsuga's native `observability.tsuga.com/v1alpha1` SLO resource, not an O
 | `event` | Good events divided by total events | Share of checkout requests without errors |
 | `time` | Time slices whose query meets a threshold | Slices where checkout latency meets a limit |
 
-`target` is a percentage strictly between 0 and 100, such as `99.9`. `timeframeDays` must be `7`, `30`, or `90`. Set `owner` to your team's ID and choose `permissions` for the data the SLO may access.
+`target` is a percentage strictly between 0 and 100, such as `99.9`. `timeframeDays` must be `7`, `30`, or `90`. Set `owner` to your team's ID, or `ownerName` to its name, and choose `permissions` for the data the SLO may access.
 
 ## Create an event-based SLO
 

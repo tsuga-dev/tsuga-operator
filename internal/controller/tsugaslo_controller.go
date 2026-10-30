@@ -14,6 +14,8 @@ type TsugaSLOReconciler struct {
 	client.Client
 
 	TsugaClient TsugaResourceClient
+	// Teams resolves spec.ownerName to a team ID.
+	Teams TeamResolver
 }
 
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=slos,verbs=get;list;watch;patch
@@ -22,7 +24,7 @@ type TsugaSLOReconciler struct {
 func (r *TsugaSLOReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconciler := genericTsugaReconciler[*v1alpha1.SLO]{
 		Client:  r.Client,
-		adapter: sloAdapter{},
+		adapter: sloAdapter{teams: r.Teams},
 		tsuga:   r.TsugaClient,
 	}
 	return reconciler.Reconcile(ctx, req)

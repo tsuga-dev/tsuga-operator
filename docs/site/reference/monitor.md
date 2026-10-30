@@ -23,18 +23,21 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.folderId` | string | No | — | Optional monitor folder ID in Tsuga. When unset, the monitor keeps its current folder.  |
 | `spec.message` | string | No | — | —  |
 | `spec.name` | string | Yes | — | — minLength: `1` |
-| `spec.owner` | string | Yes | — | Team ID that owns and manages the monitor. minLength: `1` |
+| `spec.owner` | string | No | — | Team ID that owns and manages the monitor. Exactly one of owner and ownerName is required. minLength: `1` |
+| `spec.ownerName` | string | No | — | Name of the team that owns and manages the monitor. The operator resolves it to the team ID on every push to Tsuga. minLength: `1`; maxLength: `250` |
 | `spec.permissions` | string | Yes | — | This controls which data the resource can see. enum: `["all", "owning-team-and-public", "owning-team-only"]` |
 | `spec.priority` | integer | Yes | — | — minimum: `1`; maximum: `5` |
 | `spec.tags` | array of object | No | — | —  |
 | `spec.tags[].key` | string | Yes | — | — maxLength: `128` |
 | `spec.tags[].value` | string | Yes | — | — maxLength: `256` |
+| `spec` validation | CEL | — | — | exactly one of owner or ownerName is required |
 | `status` | object | No | — | MonitorStatus is the observed state of a Tsuga monitor.  |
 | `status.dashboardId` | string | No | — | Tsuga dashboard ID last sent to Tsuga, resolved from dashboardId or dashboardRef  |
 | `status.id` | string | No | — | Tsuga resource ID  |
 | `status.lastSyncedAt` | string | No | — | Last successful sync time  |
 | `status.message` | string | No | — | Last error or status message  |
 | `status.observedGeneration` | integer | No | — | Last generation successfully reconciled  |
+| `status.ownerId` | string | No | — | Team ID resolved from spec.ownerName at the last successful push, reused until the spec changes.  |
 | `status.phase` | string | No | — | Human-readable phase: Ready, Error, Deleting  |
 
 ## Source

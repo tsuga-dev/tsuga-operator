@@ -13,6 +13,10 @@ type SyncStatus struct {
 	// Last generation successfully reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// Team ID resolved from spec.ownerName at the last successful push, reused
+	// until the spec changes.
+	OwnerID string `json:"ownerId,omitempty"`
+
 	// Human-readable phase: Ready, Error, Deleting
 	Phase string `json:"phase,omitempty"`
 

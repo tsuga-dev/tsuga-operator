@@ -21,6 +21,8 @@ func DashboardSpecToPayload(spec v1alpha1.DashboardSpec) ([]byte, error) {
 			return nil, fmt.Errorf("graphs[%d]: id is required", idx)
 		}
 	}
+	// ownerName is Kubernetes-only; callers resolve it into owner.
+	spec.OwnerName = ""
 	if spec.TimePreset == nil {
 		preset := defaultTimePreset
 		spec.TimePreset = &preset

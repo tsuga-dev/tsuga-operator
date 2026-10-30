@@ -84,10 +84,12 @@ spec:
 %s`, name, namespace, name, owner, dashboardTimePreset, runID, graphs.String()), nil
 }
 
+const sloNamespace = "e2e-slo"
+
 // renderSLO produces an event SLO CR modelled on
 // config/samples/observability_v1alpha1_slo.yaml, with one priority-2
 // burn-rate alert. The name carries the run id, which is what the sweeps match.
-func renderSLO(name, namespace, owner string, target float64) string {
+func renderSLO(name, owner string, target float64) string {
 	return fmt.Sprintf(`apiVersion: observability.tsuga.com/v1alpha1
 kind: SLO
 metadata:
@@ -123,7 +125,7 @@ spec:
       configuration:
         type: burn-rate
         burnRate: 14.4
-`, name, namespace, name, owner, target, runID)
+`, name, sloNamespace, name, owner, target, runID)
 }
 
 // renderMonitor produces a Monitor CR. What is under test is the envelope,

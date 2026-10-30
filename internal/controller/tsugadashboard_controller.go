@@ -14,6 +14,8 @@ type TsugaDashboardReconciler struct {
 	client.Client
 
 	TsugaClient TsugaResourceClient
+	// Teams resolves spec.ownerName to a team ID.
+	Teams TeamResolver
 }
 
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=dashboards,verbs=get;list;watch;patch
@@ -22,7 +24,7 @@ type TsugaDashboardReconciler struct {
 func (r *TsugaDashboardReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconciler := genericTsugaReconciler[*v1alpha1.Dashboard]{
 		Client:  r.Client,
-		adapter: dashboardAdapter{},
+		adapter: dashboardAdapter{teams: r.Teams},
 		tsuga:   r.TsugaClient,
 		resync:  true,
 	}

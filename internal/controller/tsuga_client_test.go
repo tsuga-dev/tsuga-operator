@@ -2,11 +2,17 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
+	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
 )
 
 func TestTsugaClient_OversizedBodyReturnsError(t *testing.T) {
@@ -277,5 +283,101 @@ func TestTsugaHTTPError_LongJSONMessageIsTruncated(t *testing.T) {
 	want := "tsuga API error 400: " + strings.Repeat("y", maxErrorBodyBytes) + "..."
 	if err.Error() != want {
 		t.Errorf("Error() = %q, want the message truncated to %d bytes", err.Error(), maxErrorBodyBytes)
+	}
+}
+
+func TestTeamResolver_TeamID(t *testing.T) {
+	cases := []struct {
+		name, body, wantID string
+	}{
+		{"exact match", `{"data":[{"id":"team-1","name":"checkout"}]}`, "team-1"},
+		{"ignores a loosely matched name", `{"data":[{"id":"team-2","name":"Checkout"}]}`, ""},
+		{"no team", `{"data":[]}`, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotPath, gotName string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotPath, gotName = r.URL.Path, r.URL.Query().Get("name")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+
+			id, err := NewTeamResolver(srv.URL, "token").TeamID(context.Background(), "checkout")
+			if gotPath != "/v1/teams" || gotName != "checkout" {
+				t.Errorf("request = %s?name=%s, want /v1/teams?name=checkout", gotPath, gotName)
+			}
+			if id != tc.wantID {
+				t.Errorf("id = %q, want %q", id, tc.wantID)
+			}
+			if tc.wantID == "" && (err == nil || !strings.Contains(err.Error(), `team "checkout" not found`)) {
+				t.Errorf("expected a not-found error, got %v", err)
+			}
+			if tc.wantID != "" && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+type stubTeams map[string]string
+
+func (s stubTeams) TeamID(_ context.Context, name string) (string, error) {
+	if id, ok := s[name]; ok {
+		return id, nil
+	}
+	return "", fmt.Errorf("team %q not found in Tsuga", name)
+}
+
+func TestPayload_ResolvesOwnerName(t *testing.T) {
+	teams := stubTeams{"checkout": "team-1"}
+	dashboard := &v1alpha1.Dashboard{Spec: v1alpha1.DashboardSpec{
+		Name: "d", OwnerName: "checkout", Graphs: []v1alpha1.DashboardGraph{{ID: "g1"}},
+	}}
+	monitor := &v1alpha1.Monitor{Spec: v1alpha1.MonitorSpec{
+		Name: "m", OwnerName: "checkout", Priority: 1, Permissions: "all",
+		Configuration: apiextensionsv1.JSON{Raw: []byte(`{}`)},
+	}}
+	slo := &v1alpha1.SLO{Spec: v1alpha1.SLOSpec{
+		Name: "s", OwnerName: "checkout", Permissions: "all", Target: 99, TimeframeDays: 30,
+		Configuration: apiextensionsv1.JSON{Raw: []byte(`{}`)},
+	}}
+	payloads := map[string]func() ([]byte, error){
+		"dashboard": func() ([]byte, error) { return dashboardAdapter{teams: teams}.Payload(context.Background(), dashboard) },
+		"monitor":   func() ([]byte, error) { return (&monitorAdapter{Teams: teams}).Payload(context.Background(), monitor) },
+		"slo":       func() ([]byte, error) { return sloAdapter{teams: teams}.Payload(context.Background(), slo) },
+	}
+	for kind, payload := range payloads {
+		t.Run(kind, func(t *testing.T) {
+			raw, err := payload()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var body map[string]any
+			if err := json.Unmarshal(raw, &body); err != nil {
+				t.Fatal(err)
+			}
+			if body["owner"] != "team-1" {
+				t.Errorf("owner = %v, want team-1", body["owner"])
+			}
+			if _, present := body["ownerName"]; present {
+				t.Error("ownerName must not reach the Tsuga API")
+			}
+		})
+	}
+
+	if slo.Status.OwnerID != "team-1" {
+		t.Errorf("status.ownerId = %q, want team-1", slo.Status.OwnerID)
+	}
+
+	// The recorded ID is reused while the spec is unchanged: no lookup.
+	if _, err := (sloAdapter{teams: stubTeams{}}).Payload(context.Background(), slo); err != nil {
+		t.Errorf("expected the recorded owner ID to be reused, got %v", err)
+	}
+
+	slo.Generation++
+	slo.Spec.OwnerName = "unknown"
+	if _, err := (sloAdapter{teams: teams}).Payload(context.Background(), slo); err == nil {
+		t.Error("expected an error for an unknown team name")
 	}
 }

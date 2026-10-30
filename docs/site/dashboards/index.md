@@ -2,11 +2,11 @@
 
 **Prerequisite: [operator installed](../getting-started/index.md)**
 
-This walkthrough creates a dashboard in Tsuga and manages it through a Kubernetes resource. You need a Tsuga team ID for `spec.owner` and permission for your operation key to manage that team's dashboards.
+This walkthrough creates a dashboard in Tsuga and manages it through a Kubernetes resource. You need a Tsuga team ID for `spec.owner`, or the team's name for `spec.ownerName`, and permission for your operation key to manage that team's dashboards.
 
 ## 1. Save the manifest
 
-Download [dashboard.yaml](../examples/dashboard.yaml), or save the following as `dashboard.yaml`. Replace `<YOUR_TEAM_ID>` with your team's ID. The sample metric must exist in your Tsuga account for the chart to show data.
+Download [dashboard.yaml](../examples/dashboard.yaml), or save the following as `dashboard.yaml`. Replace `<YOUR_TEAM_ID>` with your team's ID, or replace the `owner` line with `ownerName: <YOUR_TEAM_NAME>` to have the operator look the ID up by name. The sample metric must exist in your Tsuga account for the chart to show data.
 
 ```yaml
 --8<-- "examples/dashboard.yaml"

@@ -3,21 +3,20 @@ package e2efull
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-const sloNamespace = "e2e-slo"
-
 // tierSLOSpecs registers the SLO specs; see tierASpecs for why tiers are
 // functions rather than top-level containers.
 func tierSLOSpecs() {
 	Describe("SLO", Ordered, Label("slo"), func() {
-		var owner string
+		var owner, ownerName string
 
 		BeforeAll(func() {
-			owner = requireTeamID()
+			owner, ownerName = requireTeam()
 			Expect(applyNamespace(sloNamespace)).To(Succeed())
 		})
 
@@ -26,7 +25,7 @@ func tierSLOSpecs() {
 
 		It("creates an SLO in Tsuga", func() {
 			paceWrite()
-			Expect(applyYAML(renderSLO(name, sloNamespace, owner, 99.5))).To(Succeed())
+			Expect(applyYAML(renderSLO(name, owner, 99.5))).To(Succeed())
 			Expect(waitForCRPhase("slo", sloNamespace, name, "Ready", crTimeout)).To(Succeed())
 			var err error
 			id, err = crStatusID("slo", sloNamespace, name)
@@ -54,7 +53,7 @@ func tierSLOSpecs() {
 
 		It("propagates a target update to Tsuga", func() {
 			paceWrite()
-			Expect(applyYAML(renderSLO(name, sloNamespace, owner, 99.0))).To(Succeed())
+			Expect(applyYAML(renderSLO(name, owner, 99.0))).To(Succeed())
 
 			Eventually(func() (float64, error) {
 				out, err := cli.Run("slos", "get", id)
@@ -73,8 +72,36 @@ func tierSLOSpecs() {
 
 		It("deletes the Tsuga SLO when the CR is deleted", func() {
 			paceWrite()
-			Expect(deleteYAML(renderSLO(name, sloNamespace, owner, 99.0))).To(Succeed())
+			Expect(deleteYAML(renderSLO(name, owner, 99.0))).To(Succeed())
 			eventuallyGoneFromTsuga("slos", id)
+		})
+
+		It("resolves ownerName to the team id", func() {
+			nameOwned := runID + "-slo-owner-name"
+			manifest := strings.Replace(renderSLO(nameOwned, ownerName, 99.5),
+				"\n  owner: ", "\n  ownerName: ", 1)
+			Expect(manifest).To(ContainSubstring("ownerName: "))
+
+			paceWrite()
+			Expect(applyYAML(manifest)).To(Succeed())
+			Expect(waitForCRPhase("slo", sloNamespace, nameOwned, "Ready", crTimeout)).To(Succeed())
+			ownedID, err := crStatusID("slo", sloNamespace, nameOwned)
+			Expect(err).NotTo(HaveOccurred())
+			ownerID, err := kubectl(crArgs("slo", sloNamespace, nameOwned, "-o", "jsonpath={.status.ownerId}")...)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ownerID).To(Equal(owner), "operator must record the resolved team id in status.ownerId")
+
+			out, err := cli.Run("slos", "get", ownedID)
+			Expect(err).NotTo(HaveOccurred())
+			var got struct {
+				Owner string `json:"owner"`
+			}
+			Expect(json.Unmarshal(out, &got)).To(Succeed(), string(out))
+			Expect(got.Owner).To(Equal(owner))
+
+			paceWrite()
+			Expect(deleteYAML(manifest)).To(Succeed())
+			eventuallyGoneFromTsuga("slos", ownedID)
 		})
 	})
 }

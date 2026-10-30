@@ -21,6 +21,8 @@ type sloPayload struct {
 // SLOSpecToPayload marshals an SLOSpec into the Tsuga API request body.
 // Create and update send the same body.
 func SLOSpecToPayload(spec v1alpha1.SLOSpec) ([]byte, error) {
+	// ownerName is Kubernetes-only; callers resolve it into owner.
+	spec.OwnerName = ""
 	return json.Marshal(sloPayload{
 		SLOSpec:    spec,
 		ClusterIDs: append([]string{}, spec.ClusterIDs...),

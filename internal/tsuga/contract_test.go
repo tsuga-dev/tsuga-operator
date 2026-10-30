@@ -16,7 +16,8 @@ import (
 
 // The hand-owned Kubernetes API deliberately differs from Tsuga's API. These
 // checks catch mapper fields and shapes that no longer fit the generated
-// request models when the public OpenAPI document changes.
+// request models when the public OpenAPI document changes. Every spec sets
+// ownerName, which is Kubernetes-only and must not reach the payload.
 func TestPayloadsMatchGeneratedRequestModels(t *testing.T) {
 	visualization := apiextensionsv1.JSON{Raw: []byte(`{"type":"timeseries"}`)}
 	cases := []struct {
@@ -29,7 +30,7 @@ func TestPayloadsMatchGeneratedRequestModels(t *testing.T) {
 			name: "dashboard",
 			payload: func() ([]byte, error) {
 				return DashboardSpecToPayload(v1alpha1.DashboardSpec{
-					Name: "Example", Owner: "team-1",
+					Name: "Example", Owner: "team-1", OwnerName: "checkout",
 					Graphs: []v1alpha1.DashboardGraph{{ID: "graph-1", Visualization: visualization}},
 				})
 			},
@@ -40,7 +41,7 @@ func TestPayloadsMatchGeneratedRequestModels(t *testing.T) {
 			name: "monitor",
 			payload: func() ([]byte, error) {
 				return MonitorSpecToPayload(v1alpha1.MonitorSpec{
-					Name: "Example", Owner: "team-1", Priority: 2,
+					Name: "Example", Owner: "team-1", OwnerName: "checkout", Priority: 2,
 					Permissions: "all", Configuration: apiextensionsv1.JSON{Raw: []byte(`{"type":"logs"}`)},
 					FolderID: ptr.To("folder-1"),
 				})
@@ -51,7 +52,9 @@ func TestPayloadsMatchGeneratedRequestModels(t *testing.T) {
 		{
 			name: "slo",
 			payload: func() ([]byte, error) {
-				return SLOSpecToPayload(minimalSLOSpec())
+				spec := minimalSLOSpec()
+				spec.OwnerName = "checkout"
+				return SLOSpecToPayload(spec)
 			},
 			create: &tsugaapi.CreateSloJSONBody{},
 			update: &tsugaapi.UpdateSloJSONBody{},

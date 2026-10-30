@@ -17,6 +17,8 @@ type TsugaMonitorReconciler struct {
 	client.Client
 
 	TsugaClient TsugaResourceClient
+	// Teams resolves spec.ownerName to a team ID.
+	Teams TeamResolver
 }
 
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=monitors,verbs=get;list;watch;patch
@@ -26,7 +28,7 @@ type TsugaMonitorReconciler struct {
 func (r *TsugaMonitorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconciler := genericTsugaReconciler[*v1alpha1.Monitor]{
 		Client:  r.Client,
-		adapter: &monitorAdapter{KubeClient: r.Client},
+		adapter: &monitorAdapter{KubeClient: r.Client, Teams: r.Teams},
 		tsuga:   r.TsugaClient,
 	}
 	return reconciler.Reconcile(ctx, req)

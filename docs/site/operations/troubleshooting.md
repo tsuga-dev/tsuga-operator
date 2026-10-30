@@ -41,6 +41,8 @@ kubectl -n default describe slo example-event-slo
 
 For authentication failures, check the operation key and its permissions. For API validation failures, inspect `spec.owner`, widget visualization, monitor configuration, or SLO SLI/alert configuration. Kubernetes deliberately does not validate the opaque Tsuga payload sections.
 
+With `spec.ownerName`, the operator looks the team up by exact name when the spec changes and records its ID in `status.ownerId`, so the operation key also needs read access to teams; without it the lookup fails with a 403 and is retried every 30 seconds. `team "<name>" not found in Tsuga` means no team has that exact name: fix `ownerName`, or create the team and the next retry picks it up.
+
 A Monitor with `dashboardRef` needs a Dashboard in the same namespace with a populated `status.id`. Use `dashboardRef: {name: example-dashboard}`. Correct the resource and apply it again.
 
 If a corrected Secret has not taken effect, restart the operator. A client error has no explicit timed retry, so make a meaningful spec correction if the resource remains unchanged and unsynced.

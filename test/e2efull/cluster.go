@@ -277,6 +277,12 @@ func sweepTsugaResources(id string) {
 // requireTeamID returns a team id from the test org to own the resources this
 // suite creates. Dashboards and Monitors both require a real owner.
 func requireTeamID() string {
+	id, _ := requireTeam()
+	return id
+}
+
+// requireTeam returns the id and name of a team from the test org.
+func requireTeam() (id, name string) {
 	out, err := cli.Run("teams", "list")
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("listing teams: %v", err))
@@ -284,7 +290,8 @@ func requireTeamID() string {
 	// `tsuga teams list` returns a bare JSON array, not an object with a
 	// "teams" key. Verified against the live CLI.
 	var teams []struct {
-		ID string `json:"id"`
+		ID   string `json:"id"`
+		Name string `json:"name"`
 	}
 	if err := json.Unmarshal(out, &teams); err != nil {
 		ginkgo.Fail(fmt.Sprintf("decoding teams: %v: %s", err, string(out)))
@@ -292,7 +299,7 @@ func requireTeamID() string {
 	if len(teams) == 0 {
 		ginkgo.Fail("the test org has no teams; create one before running the suite")
 	}
-	return teams[0].ID
+	return teams[0].ID, teams[0].Name
 }
 
 // waitForCollectorReady waits for an OpenTelemetryCollector's pods to be ready.

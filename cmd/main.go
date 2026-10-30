@@ -160,10 +160,12 @@ func main() {
 	}
 
 	monitorClient, dashboardClient, sloClient := controller.NewTsugaClients(baseURL, apiToken)
+	teams := controller.NewTeamResolver(baseURL, apiToken)
 
 	if err := (&controller.TsugaMonitorReconciler{
 		Client:      mgr.GetClient(),
 		TsugaClient: monitorClient,
+		Teams:       teams,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TsugaMonitor")
 		os.Exit(1)
@@ -171,6 +173,7 @@ func main() {
 	if err := (&controller.TsugaDashboardReconciler{
 		Client:      mgr.GetClient(),
 		TsugaClient: dashboardClient,
+		Teams:       teams,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TsugaDashboard")
 		os.Exit(1)
@@ -178,6 +181,7 @@ func main() {
 	if err := (&controller.TsugaSLOReconciler{
 		Client:      mgr.GetClient(),
 		TsugaClient: sloClient,
+		Teams:       teams,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TsugaSLO")
 		os.Exit(1)

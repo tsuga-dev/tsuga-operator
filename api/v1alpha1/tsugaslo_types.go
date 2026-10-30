@@ -22,6 +22,7 @@ type SLOAlert struct {
 }
 
 // SLOSpec is the desired state of a Tsuga SLO.
+// +kubebuilder:validation:XValidation:rule="has(self.owner) != has(self.ownerName)",message="exactly one of owner or ownerName is required"
 type SLOSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=250
@@ -53,10 +54,18 @@ type SLOSpec struct {
 	// +kubebuilder:validation:Enum=7;30;90
 	TimeframeDays int32 `json:"timeframeDays"`
 
-	// Team ID that owns and manages the SLO.
+	// Team ID that owns and manages the SLO. Exactly one of owner and ownerName is required.
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=250
-	Owner string `json:"owner"`
+	Owner string `json:"owner,omitempty"`
+
+	// Name of the team that owns and manages the SLO. The operator resolves it to
+	// the team ID on every push to Tsuga.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=250
+	OwnerName string `json:"ownerName,omitempty"`
 
 	// This controls which data the resource can see.
 	// +kubebuilder:validation:Enum=all;owning-team-and-public;owning-team-only
@@ -74,6 +83,7 @@ type SLOSpec struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=slos,scope=Namespaced,singular=slo,shortName=tslo
 // +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=".spec.owner"
+// +kubebuilder:printcolumn:name="OwnerName",type=string,JSONPath=".spec.ownerName"
 // +kubebuilder:printcolumn:name="Target",type=number,JSONPath=".spec.target"
 // +kubebuilder:printcolumn:name="Timeframe",type=number,JSONPath=".spec.timeframeDays"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
