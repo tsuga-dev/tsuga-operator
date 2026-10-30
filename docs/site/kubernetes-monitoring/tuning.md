@@ -78,6 +78,25 @@ spec:
 
 `agent.healthCheckEndpoint` moves the health check, which defaults to `${env:MY_POD_IP}:13133`. An empty string removes the health check extension and the liveness probe derived from it. The same field exists under `gateway`, `prometheus` and `profiling`.
 
+## Environment, team and service attributes
+
+Set resource attributes per workload on the pod template:
+
+```yaml
+spec:
+  template:
+    metadata:
+      labels:
+        resource.opentelemetry.io/team: payments
+      annotations:
+        resource.opentelemetry.io/deployment.environment.name: production
+```
+
+- Every `resource.opentelemetry.io/<attr>` pod annotation becomes the `<attr>` resource attribute, on every collector.
+- The `resource.opentelemetry.io/team` pod label becomes `team`. Other `resource.opentelemetry.io/` labels are not read; use annotations.
+- Tsuga sets `env` from your ingestion key's tags. Pod labels no longer set it; use `deployment.environment.name` per workload. A `resource.opentelemetry.io/env` annotation is still read like any other.
+- Attributes the application sets itself, for example through `OTEL_RESOURCE_ATTRIBUTES`, win over all of the above. They apply to the telemetry it sends over OTLP; its container logs, kubelet and Prometheus metrics only get the pod's annotations and labels.
+
 ## Extra attributes
 
 Add Kubernetes labels and annotations as resource attributes, and change which metadata `k8s_attributes` extracts:
@@ -101,7 +120,7 @@ spec:
         from: namespace
 ```
 
-- `extraLabelMapping` and `extraAnnotationsMapping` are added to the built-in mappings. `from` is `pod`, `namespace` or `node`, and defaults to `pod`.
+- `extraLabelMapping` and `extraAnnotationsMapping` are added to the built-in mappings. `from` is `pod`, `namespace` or `node`, and defaults to `pod`. On a pod that also carries a `resource.opentelemetry.io/<attr>` annotation for the same attribute, the annotation wins.
 - `k8sAttributes.metadata` replaces the built-in metadata list for the agent, gateway and scraper. The profiler has its own list, `profiling.k8sAttributesMetadata`.
 - Both mapping fields exist under `agent`, `gateway`, `prometheus` and `profiling`.
 

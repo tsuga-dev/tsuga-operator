@@ -36,6 +36,7 @@ The deployed manager reads `api-token` from `tsuga-credentials`. Collection-only
 | Export endpoint | `endpointSecretRef` takes precedence over literal `endpoint`; supply a valid source |
 | Custom components | `extraReceivers`, `extraProcessors`, `extraConnectors`, `extraExtensions`, `extraPipelines` per collector; names that clash with generated ones fail with `RenderFailed`; references to undefined components fail at collector startup. `customConfig` replaces the whole config and ignores every other config field on that collector. See [Custom collector config](../kubernetes-monitoring/custom-config.md) |
 | Resource detection | Off unless `resourceDetection.enabled`; detectors `[env]`, timeout `15s`, `override: false`; applies to the agent, gateway, scraper and profiler. See [Tuning collection](../kubernetes-monitoring/tuning.md) |
+| Pod resource attributes | Every `resource.opentelemetry.io/<attr>` pod annotation becomes `<attr>`; the `resource.opentelemetry.io/team` pod label becomes `team`. See [Tuning collection](../kubernetes-monitoring/tuning.md#environment-team-and-service-attributes) |
 | Redaction | Off unless `redaction.enabled`; agent only, before `batch`; built-in credential rules unless `redaction.config` is set, which replaces them |
 | Secret location | All collection export references resolve in `collectorNamespace` |
 | Scraping | Disabled unless enabled; default interval `30s`, replicas `1` |

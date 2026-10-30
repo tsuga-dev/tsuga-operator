@@ -1015,7 +1015,9 @@ spec:
                       true.
                     type: boolean
                   extraAnnotationsMapping:
-                    description: Appended to the built-in annotation mappings.
+                    description: |-
+                      Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.
@@ -1220,7 +1222,9 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   extraLabelMapping:
-                    description: Appended to the built-in label mappings.
+                    description: |-
+                      Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.
@@ -1700,7 +1704,9 @@ spec:
                       true.
                     type: boolean
                   extraAnnotationsMapping:
-                    description: Appended to the built-in annotation mappings.
+                    description: |-
+                      Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.
@@ -1905,7 +1911,9 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   extraLabelMapping:
-                    description: Appended to the built-in label mappings.
+                    description: |-
+                      Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.
@@ -2195,7 +2203,9 @@ spec:
                       true.
                     type: boolean
                   extraAnnotationsMapping:
-                    description: Appended to the built-in annotation mappings.
+                    description: |-
+                      Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.
@@ -2400,7 +2410,9 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   extraLabelMapping:
-                    description: Appended to the built-in label mappings.
+                    description: |-
+                      Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.
@@ -2676,7 +2688,9 @@ spec:
                       true.
                     type: boolean
                   extraAnnotationsMapping:
-                    description: Appended to the built-in annotation mappings.
+                    description: |-
+                      Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.
@@ -2881,7 +2895,9 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   extraLabelMapping:
-                    description: Appended to the built-in label mappings.
+                    description: |-
+                      Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>`
+                      annotation wins over a mapping to the same attribute.
                     items:
                       description: AttributeMapping maps a Kubernetes label or annotation
                         onto a resource attribute.

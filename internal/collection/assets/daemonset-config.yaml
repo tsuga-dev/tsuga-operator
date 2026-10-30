@@ -154,25 +154,10 @@ processors:
         - container.image.name
         - container.image.tags
       labels:
-        - tag_name: env
-          key: resource.opentelemetry.io/env
-          from: pod
         - tag_name: team
           key: resource.opentelemetry.io/team
           from: pod
-      annotations:
-        - tag_name: service.name
-          key: resource.opentelemetry.io/service.name
-          from: pod
-        - tag_name: service.version
-          key: resource.opentelemetry.io/service.version
-          from: pod
-        - tag_name: env
-          key: resource.opentelemetry.io/env
-          from: pod
-        - tag_name: team
-          key: resource.opentelemetry.io/team
-          from: pod
+      otel_annotations: true
     filter:
       node_from_env_var: K8S_NODE_NAME
     passthrough: false

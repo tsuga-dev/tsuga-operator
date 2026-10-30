@@ -28,13 +28,7 @@ processors:
         - container.image.tags
         - service.name
         - service.version
-      annotations:
-        - tag_name: service.name
-          key: resource.opentelemetry.io/service.name
-          from: pod
-        - tag_name: service.version
-          key: resource.opentelemetry.io/service.version
-          from: pod
+      otel_annotations: true
     filter:
       node_from_env_var: K8S_NODE_NAME
     passthrough: false

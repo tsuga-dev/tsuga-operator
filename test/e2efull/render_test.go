@@ -664,6 +664,9 @@ type renderedEmitterDeployment struct {
 	} `json:"metadata"`
 	Spec struct {
 		Template struct {
+			Metadata struct {
+				Annotations map[string]string `json:"annotations"`
+			} `json:"metadata"`
 			Spec struct {
 				Containers []struct {
 					Image           string `json:"image"`
@@ -691,6 +694,14 @@ func TestRenderEmitterWorkloadProducesValidManifest(t *testing.T) {
 	}
 	if parsed.Metadata.Namespace != "e2e-tier-a" {
 		t.Errorf("want metadata.namespace %q, got %q", "e2e-tier-a", parsed.Metadata.Namespace)
+	}
+	for key, want := range map[string]string{
+		"resource.opentelemetry.io/deployment.environment.name": "e2e-env",
+		"resource.opentelemetry.io/e2e.otel":                    "on",
+	} {
+		if got := parsed.Spec.Template.Metadata.Annotations[key]; got != want {
+			t.Errorf("want annotation %s=%q, got %q", key, want, got)
+		}
 	}
 
 	if len(parsed.Spec.Template.Spec.Containers) != 1 {

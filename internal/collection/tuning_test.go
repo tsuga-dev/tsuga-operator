@@ -116,12 +116,32 @@ func TestExtraMappingsAppend(t *testing.T) {
 	if got := labels[len(labels)-1]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("agent last label = %v", got)
 	}
-	if len(labels) < 3 || labels[0].(map[string]interface{})["tag_name"] != "env" || labels[1].(map[string]interface{})["tag_name"] != "team" {
+	if len(labels) < 2 || labels[0].(map[string]interface{})["tag_name"] != "team" {
 		t.Fatalf("built-in labels lost: %v", labels)
 	}
 	annotations := configField(t, collectorConfig(t, cfg, gatewayName), "processors", "k8s_attributes", "extract", "annotations").([]interface{})
 	if got := annotations[len(annotations)-1]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("gateway last annotation = %v", got)
+	}
+}
+
+func TestOtelAnnotationsReplaceBuiltInMappings(t *testing.T) {
+	cfg := allCollectorsOn()
+	team := []interface{}{map[string]interface{}{"tag_name": "team", "key": "resource.opentelemetry.io/team", "from": "pod"}}
+	for _, name := range []string{agentName, gatewayName, scraperName, profilerName} {
+		config := collectorConfig(t, cfg, name)
+		if got := configField(t, config, "processors", "k8s_attributes", "extract", "otel_annotations"); got != true {
+			t.Errorf("%s otel_annotations = %v", name, got)
+		}
+		if got := configField(t, config, "processors", "k8s_attributes", "extract", "annotations"); got != nil {
+			t.Errorf("%s built-in annotations = %v", name, got)
+		}
+		if name == profilerName {
+			continue
+		}
+		if got := configField(t, config, "processors", "k8s_attributes", "extract", "labels"); !reflect.DeepEqual(got, team) {
+			t.Errorf("%s labels = %v", name, got)
+		}
 	}
 }
 

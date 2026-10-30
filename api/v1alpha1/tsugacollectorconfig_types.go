@@ -208,10 +208,12 @@ type CollectorTuning struct {
 	// the liveness probe the OTel Operator derives from it.
 	// +optional
 	HealthCheckEndpoint *string `json:"healthCheckEndpoint,omitempty"`
-	// Appended to the built-in label mappings.
+	// Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>`
+	// annotation wins over a mapping to the same attribute.
 	// +optional
 	ExtraLabelMapping []AttributeMapping `json:"extraLabelMapping,omitempty"`
-	// Appended to the built-in annotation mappings.
+	// Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>`
+	// annotation wins over a mapping to the same attribute.
 	// +optional
 	ExtraAnnotationsMapping []AttributeMapping `json:"extraAnnotationsMapping,omitempty"`
 	// Send this collector's telemetry to Tsuga. Unset means true.

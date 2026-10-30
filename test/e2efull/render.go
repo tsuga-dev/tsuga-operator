@@ -416,7 +416,8 @@ spec:
 // Tier A's telemetry, pointed at the agent collector's in-cluster Service on
 // otlpHTTPPort: 4318 by default, the kitchen sink's custom port for it.
 // The e2e-label label and e2e-annotation annotation feed the kitchen sink's
-// extraLabelMapping and extraAnnotationsMapping.
+// extraLabelMapping and extraAnnotationsMapping; the resource.opentelemetry.io
+// annotations feed k8s_attributes' otel_annotations.
 //
 //nolint:unparam // every caller runs it in Tier A's namespace today; the namespace keeps the manifest self-describing
 func renderEmitterWorkload(namespace, serviceName, collectorNamespace string, otlpHTTPPort int) string {
@@ -437,6 +438,8 @@ spec:
         e2e-label: lbl
       annotations:
         e2e-annotation: ann
+        resource.opentelemetry.io/deployment.environment.name: e2e-env
+        resource.opentelemetry.io/e2e.otel: "on"
     spec:
       containers:
         - name: emitter

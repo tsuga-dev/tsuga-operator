@@ -212,6 +212,10 @@ var kitchenSinkChecks = []kitchenSinkCheck{
 		logs(`e2e.extra.gw:"added"`, present),
 		metric(promFixtureMetric, `e2e.extra.scraper:"added"`, present),
 	}},
+	{feature: "maps semantic-convention resource attributes", queries: []signalQuery{
+		spans(`context.deployment.environment.name:"e2e-env"`, present),
+		spans(`context.e2e.otel:"on"`, present),
+	}},
 	{feature: "receives OTLP on the custom endpoint", queries: []signalQuery{
 		spans(`context.service.name:"`+kitchenSinkEmitterName+`"`, present),
 	}},

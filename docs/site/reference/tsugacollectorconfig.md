@@ -123,7 +123,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.agent.customConfig` | object | No | — | The collector's entire config. Replaces the generated one; every other tuning, export, enrichment and extra setting on this collector is ignored, except exportToTsuga, which still controls the Tsuga env vars. `__TSUGA_ENDPOINT__`, `__CLUSTER_NAME__` and `__SCRAPE_INTERVAL__` are substituted. The operator does not validate it. Opaque JSON; validated by Tsuga |
 | `spec.agent.enabled` | boolean | No | `true` | Render the node agent. Auto-instrumentation and database monitoring send through it, so they report AgentDisabled when it is off.  |
 | `spec.agent.exportToTsuga` | boolean | No | — | Send this collector's telemetry to Tsuga. Unset means true.  |
-| `spec.agent.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings.  |
+| `spec.agent.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.agent.extraAnnotationsMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.agent.extraAnnotationsMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.agent.extraAnnotationsMapping[].tagName` | string | Yes | — | — minLength: `1` |
@@ -154,7 +154,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.agent.extraEnvs[].valueFrom.secretKeyRef.optional` | boolean | No | — | Specify whether the Secret or its key must be defined  |
 | `spec.agent.extraExporters` | object | No | — | Exporters added to this collector's config, keyed by component name (for example otlp_http/backup). Passed to the collector as written. Opaque JSON; validated by Tsuga |
 | `spec.agent.extraExtensions` | object | No | — | Extensions added to this collector's config, keyed by component name. A name the collector already defines is a render error. Opaque JSON; validated by Tsuga |
-| `spec.agent.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings.  |
+| `spec.agent.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.agent.extraLabelMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.agent.extraLabelMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.agent.extraLabelMapping[].tagName` | string | Yes | — | — minLength: `1` |
@@ -243,7 +243,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.gateway.collectionInterval` | string | No | — | — pattern: `"^[0-9]+(ms&#124;s&#124;m&#124;h)$"` |
 | `spec.gateway.customConfig` | object | No | — | The collector's entire config. Replaces the generated one; every other tuning, export, enrichment and extra setting on this collector is ignored, except exportToTsuga, which still controls the Tsuga env vars. `__TSUGA_ENDPOINT__`, `__CLUSTER_NAME__` and `__SCRAPE_INTERVAL__` are substituted. The operator does not validate it. Opaque JSON; validated by Tsuga |
 | `spec.gateway.exportToTsuga` | boolean | No | — | Send this collector's telemetry to Tsuga. Unset means true.  |
-| `spec.gateway.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings.  |
+| `spec.gateway.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.gateway.extraAnnotationsMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.gateway.extraAnnotationsMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.gateway.extraAnnotationsMapping[].tagName` | string | Yes | — | — minLength: `1` |
@@ -274,7 +274,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.gateway.extraEnvs[].valueFrom.secretKeyRef.optional` | boolean | No | — | Specify whether the Secret or its key must be defined  |
 | `spec.gateway.extraExporters` | object | No | — | Exporters added to this collector's config, keyed by component name (for example otlp_http/backup). Passed to the collector as written. Opaque JSON; validated by Tsuga |
 | `spec.gateway.extraExtensions` | object | No | — | Extensions added to this collector's config, keyed by component name. A name the collector already defines is a render error. Opaque JSON; validated by Tsuga |
-| `spec.gateway.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings.  |
+| `spec.gateway.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.gateway.extraLabelMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.gateway.extraLabelMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.gateway.extraLabelMapping[].tagName` | string | Yes | — | — minLength: `1` |
@@ -323,7 +323,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.profiling.customConfig` | object | No | — | The collector's entire config. Replaces the generated one; every other tuning, export, enrichment and extra setting on this collector is ignored, except exportToTsuga, which still controls the Tsuga env vars. `__TSUGA_ENDPOINT__`, `__CLUSTER_NAME__` and `__SCRAPE_INTERVAL__` are substituted. The operator does not validate it. Opaque JSON; validated by Tsuga |
 | `spec.profiling.enabled` | boolean | No | `false` | Enabled renders the profiling collector. Off by default because it runs privileged on every node.  |
 | `spec.profiling.exportToTsuga` | boolean | No | — | Send this collector's telemetry to Tsuga. Unset means true.  |
-| `spec.profiling.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings.  |
+| `spec.profiling.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.profiling.extraAnnotationsMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.profiling.extraAnnotationsMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.profiling.extraAnnotationsMapping[].tagName` | string | Yes | — | — minLength: `1` |
@@ -354,7 +354,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.profiling.extraEnvs[].valueFrom.secretKeyRef.optional` | boolean | No | — | Specify whether the Secret or its key must be defined  |
 | `spec.profiling.extraExporters` | object | No | — | Exporters added to this collector's config, keyed by component name (for example otlp_http/backup). Passed to the collector as written. Opaque JSON; validated by Tsuga |
 | `spec.profiling.extraExtensions` | object | No | — | Extensions added to this collector's config, keyed by component name. A name the collector already defines is a render error. Opaque JSON; validated by Tsuga |
-| `spec.profiling.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings.  |
+| `spec.profiling.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.profiling.extraLabelMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.profiling.extraLabelMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.profiling.extraLabelMapping[].tagName` | string | Yes | — | — minLength: `1` |
@@ -400,7 +400,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.prometheus.customConfig` | object | No | — | The collector's entire config. Replaces the generated one; every other tuning, export, enrichment and extra setting on this collector is ignored, except exportToTsuga, which still controls the Tsuga env vars. `__TSUGA_ENDPOINT__`, `__CLUSTER_NAME__` and `__SCRAPE_INTERVAL__` are substituted. The operator does not validate it. Opaque JSON; validated by Tsuga |
 | `spec.prometheus.enabled` | boolean | No | `false` | Enabled renders the scraper collector. Off by default: annotation scraping can add substantial cardinality on a cluster dense in annotated pods, so it is opted into deliberately.  |
 | `spec.prometheus.exportToTsuga` | boolean | No | — | Send this collector's telemetry to Tsuga. Unset means true.  |
-| `spec.prometheus.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings.  |
+| `spec.prometheus.extraAnnotationsMapping` | array of object | No | — | Appended to the built-in annotation mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.prometheus.extraAnnotationsMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.prometheus.extraAnnotationsMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.prometheus.extraAnnotationsMapping[].tagName` | string | Yes | — | — minLength: `1` |
@@ -431,7 +431,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.prometheus.extraEnvs[].valueFrom.secretKeyRef.optional` | boolean | No | — | Specify whether the Secret or its key must be defined  |
 | `spec.prometheus.extraExporters` | object | No | — | Exporters added to this collector's config, keyed by component name (for example otlp_http/backup). Passed to the collector as written. Opaque JSON; validated by Tsuga |
 | `spec.prometheus.extraExtensions` | object | No | — | Extensions added to this collector's config, keyed by component name. A name the collector already defines is a render error. Opaque JSON; validated by Tsuga |
-| `spec.prometheus.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings.  |
+| `spec.prometheus.extraLabelMapping` | array of object | No | — | Appended to the built-in label mappings. A `resource.opentelemetry.io/<attr>` annotation wins over a mapping to the same attribute.  |
 | `spec.prometheus.extraLabelMapping[].from` | string | No | — | Defaults to pod. enum: `["pod", "namespace", "node"]` |
 | `spec.prometheus.extraLabelMapping[].key` | string | Yes | — | — minLength: `1` |
 | `spec.prometheus.extraLabelMapping[].tagName` | string | Yes | — | — minLength: `1` |
