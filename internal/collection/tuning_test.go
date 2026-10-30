@@ -699,3 +699,116 @@ func TestRedactionDeleteEverythingFails(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestAnnotationDiscoveryResolvedDefault(t *testing.T) {
+	cases := []struct {
+		name string
+		set  *bool
+		cr   bool
+		want bool
+	}{
+		{"unset without prometheusCR", nil, false, true},
+		{"unset with prometheusCR", nil, true, false},
+		{"explicit true with prometheusCR", ptr.To(true), true, true},
+		{"explicit false", ptr.To(false), false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := v1alpha1.PrometheusSpec{AnnotationDiscovery: tc.set, PrometheusCR: v1alpha1.PrometheusCRSpec{Enabled: tc.cr}}
+			if got := annotationDiscovery(p); got != tc.want {
+				t.Errorf("annotationDiscovery = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func effectiveNodeLocal() v1alpha1.TsugaCollectorConfigSpec {
+	cfg := effectiveWithPrometheus()
+	cfg.Prometheus.NodeLocal = ptr.To(true)
+	return cfg
+}
+
+func renderedNames(t *testing.T, cfg v1alpha1.TsugaCollectorConfigSpec) []string {
+	t.Helper()
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(objs))
+	for _, o := range objs {
+		names = append(names, o.GetName())
+	}
+	return names
+}
+
+func TestNodeLocalAddsAnnotationJobToAgent(t *testing.T) {
+	cfg := effectiveNodeLocal()
+	agent := collectorConfig(t, cfg, agentName)
+	jobs := sliceOf(configField(t, agent, "receivers", "prometheus", "config", "scrape_configs"))
+	if len(jobs) != 1 {
+		t.Fatalf("agent scrape jobs = %v", jobs)
+	}
+	job := jobs[0].(map[string]interface{})
+	if job["job_name"] != "tsuga-pod-annotations" || job["scrape_interval"] != "45s" {
+		t.Fatalf("job = %v", job)
+	}
+	sd := sliceOf(job["kubernetes_sd_configs"])[0].(map[string]interface{})
+	want := []interface{}{map[string]interface{}{"role": "pod", "field": "spec.nodeName=${env:K8S_NODE_NAME}"}}
+	if !reflect.DeepEqual(sd["selectors"], want) {
+		t.Fatalf("selectors = %v", sd["selectors"])
+	}
+	var scraper map[string]interface{}
+	if err := yaml.Unmarshal([]byte(substitute(assets.ScraperConfig, cfg)), &scraper); err != nil {
+		t.Fatal(err)
+	}
+	scraperJob := sliceOf(configField(t, scraper, "receivers", "prometheus", "config", "scrape_configs"))[0].(map[string]interface{})
+	if !reflect.DeepEqual(job["relabel_configs"], scraperJob["relabel_configs"]) {
+		t.Fatal("agent relabel_configs differ from the scraper's")
+	}
+	receivers := sliceOf(configField(t, agent, "service", "pipelines", "metrics", "receivers"))
+	if !slices.Contains(receivers, interface{}("prometheus")) {
+		t.Fatalf("metrics receivers = %v", receivers)
+	}
+}
+
+func TestNodeLocalWithoutPrometheusCRRendersNoScraper(t *testing.T) {
+	names := renderedNames(t, effectiveNodeLocal())
+	if slices.Contains(names, scraperName) || slices.Contains(names, targetAllocatorName) {
+		t.Fatalf("rendered %v", names)
+	}
+}
+
+func TestNodeLocalWithPrometheusCRScraperUsesPlaceholder(t *testing.T) {
+	cfg := withPrometheusCR(effectiveNodeLocal())
+	cfg.Prometheus.TargetAllocator.Enabled = true
+	if got := scrapeJobNames(t, cfg); !slices.Equal(got, []string{"tsuga-placeholder"}) {
+		t.Fatalf("scraper jobs = %v", got)
+	}
+	if !slices.Contains(renderedNames(t, cfg), targetAllocatorName) {
+		t.Fatal("no TargetAllocator rendered")
+	}
+	agent := collectorConfig(t, cfg, agentName)
+	if configField(t, agent, "receivers", "prometheus") == nil {
+		t.Fatal("agent has no prometheus receiver with prometheusCR on and annotationDiscovery unset")
+	}
+}
+
+func TestNodeLocalOffLeavesAgentUnchanged(t *testing.T) {
+	disabled := effectiveNodeLocal()
+	disabled.Prometheus.Enabled = false
+	for name, cfg := range map[string]v1alpha1.TsugaCollectorConfigSpec{
+		"nodeLocal unset":     effectiveWithPrometheus(),
+		"prometheus disabled": disabled,
+	} {
+		if configField(t, collectorConfig(t, cfg, agentName), "receivers", "prometheus") != nil {
+			t.Errorf("%s: agent has a prometheus receiver", name)
+		}
+	}
+}
+
+func TestAddNodeLocalScrapeWithoutMetricsPipeline(t *testing.T) {
+	c := map[string]interface{}{"service": map[string]interface{}{"pipelines": map[string]interface{}{}}}
+	if err := addNodeLocalScrape(c, effectiveNodeLocal()); err == nil {
+		t.Fatal("expected an error without a metrics pipeline")
+	}
+}

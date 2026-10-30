@@ -139,6 +139,7 @@ var _ = Describe("tsuga-operator", Ordered, ContinueOnFailure, func() {
 	tierAKitchenSinkSpecs()
 	tierAServiceAccountSpecs()
 	tierAConflictingTuningSpecs()
+	tierANodeLocalSpecs()
 	tierBSpecs()
 	tierPostgresSpecs()
 })

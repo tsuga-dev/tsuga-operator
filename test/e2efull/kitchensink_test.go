@@ -543,3 +543,59 @@ func assertKitchenSinkQuery(q signalQuery, cluster, baseline string) {
 			absenceWindow, signalPollInterval).Should(BeZero(), "%s should not reach Tsuga for %s", q, cluster)
 	}
 }
+
+// tierANodeLocalSpecs registers the scenario where the agent scrapes
+// annotated pods on its own node and no tsuga-scraper is rendered.
+func tierANodeLocalSpecs() {
+	Describe("Tier A: node-local scraping", Ordered, Label("tier-a", "node-local"), func() {
+		cluster := runID + "-" + nodeLocalSuffix
+		promApp := renderPromApp(tierANamespace)
+		var config string
+
+		BeforeAll(func() {
+			Expect(applyNamespace(tierANamespace)).To(Succeed())
+			config = renderNodeLocalConfig(cluster, cli.Config().OTLPEndpoint, operatorNS)
+			Expect(applyYAML(config)).To(Succeed())
+			Expect(applyYAML(promApp)).To(Succeed())
+
+			By("waiting for the CR and the agent to be ready")
+			Expect(waitForCRPhase("tsugacollectorconfig", "", collectorConfigName,
+				"Ready", collectorTimeout)).To(Succeed())
+			Expect(waitForCollectorReady(operatorNS, "tsuga-agent", collectorTimeout)).To(Succeed())
+			_, err := kubectl("wait", "--for=condition=Available", "-n", tierANamespace,
+				"deploy/prom-app", "--timeout=120s")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterAll(func() {
+			_ = deleteYAML(promApp)
+			if config != "" {
+				_ = deleteYAML(config)
+			}
+			Expect(waitForCollectorsGone(operatorNS, 90*time.Second)).To(Succeed())
+		})
+
+		It("renders no tsuga-scraper", func() {
+			Eventually(func() (string, error) {
+				return kubectlStdout("get", "opentelemetrycollector", "tsuga-scraper", "-n", operatorNS,
+					"--ignore-not-found", "-o", "name")
+			}, collectorTimeout, 2*time.Second).Should(BeEmpty())
+		})
+
+		It("scrapes the annotated pod from the agent on its node, enriched", func() {
+			node, err := kubectlStdout("get", "pods", "-n", tierANamespace, "-l", "app=prom-app",
+				"-o", "jsonpath={.items[0].spec.nodeName}")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(node).NotTo(BeEmpty())
+			filter := annotationScrapeJob + ` AND context.k8s.deployment.name:"prom-app"` +
+				` AND context.k8s.node.name:"` + node + `"`
+			Eventually(func() (int, error) {
+				return cli.CountMetricSeriesWhere(promFixtureMetric, cluster, filter, nodeLocalWindow)
+			}, ingestTimeout(), signalPollInterval).Should(BeNumerically(">", 0),
+				"%s with %s should have reached Tsuga for %s", promFixtureMetric, filter, cluster)
+		})
+	})
+}
+
+// nodeLocalWindow is the window every node-local query reads.
+const nodeLocalWindow = "-15m"

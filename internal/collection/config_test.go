@@ -45,14 +45,14 @@ func TestResolveCollectorKeepsExplicitPrometheus(t *testing.T) {
 			Replicas:       3,
 			TargetAllocator: v1alpha1.TargetAllocatorSpec{
 				Enabled:            true,
-				AllocationStrategy: "per-node",
+				AllocationStrategy: "least-weighted",
 			},
 		},
 	})
 	if !got.Prometheus.Enabled || got.Prometheus.ScrapeInterval != "60s" || got.Prometheus.Replicas != 3 {
 		t.Fatalf("explicit prometheus values overwritten: %+v", got.Prometheus)
 	}
-	if !got.Prometheus.TargetAllocator.Enabled || got.Prometheus.TargetAllocator.AllocationStrategy != "per-node" {
+	if !got.Prometheus.TargetAllocator.Enabled || got.Prometheus.TargetAllocator.AllocationStrategy != "least-weighted" {
 		t.Fatalf("explicit target allocator values overwritten: %+v", got.Prometheus.TargetAllocator)
 	}
 }

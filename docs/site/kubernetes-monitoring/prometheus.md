@@ -39,7 +39,37 @@ kubectl -n tsuga-operator-system get targetallocator tsuga-scraper-ta
 kubectl -n tsuga-operator-system get statefulsets,pods
 ```
 
-The CRD rejects more than one replica without the allocator. The default allocation strategy is `consistent-hashing`; `least-weighted` and `per-node` are also accepted. `per-node` excludes targets that cannot resolve to a node, so choose it deliberately.
+The CRD rejects more than one replica without the allocator. The default allocation strategy is `consistent-hashing`; `least-weighted` is also accepted. The CRD rejects `per-node`: it only assigns targets on nodes that run a scraper replica, and `tsuga-scraper` is a StatefulSet on a few nodes, so most targets would go unscraped. For one scraper per node, use [node-local scraping](#scrape-on-each-node).
+
+Each replica change moves targets between replicas, and every moved series loses one datapoint while the new replica builds its delta state.
+
+## Scrape on each node
+
+Set `prometheus.nodeLocal: true` to scrape annotated pods from the `tsuga-agent` DaemonSet instead of `tsuga-scraper`. Each agent scrapes only pods on its own node, so every target is scraped exactly once, with no Target Allocator and no single scraper pod for the whole cluster.
+
+```yaml
+spec:
+  prometheus:
+    enabled: true
+    nodeLocal: true
+```
+
+Without `prometheusCR`, the operator then deletes `tsuga-scraper`. With `prometheusCR`, `tsuga-scraper` keeps scraping ServiceMonitors and PodMonitors, and the agent scrapes annotations. The job keeps its name, `tsuga-pod-annotations`, so queries on `service.name` still match.
+
+Requirements and effects:
+
+- The agent must be enabled with `agent.metrics` on, and `agent.customConfig` unset; the CRD rejects the other combinations. `annotationDiscovery: false` is rejected too. An agent `extraReceivers` entry named `prometheus` clashes with the generated receiver and gives `Ready=False` with reason `RenderFailed`; rename it.
+- Annotation metrics go through the agent's metrics pipeline: `agent.extraProcessors`, `agent.pipelineProcessors`, `agent.pipelineExporters`, `agent.exportToTsuga`, `resourceDetection` and redaction apply. `prometheus.resources`, `prometheus.extra*`, `prometheus.replicas` and `prometheus.targetAllocator` apply only to monitor scraping.
+- Scrape memory moves to the agent. Raise `agent.resources` by what `tsuga-scraper` used, divided across nodes. A burst of series from one app counts against the agent's memory limit on that node, which also carries its logs and traces.
+- Pods on nodes without an agent pod are not scraped, for example EKS Fargate, or tainted nodes the agent does not tolerate. Check `agent.tolerations`.
+- NetworkPolicies that admit `tsuga-scraper` to a metrics port must admit `tsuga-agent` instead. With `agent.hostNetwork: true` the scrape comes from the node IP, so a `podSelector` does not match it; allow the node CIDR with an `ipBlock`, or rely on your CNI's node-to-local-pod rule.
+- When you switch, `tsuga-scraper` is deleted right away while agent pods roll node by node, so each node has a short scrape gap, and each series loses one datapoint.
+
+## Avoid scraping a pod twice
+
+A pod with `prometheus.io/scrape: "true"` that is also selected by a ServiceMonitor or PodMonitor is scraped by both jobs. Tsuga receives two copies of each series under different `service.name` values, and sums over the metric count it twice.
+
+When `prometheusCR.enabled` is on and `annotationDiscovery` is unset, `tsuga-scraper` scrapes only monitors. With `nodeLocal: true` the agent still scrapes annotated pods, and `annotationDiscovery: false` is rejected, so do not annotate pods that a monitor selects. To use both discovery paths, set `annotationDiscovery: true` and make sure no pod is both annotated and selected by a monitor. Configs created with an earlier operator version that had a `prometheus` block have `annotationDiscovery: true` stored, so they keep both jobs until you change it. A `prometheus.customConfig` is used as written, so keep the `tsuga-pod-annotations` job out of it if you need monitors only.
 
 `scrapeInterval` controls each target's scrape frequency. The upstream operator manages the allocator polling interval.
 
@@ -67,9 +97,9 @@ spec:
 
 An unset or empty selector matches every monitor of that kind. `podMonitorSelector`, `serviceMonitorNamespaceSelector`, `podMonitorNamespaceSelector`, `allowNamespaces`, `denyNamespaces` and `scrapeInterval` (the default for monitors that set none) narrow discovery further.
 
-Annotation discovery and monitor discovery run together by default. Set `prometheus.annotationDiscovery: false` to scrape only monitors. The scraper then renders a placeholder job, `tsuga-placeholder`, that scrapes the collector's own `localhost:8888`; it exists only to keep the config valid and reports an `up=0` series. The CRD rejects a scraper with annotation discovery off and `prometheusCR` off.
+With `prometheusCR.enabled`, `tsuga-scraper` does not scrape annotated pods unless `prometheus.annotationDiscovery: true` is set; with `nodeLocal: true` the agent scrapes them instead (see [Avoid scraping a pod twice](#avoid-scraping-a-pod-twice)). When `tsuga-scraper` scrapes only monitors (annotation discovery off, or `nodeLocal` on), it renders a placeholder job, `tsuga-placeholder`, that scrapes the collector's own `localhost:8888`; it exists only to keep the config valid and reports an `up=0` series. The CRD rejects a scraper with annotation discovery off and `prometheusCR` off.
 
-If the CRDs are missing, the config reports the condition `PrometheusOperatorCRDsMissing` and annotation scraping and the rest of collection keep working. The operator rechecks every 5 minutes while the CRDs are missing, so the condition clears within about 5 minutes of installing them. After installing the CRDs, restart the Target Allocator Deployment, `tsuga-scraper-ta-targetallocator` (`kubectl -n tsuga-operator-system rollout restart deployment tsuga-scraper-ta-targetallocator`): it starts without the monitor informers and does not recheck until restarted. The condition is raised only when both the `ServiceMonitor` and `PodMonitor` kinds are missing. Status `phase` stays `Ready` in that state, so check the Ready condition, not the phase.
+If the CRDs are missing, the config reports the condition `PrometheusOperatorCRDsMissing` and the rest of collection keeps working. Annotated pods are still scraped only when `annotationDiscovery: true` or `nodeLocal: true` is set; otherwise nothing is scraped until the CRDs are installed. The operator rechecks every 5 minutes while the CRDs are missing, so the condition clears within about 5 minutes of installing them. After installing the CRDs, restart the Target Allocator Deployment, `tsuga-scraper-ta-targetallocator` (`kubectl -n tsuga-operator-system rollout restart deployment tsuga-scraper-ta-targetallocator`): it starts without the monitor informers and does not recheck until restarted. The condition is raised only when both the `ServiceMonitor` and `PodMonitor` kinds are missing. Status `phase` stays `Ready` in that state, so check the Ready condition, not the phase.
 
 The manager's ClusterRole needs `get`, `list`, `watch` on `monitoring.coreos.com` `servicemonitors`, `podmonitors`, `probes` and `scrapeconfigs`, and on `secrets`, plus `roles` and `rolebindings` management. With `rbac.create` on, the operator grants the scraper's ServiceAccount the same monitoring access in its ClusterRole, and Secret read only in `collectorNamespace` through a Role and RoleBinding named `tsuga-operator-collector-tsuga-scraper`.
 

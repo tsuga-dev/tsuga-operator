@@ -60,6 +60,11 @@ func tuneAgentConfig(c map[string]interface{}, cfg v1alpha1.TsugaCollectorConfig
 	if err := tuneSpanMetrics(c, a.SpanMetrics); err != nil {
 		return err
 	}
+	if nodeLocal(cfg.Prometheus) {
+		if err := addNodeLocalScrape(c, cfg); err != nil {
+			return err
+		}
+	}
 	pruneUnreferencedReceivers(c)
 	tuneExport(c, a.CollectorTuning, cfg.Export, false)
 	return nil
@@ -223,10 +228,35 @@ func tuneGatewayConfig(c map[string]interface{}, cfg v1alpha1.TsugaCollectorConf
 	return nil
 }
 
+// addNodeLocalScrape copies the scraper's annotation job into the agent's
+// metrics pipeline, limited to pods on the agent's own node.
+func addNodeLocalScrape(c map[string]interface{}, cfg v1alpha1.TsugaCollectorConfigSpec) error {
+	var scraper map[string]interface{}
+	if err := yaml.Unmarshal([]byte(substitute(assets.ScraperConfig, cfg)), &scraper); err != nil {
+		return fmt.Errorf("parse %s config: %w", scraperName, err)
+	}
+	receiver := nestedMap(nestedMap(scraper, "receivers"), "prometheus")
+	for _, job := range sliceOf(nestedMap(receiver, "config")["scrape_configs"]) {
+		for _, sd := range sliceOf(job.(map[string]interface{})["kubernetes_sd_configs"]) {
+			sd.(map[string]interface{})["selectors"] = []interface{}{
+				map[string]interface{}{"role": "pod", "field": "spec.nodeName=${env:K8S_NODE_NAME}"},
+			}
+		}
+	}
+	pipelines, _ := asMap(pipelinesOf(c))
+	metrics, ok := asMap(pipelines["metrics"])
+	if !ok {
+		return errors.New("prometheus.nodeLocal needs the agent's metrics pipeline")
+	}
+	nestedMap(c, "receivers")["prometheus"] = receiver
+	metrics["receivers"] = append(sliceOf(metrics["receivers"]), "prometheus")
+	return nil
+}
+
 func tuneScraperConfig(c map[string]interface{}, cfg v1alpha1.TsugaCollectorConfigSpec) error {
 	tuneShared(c, cfg.Prometheus.CollectorTuning, cfg, false)
 	tuneExport(c, cfg.Prometheus.CollectorTuning, cfg.Export, false)
-	if ptr.Deref(cfg.Prometheus.AnnotationDiscovery, true) {
+	if annotationDiscovery(cfg.Prometheus) && !nodeLocal(cfg.Prometheus) {
 		return nil
 	}
 	// The OTel Operator moves scrape configs to the Target Allocator only when
@@ -456,6 +486,24 @@ func asMapOrEmpty(v interface{}) map[string]interface{} {
 // AgentEnabled reports whether the node agent is rendered.
 func AgentEnabled(cfg v1alpha1.TsugaCollectorConfigSpec) bool {
 	return ptr.Deref(cfg.Agent.Enabled, true)
+}
+
+// annotationDiscovery defaults to off when prometheusCR is on, so pods that
+// also have a monitor are not scraped by both jobs.
+func annotationDiscovery(p v1alpha1.PrometheusSpec) bool {
+	return ptr.Deref(p.AnnotationDiscovery, !p.PrometheusCR.Enabled)
+}
+
+// nodeLocal moves annotation scraping to the agent. It is an explicit request
+// for annotation scraping, so annotationDiscovery's default does not apply.
+func nodeLocal(p v1alpha1.PrometheusSpec) bool {
+	return p.Enabled && ptr.Deref(p.NodeLocal, false)
+}
+
+// scraperEnabled is false when the agent scrapes annotations and no monitors
+// are discovered, leaving tsuga-scraper nothing to do.
+func scraperEnabled(p v1alpha1.PrometheusSpec) bool {
+	return p.Enabled && (!nodeLocal(p) || p.PrometheusCR.Enabled)
 }
 
 // AgentOTLPPort returns the port the agent's OTLP receiver for protocol

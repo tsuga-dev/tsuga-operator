@@ -40,7 +40,8 @@ The deployed manager reads `api-token` from `tsuga-credentials`. Collection-only
 | Secret location | All collection export references resolve in `collectorNamespace` |
 | Scraping | Disabled unless enabled; default interval `30s`, replicas `1` |
 | Target allocation | Disabled by default; default strategy `consistent-hashing` |
-| Annotation discovery | On by default (`prometheus.annotationDiscovery`); scrapes pods with `prometheus.io/scrape: "true"` |
+| Annotation discovery | On by default (`prometheus.annotationDiscovery`), off by default when `prometheusCR.enabled` is on; scrapes pods with `prometheus.io/scrape: "true"` |
+| Node-local scraping | Off by default (`prometheus.nodeLocal`); the agent scrapes annotated pods on its own node instead of `tsuga-scraper` |
 | Prometheus Operator discovery | Off by default (`prometheus.prometheusCR.enabled`); requires `prometheus.targetAllocator.enabled` and the Prometheus Operator CRDs |
 | Agent OTLP endpoints | `${env:MY_POD_IP}:4317` (gRPC), `${env:MY_POD_IP}:4318` (HTTP); `""` disables a protocol |
 | Health check | `${env:MY_POD_IP}:13133` on every collector; `healthCheckEndpoint: ""` removes it |

@@ -57,6 +57,83 @@ var _ = Describe("TsugaCollectorConfig prometheus validation", func() {
 		Expect(k8sClient.Create(context.Background(), cc)).To(Succeed())
 		DeferCleanup(func() { Expect(k8sClient.Delete(context.Background(), cc)).To(Succeed()) })
 	})
+	It("rejects nodeLocal with the agent disabled", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{Enabled: true, NodeLocal: ptr.To(true)})
+		cc.Spec.Agent.Enabled = ptr.To(false)
+		err := k8sClient.Create(context.Background(), cc)
+		Expect(err).To(MatchError(ContainSubstring("prometheus.nodeLocal requires agent.enabled and agent.metrics")))
+	})
+
+	It("rejects nodeLocal with agent metrics off", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{Enabled: true, NodeLocal: ptr.To(true)})
+		cc.Spec.Agent.Metrics = false
+		err := k8sClient.Create(context.Background(), cc)
+		Expect(err).To(MatchError(ContainSubstring("prometheus.nodeLocal requires agent.enabled and agent.metrics")))
+	})
+
+	It("accepts nodeLocal while the scraper is disabled, whatever the agent", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{
+			Enabled:             false,
+			NodeLocal:           ptr.To(true),
+			AnnotationDiscovery: ptr.To(false),
+		})
+		cc.Spec.Agent.Metrics = false
+		Expect(k8sClient.Create(context.Background(), cc)).To(Succeed())
+		DeferCleanup(func() { Expect(k8sClient.Delete(context.Background(), cc)).To(Succeed()) })
+	})
+
+	It("rejects nodeLocal with annotationDiscovery false", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{
+			Enabled:             true,
+			NodeLocal:           ptr.To(true),
+			AnnotationDiscovery: ptr.To(false),
+			TargetAllocator:     v1alpha1.TargetAllocatorSpec{Enabled: true},
+			PrometheusCR:        v1alpha1.PrometheusCRSpec{Enabled: true},
+		})
+		err := k8sClient.Create(context.Background(), cc)
+		Expect(err).To(MatchError(ContainSubstring("prometheus.nodeLocal scrapes pod annotations")))
+	})
+
+	It("rejects nodeLocal with an agent customConfig", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{Enabled: true, NodeLocal: ptr.To(true)})
+		cc.Spec.Agent.CustomConfig = &apiextensionsv1.JSON{Raw: []byte(`{"service":{"pipelines":{}}}`)}
+		err := k8sClient.Create(context.Background(), cc)
+		Expect(err).To(MatchError(ContainSubstring("prometheus.nodeLocal cannot be applied to an agent customConfig")))
+	})
+
+	It("rejects the per-node allocation strategy", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{
+			Enabled:         true,
+			TargetAllocator: v1alpha1.TargetAllocatorSpec{Enabled: true, AllocationStrategy: "per-node"},
+		})
+		err := k8sClient.Create(context.Background(), cc)
+		Expect(err).To(MatchError(ContainSubstring(`Unsupported value: "per-node"`)))
+	})
+
+	It("accepts nodeLocal with prometheusCR", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{
+			Enabled:         true,
+			NodeLocal:       ptr.To(true),
+			TargetAllocator: v1alpha1.TargetAllocatorSpec{Enabled: true},
+			PrometheusCR:    v1alpha1.PrometheusCRSpec{Enabled: true},
+		})
+		Expect(k8sClient.Create(context.Background(), cc)).To(Succeed())
+		DeferCleanup(func() { Expect(k8sClient.Delete(context.Background(), cc)).To(Succeed()) })
+	})
+
+	It("leaves annotationDiscovery unset when not given", func() {
+		cc := newConfig(v1alpha1.PrometheusSpec{
+			Enabled:         true,
+			TargetAllocator: v1alpha1.TargetAllocatorSpec{Enabled: true},
+			PrometheusCR:    v1alpha1.PrometheusCRSpec{Enabled: true},
+		})
+		Expect(k8sClient.Create(context.Background(), cc)).To(Succeed())
+		DeferCleanup(func() { Expect(k8sClient.Delete(context.Background(), cc)).To(Succeed()) })
+		got := &v1alpha1.TsugaCollectorConfig{}
+		Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cc), got)).To(Succeed())
+		Expect(got.Spec.Prometheus.AnnotationDiscovery).To(BeNil())
+	})
+
 	It("rejects any name other than cluster", func() {
 		cc := newConfig(v1alpha1.PrometheusSpec{})
 		cc.Name = "second"
@@ -299,14 +376,6 @@ var _ = Describe("TsugaCollectorConfig prometheusCR validation", func() {
 	It("accepts no discovery when the scraper is off", func() {
 		cc := newConfig(v1alpha1.PrometheusSpec{Enabled: false, AnnotationDiscovery: ptr.To(false)})
 		Expect(createCollectorConfig(cc)).To(Succeed())
-	})
-
-	It("defaults annotationDiscovery to true", func() {
-		cc := newConfig(v1alpha1.PrometheusSpec{Enabled: true})
-		Expect(createCollectorConfig(cc)).To(Succeed())
-		got := &v1alpha1.TsugaCollectorConfig{}
-		Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cc), got)).To(Succeed())
-		Expect(got.Spec.Prometheus.AnnotationDiscovery).To(HaveValue(BeTrue()))
 	})
 
 	It("rejects allowNamespaces together with denyNamespaces", func() {

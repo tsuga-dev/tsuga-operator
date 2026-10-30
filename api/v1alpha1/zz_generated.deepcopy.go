@@ -820,6 +820,11 @@ func (in *PrometheusSpec) DeepCopyInto(out *PrometheusSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.NodeLocal != nil {
+		in, out := &in.NodeLocal, &out.NodeLocal
+		*out = new(bool)
+		**out = **in
+	}
 	in.PrometheusCR.DeepCopyInto(&out.PrometheusCR)
 	out.TargetAllocator = in.TargetAllocator
 	in.CollectorPodSpec.DeepCopyInto(&out.CollectorPodSpec)

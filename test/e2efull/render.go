@@ -667,7 +667,9 @@ spec:
 
 // renderPromApp produces the Prometheus fixture three ways at once: pod
 // annotations for annotation discovery, plus a ServiceMonitor and a PodMonitor
-// for the Target Allocator's prometheusCR discovery.
+// for the Target Allocator's prometheusCR discovery. The kitchen sink scrapes
+// it all three ways on purpose, to cover each discovery path; that is the
+// double scrape docs/site/kubernetes-monitoring/prometheus.md warns against.
 func renderPromApp(namespace string) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
@@ -761,10 +763,12 @@ spec:
 }
 
 const (
-	// serviceAccountSuffix and conflictingTuningSuffix name the two scenarios
-	// after the kitchen sink: their clusters are runID+"-"+suffix.
+	// serviceAccountSuffix, conflictingTuningSuffix and nodeLocalSuffix name
+	// the scenarios after the kitchen sink: their clusters are
+	// runID+"-"+suffix.
 	serviceAccountSuffix    = "sa"
 	conflictingTuningSuffix = "ct"
+	nodeLocalSuffix         = "nl"
 
 	// sharedServiceAccount is the user-managed account every collector runs
 	// as in the service-account scenario.
@@ -975,4 +979,34 @@ spec:
     adminSecretRef:
       name: pg-admin
 `, namespace)
+}
+
+// renderNodeLocalConfig produces a TsugaCollectorConfig whose agent scrapes
+// annotated pods on its own node, with no tsuga-scraper.
+func renderNodeLocalConfig(clusterName, endpoint, namespace string) string {
+	return fmt.Sprintf(`apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaCollectorConfig
+metadata:
+  name: %s
+spec:
+  clusterName: %s
+  collectorNamespace: %s
+  export:
+    tokenSecretRef:
+      name: tsuga-ingestion
+      key: api-token
+    endpoint: %s
+  agent:
+    traces: true
+    metrics: true
+    logs: true
+  gateway:
+    clusterMetrics: false
+    kubernetesObjects: false
+    kubernetesEvents: false
+  prometheus:
+    enabled: true
+    nodeLocal: true
+    scrapeInterval: 15s
+`, collectorConfigName, clusterName, namespace, endpoint)
 }

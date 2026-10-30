@@ -396,7 +396,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.profiling.tolerations[].value` | string | No | — | Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.  |
 | `spec.prometheus` | object | No | — | Prometheus configures the annotation-scraping collector. Absent means no scraper is rendered.  |
 | `spec.prometheus.affinity` | object | No | — | Replaces spec.affinity for this collector. A corev1 Affinity object, validated by the OTel Operator rather than this CRD: typing it here five times put the CRD near the 256 KB client-side apply limit. Opaque JSON; validated by Tsuga |
-| `spec.prometheus.annotationDiscovery` | boolean | No | `true` | Scrape pods carrying prometheus.io/scrape and related annotations.  |
+| `spec.prometheus.annotationDiscovery` | boolean | No | — | Scrape pods carrying prometheus.io/scrape and related annotations. Unset means true, or false when prometheusCR.enabled is on, so a pod that also has a ServiceMonitor or PodMonitor is not scraped twice.  |
 | `spec.prometheus.customConfig` | object | No | — | The collector's entire config. Replaces the generated one; every other tuning, export, enrichment and extra setting on this collector is ignored, except exportToTsuga, which still controls the Tsuga env vars. `__TSUGA_ENDPOINT__`, `__CLUSTER_NAME__` and `__SCRAPE_INTERVAL__` are substituted. The operator does not validate it. Opaque JSON; validated by Tsuga |
 | `spec.prometheus.enabled` | boolean | No | `false` | Enabled renders the scraper collector. Off by default: annotation scraping can add substantial cardinality on a cluster dense in annotated pods, so it is opted into deliberately.  |
 | `spec.prometheus.exportToTsuga` | boolean | No | — | Send this collector's telemetry to Tsuga. Unset means true.  |
@@ -439,6 +439,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.prometheus.extraProcessors` | object | No | — | Processors added to this collector's config, keyed by component name. A name the collector already defines is a render error. Opaque JSON; validated by Tsuga |
 | `spec.prometheus.extraReceivers` | object | No | — | Receivers added to this collector's config, keyed by component name. A name the collector already defines is a render error. Opaque JSON; validated by Tsuga |
 | `spec.prometheus.healthCheckEndpoint` | string | No | — | health_check listen address. Empty removes the extension and, with it, the liveness probe the OTel Operator derives from it.  |
+| `spec.prometheus.nodeLocal` | boolean | No | — | Scrape annotated pods from the tsuga-agent on each pod's own node instead of from the tsuga-scraper StatefulSet, so each target is scraped exactly once with no Target Allocator. ServiceMonitors and PodMonitors still go through tsuga-scraper.  |
 | `spec.prometheus.nodeSelector` | object | No | — | Replaces spec.nodeSelector for this collector.  |
 | `spec.prometheus.pipelineExporters` | object | No | — | Extra exporter names to add to this collector's pipelines, per signal.  |
 | `spec.prometheus.pipelineExporters.logs` | array of string | No | — | —  |
@@ -494,7 +495,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.prometheus.scrapeInterval` | string | No | `"30s"` | How often to scrape each target, e.g. "60s". This does not set how often the collector re-polls the Target Allocator: the OTel Operator writes that interval itself. pattern: `"^[0-9]+(ms&#124;s&#124;m&#124;h)$"` |
 | `spec.prometheus.serviceExtensions` | array of string | No | — | Extension names appended to service.extensions.  |
 | `spec.prometheus.targetAllocator` | object | No | `{"allocationStrategy": "consistent-hashing", "enabled": false}` | TargetAllocatorSpec enables the Target Allocator, which decouples Prometheus service discovery from scraping so the scraper collector can run more than one replica without every replica scraping every target.  |
-| `spec.prometheus.targetAllocator.allocationStrategy` | string | No | `"consistent-hashing"` | How the Target Allocator spreads targets across scraper replicas. per-node assigns only targets that resolve to a node, so anything else is left unscraped. enum: `["consistent-hashing", "least-weighted", "per-node"]` |
+| `spec.prometheus.targetAllocator.allocationStrategy` | string | No | `"consistent-hashing"` | How the Target Allocator spreads targets across scraper replicas. enum: `["consistent-hashing", "least-weighted"]` |
 | `spec.prometheus.targetAllocator.enabled` | boolean | No | `false` | —  |
 | `spec.prometheus.tolerations` | array of object | No | — | Replaces spec.tolerations for this collector.  |
 | `spec.prometheus.tolerations[].effect` | string | No | — | Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.  |
@@ -505,6 +506,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.prometheus` validation | CEL | — | — | prometheus.replicas > 1 requires prometheus.targetAllocator.enabled: without the Target Allocator every replica scrapes every target |
 | `spec.prometheus` validation | CEL | — | — | prometheus.prometheusCR.enabled requires prometheus.targetAllocator.enabled: the Target Allocator is what watches ServiceMonitors and PodMonitors |
 | `spec.prometheus` validation | CEL | — | — | prometheus.prometheusCR.allowNamespaces and denyNamespaces are mutually exclusive |
+| `spec.prometheus` validation | CEL | — | — | prometheus.nodeLocal scrapes pod annotations, so it cannot be combined with annotationDiscovery: false |
 | `spec.prometheus` validation | CEL | — | — | prometheus needs annotationDiscovery or prometheusCR.enabled, or the scraper has no targets |
 | `spec.rbac` | object | No | `{"create": true}` | RBACSpec controls the per-collector ClusterRoles and ClusterRoleBindings.  |
 | `spec.rbac.create` | boolean | No | `true` | Without these roles kubelet_stats, k8s_cluster, k8s_objects and k8s_attributes are denied by the API server; turn off only when you grant the same access yourself.  |
@@ -534,6 +536,8 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.tolerations[].operator` | string | No | — | Operator represents a key's relationship to the value. Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category. Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).  |
 | `spec.tolerations[].tolerationSeconds` | integer | No | — | TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.  |
 | `spec.tolerations[].value` | string | No | — | Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.  |
+| `spec` validation | CEL | — | — | prometheus.nodeLocal requires agent.enabled and agent.metrics: the agent does the scraping |
+| `spec` validation | CEL | — | — | prometheus.nodeLocal cannot be applied to an agent customConfig; add the prometheus receiver there yourself |
 | `status` | object | No | — | CollectionStatus is the observed state shared by collection CRDs.  |
 | `status.conditions` | array of object | No | — | Conditions carries the standard Kubernetes condition set. Both collection controllers publish a single "Ready" condition whose reason names the reconcile stage that failed.  |
 | `status.conditions[].lastTransitionTime` | string | Yes | — | lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.  |

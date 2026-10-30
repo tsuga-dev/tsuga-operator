@@ -348,10 +348,8 @@ type TargetAllocatorSpec struct {
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
 	// How the Target Allocator spreads targets across scraper replicas.
-	// per-node assigns only targets that resolve to a node, so anything else
-	// is left unscraped.
 	// +kubebuilder:default=consistent-hashing
-	// +kubebuilder:validation:Enum=consistent-hashing;least-weighted;per-node
+	// +kubebuilder:validation:Enum=consistent-hashing;least-weighted
 	// +optional
 	AllocationStrategy string `json:"allocationStrategy,omitempty"`
 }
@@ -367,6 +365,7 @@ type TargetAllocatorSpec struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.replicas) || self.replicas <= 1 || (has(self.targetAllocator) && self.targetAllocator.enabled)",message="prometheus.replicas > 1 requires prometheus.targetAllocator.enabled: without the Target Allocator every replica scrapes every target"
 // +kubebuilder:validation:XValidation:rule="!has(self.prometheusCR) || !has(self.prometheusCR.enabled) || !self.prometheusCR.enabled || (has(self.targetAllocator) && self.targetAllocator.enabled)",message="prometheus.prometheusCR.enabled requires prometheus.targetAllocator.enabled: the Target Allocator is what watches ServiceMonitors and PodMonitors"
 // +kubebuilder:validation:XValidation:rule="!has(self.prometheusCR) || !has(self.prometheusCR.allowNamespaces) || !has(self.prometheusCR.denyNamespaces)",message="prometheus.prometheusCR.allowNamespaces and denyNamespaces are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.enabled) || !self.enabled || !has(self.nodeLocal) || !self.nodeLocal || !has(self.annotationDiscovery) || self.annotationDiscovery",message="prometheus.nodeLocal scrapes pod annotations, so it cannot be combined with annotationDiscovery: false"
 // +kubebuilder:validation:XValidation:rule="!has(self.enabled) || !self.enabled || !has(self.annotationDiscovery) || self.annotationDiscovery || (has(self.prometheusCR) && has(self.prometheusCR.enabled) && self.prometheusCR.enabled)",message="prometheus needs annotationDiscovery or prometheusCR.enabled, or the scraper has no targets"
 type PrometheusSpec struct {
 	// Enabled renders the scraper collector. Off by default: annotation
@@ -389,9 +388,16 @@ type PrometheusSpec struct {
 	// +optional
 	Replicas int32 `json:"replicas,omitempty"`
 	// Scrape pods carrying prometheus.io/scrape and related annotations.
-	// +kubebuilder:default=true
+	// Unset means true, or false when prometheusCR.enabled is on, so a pod
+	// that also has a ServiceMonitor or PodMonitor is not scraped twice.
 	// +optional
 	AnnotationDiscovery *bool `json:"annotationDiscovery,omitempty"`
+	// Scrape annotated pods from the tsuga-agent on each pod's own node
+	// instead of from the tsuga-scraper StatefulSet, so each target is
+	// scraped exactly once with no Target Allocator. ServiceMonitors and
+	// PodMonitors still go through tsuga-scraper.
+	// +optional
+	NodeLocal *bool `json:"nodeLocal,omitempty"`
 	// Discover targets from Prometheus Operator ServiceMonitor and PodMonitor
 	// resources. Requires targetAllocator.enabled and the monitoring.coreos.com CRDs.
 	// +optional
@@ -524,6 +530,8 @@ type RedactionSpec struct {
 }
 
 // TsugaCollectorConfigSpec is the desired cluster collection topology.
+// +kubebuilder:validation:XValidation:rule="!has(self.prometheus) || !has(self.prometheus.enabled) || !self.prometheus.enabled || !has(self.prometheus.nodeLocal) || !self.prometheus.nodeLocal || ((!has(self.agent.enabled) || self.agent.enabled) && self.agent.metrics)",message="prometheus.nodeLocal requires agent.enabled and agent.metrics: the agent does the scraping"
+// +kubebuilder:validation:XValidation:rule="!has(self.prometheus) || !has(self.prometheus.enabled) || !self.prometheus.enabled || !has(self.prometheus.nodeLocal) || !self.prometheus.nodeLocal || !has(self.agent.customConfig)",message="prometheus.nodeLocal cannot be applied to an agent customConfig; add the prometheus receiver there yourself"
 type TsugaCollectorConfigSpec struct {
 	// Human-readable cluster name added as k8s.cluster.name. It is spliced
 	// into the collector YAML, so the pattern keeps out quotes, backslashes

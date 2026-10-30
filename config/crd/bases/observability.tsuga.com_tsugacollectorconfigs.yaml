@@ -2647,9 +2647,10 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   annotationDiscovery:
-                    default: true
-                    description: Scrape pods carrying prometheus.io/scrape and related
-                      annotations.
+                    description: |-
+                      Scrape pods carrying prometheus.io/scrape and related annotations.
+                      Unset means true, or false when prometheusCR.enabled is on, so a pod
+                      that also has a ServiceMonitor or PodMonitor is not scraped twice.
                     type: boolean
                   customConfig:
                     description: |-
@@ -2923,6 +2924,13 @@ spec:
                       health_check listen address. Empty removes the extension and, with it,
                       the liveness probe the OTel Operator derives from it.
                     type: string
+                  nodeLocal:
+                    description: |-
+                      Scrape annotated pods from the tsuga-agent on each pod's own node
+                      instead of from the tsuga-scraper StatefulSet, so each target is
+                      scraped exactly once with no Target Allocator. ServiceMonitors and
+                      PodMonitors still go through tsuga-scraper.
+                    type: boolean
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -3290,14 +3298,11 @@ spec:
                     properties:
                       allocationStrategy:
                         default: consistent-hashing
-                        description: |-
-                          How the Target Allocator spreads targets across scraper replicas.
-                          per-node assigns only targets that resolve to a node, so anything else
-                          is left unscraped.
+                        description: How the Target Allocator spreads targets across
+                          scraper replicas.
                         enum:
                         - consistent-hashing
                         - least-weighted
-                        - per-node
                         type: string
                       enabled:
                         default: false
@@ -3358,6 +3363,10 @@ spec:
                     are mutually exclusive
                   rule: '!has(self.prometheusCR) || !has(self.prometheusCR.allowNamespaces)
                     || !has(self.prometheusCR.denyNamespaces)'
+                - message: 'prometheus.nodeLocal scrapes pod annotations, so it cannot
+                    be combined with annotationDiscovery: false'
+                  rule: '!has(self.enabled) || !self.enabled || !has(self.nodeLocal)
+                    || !self.nodeLocal || !has(self.annotationDiscovery) || self.annotationDiscovery'
                 - message: prometheus needs annotationDiscovery or prometheusCR.enabled,
                     or the scraper has no targets
                   rule: '!has(self.enabled) || !self.enabled || !has(self.annotationDiscovery)
@@ -3575,6 +3584,17 @@ spec:
             - clusterName
             - gateway
             type: object
+            x-kubernetes-validations:
+            - message: 'prometheus.nodeLocal requires agent.enabled and agent.metrics:
+                the agent does the scraping'
+              rule: '!has(self.prometheus) || !has(self.prometheus.enabled) || !self.prometheus.enabled
+                || !has(self.prometheus.nodeLocal) || !self.prometheus.nodeLocal ||
+                ((!has(self.agent.enabled) || self.agent.enabled) && self.agent.metrics)'
+            - message: prometheus.nodeLocal cannot be applied to an agent customConfig;
+                add the prometheus receiver there yourself
+              rule: '!has(self.prometheus) || !has(self.prometheus.enabled) || !self.prometheus.enabled
+                || !has(self.prometheus.nodeLocal) || !self.prometheus.nodeLocal ||
+                !has(self.agent.customConfig)'
           status:
             description: CollectionStatus is the observed state shared by collection
               CRDs.

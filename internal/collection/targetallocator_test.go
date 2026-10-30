@@ -19,7 +19,7 @@ import (
 func effectiveWithTargetAllocator() v1alpha1.TsugaCollectorConfigSpec {
 	cfg := effectiveWithPrometheus()
 	cfg.Prometheus.TargetAllocator.Enabled = true
-	cfg.Prometheus.TargetAllocator.AllocationStrategy = "per-node"
+	cfg.Prometheus.TargetAllocator.AllocationStrategy = "least-weighted"
 	return cfg
 }
 
@@ -63,8 +63,8 @@ func TestRenderTargetAllocatorCR(t *testing.T) {
 		t.Fatalf("unexpected namespace %q", ta.GetNamespace())
 	}
 	strategy, _, _ := unstructured.NestedString(ta.Object, "spec", "allocationStrategy")
-	if strategy != "per-node" {
-		t.Fatalf("allocationStrategy want per-node got %q", strategy)
+	if strategy != "least-weighted" {
+		t.Fatalf("allocationStrategy want least-weighted got %q", strategy)
 	}
 	sa, _, _ := unstructured.NestedString(ta.Object, "spec", "serviceAccount")
 	if sa != "tsuga-scraper" {
@@ -157,8 +157,13 @@ func TestTargetAllocatorPrometheusCR(t *testing.T) {
 	if cr["scrapeInterval"] != "60s" {
 		t.Fatalf("scrapeInterval = %v", cr["scrapeInterval"])
 	}
-	if got := scrapeJobNames(t, withPrometheusCR(effectiveWithTargetAllocator())); !slices.Equal(got, []string{"tsuga-pod-annotations"}) {
-		t.Fatalf("scrape jobs = %v", got)
+	if got := scrapeJobNames(t, withPrometheusCR(effectiveWithTargetAllocator())); !slices.Equal(got, []string{"tsuga-placeholder"}) {
+		t.Fatalf("scrape jobs with annotationDiscovery unset = %v", got)
+	}
+	both := withPrometheusCR(effectiveWithTargetAllocator())
+	both.Prometheus.AnnotationDiscovery = ptr.To(true)
+	if got := scrapeJobNames(t, both); !slices.Equal(got, []string{"tsuga-pod-annotations"}) {
+		t.Fatalf("scrape jobs with annotationDiscovery true = %v", got)
 	}
 }
 

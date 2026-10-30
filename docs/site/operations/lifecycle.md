@@ -8,6 +8,8 @@ Test the new release in staging, then download and inspect its `install.yaml` as
 
 Installed with the [Helm chart](https://github.com/tsuga-dev/helm-charts/tree/main/charts/tsuga-operator)? The chart renders the CRDs as templates, so `helm upgrade` updates them, as long as the chart version ships this release's CRDs. With `crds.create: false`, apply the release's CRDs yourself before upgrading the chart: a new operator on the old CRDs gets every new field silently pruned by the API server and reads it as unset (for example, `gateway.kubernetesEvents` reads `false` and events stay off).
 
+A `TsugaCollectorConfig` that stores a value a new release rejects, such as `prometheus.targetAllocator.allocationStrategy: per-node`, keeps running and reports `Ready=True`, but its next edit is rejected. Before upgrading, check for those values (`kubectl get tsugacollectorconfig cluster -o yaml`) against the release's **BREAKING** entries and change them first.
+
 If the OpenTelemetry CRDs were installed after the Tsuga operator started, restart the Tsuga operator to register its collection controllers.
 
 If you built from source, update the checkout and image together, regenerate manifests as required, and use `make deploy IMG=<registry>/tsuga-operator:<tag>`.

@@ -163,7 +163,7 @@ func collectorSpecs(cfg v1alpha1.TsugaCollectorConfigSpec) []collectorSpec {
 			},
 		})
 	}
-	if cfg.Prometheus.Enabled {
+	if scraperEnabled(cfg.Prometheus) {
 		specs = append(specs, collectorSpec{
 			name:   scraperName,
 			mode:   modeStatefulset,
@@ -531,7 +531,7 @@ func RenderCollectors(cfg v1alpha1.TsugaCollectorConfigSpec) ([]*unstructured.Un
 		}
 		out = append(out, obj)
 	}
-	if cfg.Prometheus.Enabled && cfg.Prometheus.TargetAllocator.Enabled {
+	if scraperEnabled(cfg.Prometheus) && cfg.Prometheus.TargetAllocator.Enabled {
 		ta, err := renderTargetAllocator(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", targetAllocatorName, err)
