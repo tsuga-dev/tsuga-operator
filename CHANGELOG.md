@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Every `resource.opentelemetry.io/<attr>` pod annotation becomes the `<attr>` resource attribute on the agent, gateway, scraper and profiler, so `deployment.environment.name` and other semantic-convention attributes can be set per workload. See [Tuning collection](docs/site/kubernetes-monitoring/tuning.md#environment-team-and-service-attributes).
+
+### Changed
+
+- **BREAKING** A `resource.opentelemetry.io/<attr>` annotation now wins over an `extraAnnotationsMapping` or `extraLabelMapping` to the same attribute. A mapping that used to set `service.name`, `service.version`, `env` or `team` on a pod that also carries the annotation now loses to it.
+- **BREAKING** The `resource.opentelemetry.io/env` pod label no longer sets `env`; `env` comes from your ingestion key's tags. To set the environment per workload, annotate pods with `resource.opentelemetry.io/deployment.environment.name`.
+
 ## [0.4.0] - 2026-10-30
 
 ### Added
@@ -16,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The gateway sends `k8s.container.status.reason`, so monitors can catch containers stuck in `CrashLoopBackOff`, `ImagePullBackOff` or `CreateContainerConfigError`. The metric is experimental upstream and sends 9 points per container per collection, one per known reason, with 1 for the current one. To turn it off, use a gateway `customConfig`.
 - `TsugaMonitoring` `spec.injection`: `Namespace`, `Workloads` or `Manual`. `Namespace` puts the inject annotations on the Namespace, so the OpenTelemetry Operator injects pods when they are created and nothing is rolled. Running pods are instrumented when they next restart. It also covers pods from Jobs, CronJobs and bare pods. A pod template opts out with `instrumentation.opentelemetry.io/inject-<language>: "false"`. It is refused in the collector namespace (`Ready=False`, reason `CollectorNamespace`). The manager ClusterRole gains `patch` on `namespaces`. Installs that manage it themselves, including the `tsuga-operator` Helm chart, must add it before upgrading, or `Namespace`-mode TsugaMonitorings go `Ready=False` with reason `WorkloadPatchFailed`. Ship this release's TsugaMonitoring CRD with the image: on the old CRD the API server drops `injection` and defaults `injectExistingWorkloads: true`, so a TsugaMonitoring meant for `Namespace` mode runs in `Workloads` mode and rolls every workload in its namespace. See [Auto-instrumentation](docs/site/kubernetes-monitoring/auto-instrumentation.md). Before rolling back to an earlier operator, set `injection: Manual` on every `Namespace`-mode TsugaMonitoring, or delete them, and wait for them to reconcile. Earlier operators never remove Namespace annotations, so new pods keep being injected while the `Instrumentation` exists, and a TsugaMonitoring recreated later under the same name picks them up again.
 - `spec.ownerName` on `Dashboard`, `Monitor` and `SLO`, an alternative to `spec.owner` that takes a team name instead of a team ID. The operator looks the ID up with `GET /v1/teams?name=` when the spec changes and records it in `status.ownerId`; drift resyncs and retries reuse it. Exactly one of `owner` and `ownerName` must be set; `owner` is no longer required. A name with no matching team puts the resource in `Error` and is retried. The operation key needs read access to teams. A team deleted and recreated under the same name gets a new ID, which resources only pick up at their next spec change. Install the updated CRDs with the new image.
-- Every `resource.opentelemetry.io/<attr>` pod annotation becomes the `<attr>` resource attribute on the agent, gateway, scraper and profiler, so `deployment.environment.name` and other semantic-convention attributes can be set per workload. See [Tuning collection](docs/site/kubernetes-monitoring/tuning.md#environment-team-and-service-attributes).
 
 ### Changed
 
@@ -27,8 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A `TsugaMonitoring` created without `injection` or `injectExistingWorkloads` now uses `Namespace` mode and no longer rolls every Deployment, StatefulSet and DaemonSet in the namespace. Existing TsugaMonitorings are unchanged: `injectExistingWorkloads` was stored when they were created, and `true` maps to `Workloads`, `false` to `Manual`. `injectExistingWorkloads` is deprecated; set `injection` instead.
 - The agent tolerates every taint by default (`operator: Exists`) and keeps off Windows, EKS Fargate and virtual-kubelet nodes through a default node affinity, so applications on tainted nodes (GPU, spot, dedicated pools) have an agent to send to. The agent Service only routes to the agent on the sending pod's node, so their OTLP was dropped before. Both defaults apply only when neither `agent.affinity` nor `spec.affinity` is set, and the toleration only when neither `agent.tolerations` nor `spec.tolerations` is set; `tolerations: []` opts out of it. Configs that set an affinity render as before. On self-managed clusters the agent now also runs on control-plane nodes and collects their pod logs (etcd, kube-apiserver), which adds log volume. Configs without an affinity roll the agent DaemonSet once on upgrade. See [Agent placement](docs/site/kubernetes-monitoring/tuning.md#agent-placement).
 - **BREAKING** (Go API only): `TsugaMonitoringSpec.InjectExistingWorkloads` is a `*bool`; YAML is unchanged.
-- **BREAKING** A `resource.opentelemetry.io/<attr>` annotation now wins over an `extraAnnotationsMapping` or `extraLabelMapping` to the same attribute. A mapping that used to set `service.name`, `service.version`, `env` or `team` on a pod that also carries the annotation now loses to it.
-- **BREAKING** The `resource.opentelemetry.io/env` pod label no longer sets `env`; `env` comes from your ingestion key's tags. To set the environment per workload, annotate pods with `resource.opentelemetry.io/deployment.environment.name`.
 
 ## [0.3.0] - 2026-10-22
 
