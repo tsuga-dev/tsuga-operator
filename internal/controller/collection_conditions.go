@@ -27,6 +27,7 @@ const (
 	reasonApplyFailed          = "ApplyFailed"
 	reasonWorkloadPatchFailed  = "WorkloadPatchFailed"
 	reasonInjectConflict       = "InjectAnnotationConflict"
+	reasonCollectorNamespace   = "CollectorNamespace"
 	reasonProvisioningPending  = "ProvisioningPending"
 	reasonProvisioningFailed   = "ProvisioningFailed"
 

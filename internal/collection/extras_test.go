@@ -103,8 +103,8 @@ func TestPipelineReceiversAndProcessors(t *testing.T) {
 		t.Errorf("logs receivers = %v", got)
 	}
 	got := pipelineList(t, config, "traces", "processors")
-	if len(got) < 2 || got[len(got)-2] != "batch" || got[len(got)-1] != "filter/health" {
-		t.Errorf("traces processors = %v, want filter/health after batch", got)
+	if !slices.Equal(got[len(got)-2:], []string{"filter/health", "batch"}) {
+		t.Errorf("traces processors = %v, want filter/health before batch", got)
 	}
 	if slices.Contains(pipelineList(t, config, "metrics", "receivers"), "filelog/custom") {
 		t.Error("metrics pipeline got a logs receiver")
@@ -118,9 +118,29 @@ func TestPipelineProcessorsReachLogsEvents(t *testing.T) {
 	config := collectorConfig(t, cfg, gatewayName)
 	for _, p := range []string{"logs", "logs/events"} {
 		got := pipelineList(t, config, p, "processors")
-		if got[len(got)-1] != "filter/noise" {
+		if !slices.Equal(got[len(got)-2:], []string{"filter/noise", "batch"}) {
 			t.Errorf("%s processors = %v", p, got)
 		}
+	}
+}
+
+func TestPipelineProcessorsKeepOrderBeforeBatch(t *testing.T) {
+	cfg := effective()
+	cfg.Agent.ExtraProcessors = rawJSON(`{"filter/a":{},"transform/b":{}}`)
+	cfg.Agent.PipelineProcessors.Logs = []string{"filter/a", "transform/b"}
+	got := pipelineList(t, collectorConfig(t, cfg, agentName), "logs", "processors")
+	if !slices.Equal(got[len(got)-3:], []string{"filter/a", "transform/b", "batch"}) {
+		t.Errorf("logs processors = %v", got)
+	}
+}
+
+func TestPipelineProcessorsWithoutBatchAppendLast(t *testing.T) {
+	cfg := allCollectorsOn()
+	cfg.Profiling.ExtraProcessors = rawJSON(`{"filter/p":{}}`)
+	cfg.Profiling.PipelineProcessors.Profiles = []string{"filter/p"}
+	got := pipelineList(t, collectorConfig(t, cfg, profilerName), "profiles", "processors")
+	if got[len(got)-1] != "filter/p" {
+		t.Errorf("profiles processors = %v", got)
 	}
 }
 
@@ -253,5 +273,16 @@ func TestPipelineExportersReachExtraPipelines(t *testing.T) {
 	config := collectorConfig(t, cfg, agentName)
 	if got := pipelineList(t, config, "logs/x", "exporters"); !slices.Contains(got, "debug") {
 		t.Fatalf("logs/x exporters = %v, want debug", got)
+	}
+}
+
+func TestPipelineProcessorsAfterBatchNotDuplicated(t *testing.T) {
+	cfg := effective()
+	cfg.Agent.ExtraProcessors = rawJSON(`{"filter/x":{}}`)
+	cfg.Agent.ExtraPipelines = rawJSON(`{"logs/late":{"receivers":["otlp"],"processors":["batch","filter/x"],"exporters":["otlp_http/tsuga"]}}`)
+	cfg.Agent.PipelineProcessors.Logs = []string{"filter/x"}
+	got := pipelineList(t, collectorConfig(t, cfg, agentName), "logs/late", "processors")
+	if !slices.Equal(got, []string{"batch", "filter/x"}) {
+		t.Errorf("logs/late processors = %v", got)
 	}
 }

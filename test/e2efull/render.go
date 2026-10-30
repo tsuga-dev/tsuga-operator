@@ -319,10 +319,11 @@ spec:
 		s.Gateway.ClusterMetrics, s.Gateway.KubernetesObjects, events, extra)
 }
 
-// renderMonitoring produces a TsugaMonitoring for one namespace. spec is raw
-// YAML placed under instrumentation.spec, omitted when empty.
+// renderMonitoring produces a TsugaMonitoring for one namespace. injection is
+// spec.injection (Namespace, Workloads or Manual). spec is raw YAML placed
+// under instrumentation.spec, omitted when empty.
 func renderMonitoring(namespace string, enabled bool, languages []string,
-	injectExisting bool, spec string) string {
+	injection string, spec string) string {
 
 	languageBlock := ""
 	for _, language := range languages {
@@ -341,10 +342,10 @@ metadata:
   name: e2e-monitoring
   namespace: %s
 spec:
-  injectExistingWorkloads: %t
+  injection: %s
   instrumentation:
     enabled: %t
-%s`, namespace, injectExisting, enabled, languageBlock)
+%s`, namespace, injection, enabled, languageBlock)
 }
 
 // languageGo is the one language the operator never bulk-injects.
@@ -355,7 +356,7 @@ const languageGo = "go"
 // injected agent's doing.
 //
 // The opt-in mechanism is NOT a label. The OTel Operator (and this
-// controller's annotateExistingWorkloads, see
+// controller's Workloads injection mode, see
 // internal/controller/tsugamonitoring_controller.go) opts an existing pod
 // template into instrumentation via a per-language annotation on the pod
 // template:

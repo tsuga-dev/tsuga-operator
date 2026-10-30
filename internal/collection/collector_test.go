@@ -865,6 +865,19 @@ func TestRenderGatewayReportsAllocatablePods(t *testing.T) {
 	}
 }
 
+func TestRenderGatewayEnablesStatusReasons(t *testing.T) {
+	objs, err := RenderCollectors(effective())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, metric := range []string{"k8s.pod.status_reason", "k8s.container.status.reason"} {
+		enabled, _, _ := unstructured.NestedBool(objs[1].Object, "spec", "config", "receivers", "k8s_cluster", "metrics", metric, "enabled")
+		if !enabled {
+			t.Errorf("gateway k8s_cluster should enable %s", metric)
+		}
+	}
+}
+
 func collectorByName(t *testing.T, cfg v1alpha1.TsugaCollectorConfigSpec, name string) *unstructured.Unstructured {
 	t.Helper()
 	objs, err := RenderCollectors(cfg)

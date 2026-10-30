@@ -188,7 +188,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.agent.pipelineExporters.metrics` | array of string | No | — | —  |
 | `spec.agent.pipelineExporters.profiles` | array of string | No | — | —  |
 | `spec.agent.pipelineExporters.traces` | array of string | No | — | —  |
-| `spec.agent.pipelineProcessors` | object | No | — | Extra processor names appended after the existing processors of this collector's pipelines, per signal.  |
+| `spec.agent.pipelineProcessors` | object | No | — | Extra processor names inserted before batch in this collector's pipelines (last in a pipeline without batch), per signal.  |
 | `spec.agent.pipelineProcessors.logs` | array of string | No | — | —  |
 | `spec.agent.pipelineProcessors.metrics` | array of string | No | — | —  |
 | `spec.agent.pipelineProcessors.profiles` | array of string | No | — | —  |
@@ -291,7 +291,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.gateway.pipelineExporters.metrics` | array of string | No | — | —  |
 | `spec.gateway.pipelineExporters.profiles` | array of string | No | — | —  |
 | `spec.gateway.pipelineExporters.traces` | array of string | No | — | —  |
-| `spec.gateway.pipelineProcessors` | object | No | — | Extra processor names appended after the existing processors of this collector's pipelines, per signal.  |
+| `spec.gateway.pipelineProcessors` | object | No | — | Extra processor names inserted before batch in this collector's pipelines (last in a pipeline without batch), per signal.  |
 | `spec.gateway.pipelineProcessors.logs` | array of string | No | — | —  |
 | `spec.gateway.pipelineProcessors.metrics` | array of string | No | — | —  |
 | `spec.gateway.pipelineProcessors.profiles` | array of string | No | — | —  |
@@ -370,7 +370,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.profiling.pipelineExporters.metrics` | array of string | No | — | —  |
 | `spec.profiling.pipelineExporters.profiles` | array of string | No | — | —  |
 | `spec.profiling.pipelineExporters.traces` | array of string | No | — | —  |
-| `spec.profiling.pipelineProcessors` | object | No | — | Extra processor names appended after the existing processors of this collector's pipelines, per signal.  |
+| `spec.profiling.pipelineProcessors` | object | No | — | Extra processor names inserted before batch in this collector's pipelines (last in a pipeline without batch), per signal.  |
 | `spec.profiling.pipelineProcessors.logs` | array of string | No | — | —  |
 | `spec.profiling.pipelineProcessors.metrics` | array of string | No | — | —  |
 | `spec.profiling.pipelineProcessors.profiles` | array of string | No | — | —  |
@@ -445,7 +445,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.prometheus.pipelineExporters.metrics` | array of string | No | — | —  |
 | `spec.prometheus.pipelineExporters.profiles` | array of string | No | — | —  |
 | `spec.prometheus.pipelineExporters.traces` | array of string | No | — | —  |
-| `spec.prometheus.pipelineProcessors` | object | No | — | Extra processor names appended after the existing processors of this collector's pipelines, per signal.  |
+| `spec.prometheus.pipelineProcessors` | object | No | — | Extra processor names inserted before batch in this collector's pipelines (last in a pipeline without batch), per signal.  |
 | `spec.prometheus.pipelineProcessors.logs` | array of string | No | — | —  |
 | `spec.prometheus.pipelineProcessors.metrics` | array of string | No | — | —  |
 | `spec.prometheus.pipelineProcessors.profiles` | array of string | No | — | —  |

@@ -1382,8 +1382,8 @@ spec:
                     type: object
                   pipelineProcessors:
                     description: |-
-                      Extra processor names appended after the existing processors of this
-                      collector's pipelines, per signal.
+                      Extra processor names inserted before batch in this collector's
+                      pipelines (last in a pipeline without batch), per signal.
                     properties:
                       logs:
                         items:
@@ -1991,8 +1991,8 @@ spec:
                     type: object
                   pipelineProcessors:
                     description: |-
-                      Extra processor names appended after the existing processors of this
-                      collector's pipelines, per signal.
+                      Extra processor names inserted before batch in this collector's
+                      pipelines (last in a pipeline without batch), per signal.
                     properties:
                       logs:
                         items:
@@ -2482,8 +2482,8 @@ spec:
                     type: object
                   pipelineProcessors:
                     description: |-
-                      Extra processor names appended after the existing processors of this
-                      collector's pipelines, per signal.
+                      Extra processor names inserted before batch in this collector's
+                      pipelines (last in a pipeline without batch), per signal.
                     properties:
                       logs:
                         items:
@@ -2951,8 +2951,8 @@ spec:
                     type: object
                   pipelineProcessors:
                     description: |-
-                      Extra processor names appended after the existing processors of this
-                      collector's pipelines, per signal.
+                      Extra processor names inserted before batch in this collector's
+                      pipelines (last in a pipeline without batch), per signal.
                     properties:
                       logs:
                         items:

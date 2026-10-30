@@ -17,7 +17,7 @@ Each field is a map keyed by component or pipeline name, with the component's ow
 An added component does nothing until a pipeline uses it. Wire it with one of:
 
 - `extraPipelines`, which adds whole pipelines.
-- `pipelineReceivers`, `pipelineProcessors` and `pipelineExporters`, which take `traces`, `metrics`, `logs` and `profiles` lists. Each name is added to every pipeline named after the signal or starting with `<signal>/`, which includes your own `extraPipelines` such as `logs/audit`. `pipelineExporters` names an entry in `extraExporters` or `extraConnectors`, or a connector already in the config such as `span_metrics`. Processors are appended at the end of each matching pipeline's list, which is after `batch` in the built-in pipelines. Names already in a pipeline are skipped.
+- `pipelineReceivers`, `pipelineProcessors` and `pipelineExporters`, which take `traces`, `metrics`, `logs` and `profiles` lists. Each name is added to every pipeline named after the signal or starting with `<signal>/`, which includes your own `extraPipelines` such as `logs/audit`. `pipelineExporters` names an entry in `extraExporters` or `extraConnectors`, or a connector already in the config such as `span_metrics`. Processors are inserted just before `batch` in each matching pipeline, or appended last in a pipeline without `batch`, so filters and transforms run before data is batched. The kube-stack chart appends them after `batch` instead. Names already in a pipeline are skipped.
 - `serviceExtensions`, which appends extension names to `service.extensions`.
 
 ## Reading host files

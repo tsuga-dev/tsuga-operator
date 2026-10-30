@@ -613,6 +613,16 @@ func TestResourceDetectionPosition(t *testing.T) {
 	}
 }
 
+func TestRedactionAfterPipelineProcessors(t *testing.T) {
+	cfg := redactionOn(effective())
+	cfg.Agent.ExtraProcessors = rawJSON(`{"filter/health":{}}`)
+	cfg.Agent.PipelineProcessors.Traces = []string{"filter/health"}
+	got := pipelineList(t, collectorConfig(t, cfg, agentName), "traces", "processors")
+	if !slices.Equal(got[len(got)-3:], []string{"filter/health", "redaction", "batch"}) {
+		t.Errorf("traces processors = %v", got)
+	}
+}
+
 func redactionOn(cfg v1alpha1.TsugaCollectorConfigSpec) v1alpha1.TsugaCollectorConfigSpec {
 	cfg.Redaction.Enabled = true
 	return cfg
@@ -672,7 +682,7 @@ func TestEnrichmentCoversExtraPipelines(t *testing.T) {
 	for p, want := range map[string][]string{
 		"logs/plain":   {"resource_detection", "filter/x", "redaction"},
 		"logs/batched": {"resource_detection", "filter/x", "redaction", "batch"},
-		"logs":         {"memory_limiter", "resource_detection", "k8s_attributes", "resource", "resource/node", "redaction", "batch", "filter/x"},
+		"logs":         {"memory_limiter", "resource_detection", "k8s_attributes", "resource", "resource/node", "filter/x", "redaction", "batch"},
 	} {
 		if got := pipelineList(t, config, p, "processors"); !reflect.DeepEqual(got, want) {
 			t.Errorf("%s processors = %v, want %v", p, got, want)

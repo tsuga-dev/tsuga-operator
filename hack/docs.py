@@ -15,7 +15,7 @@ NOTES = {
     "Dashboard": "Widget IDs (`spec.graphs[].id`) are required by the Kubernetes schema. Visualization objects pass through to the Tsuga API; Kubernetes does not validate their internal contract.",
     "Monitor": "Use `dashboardRef: {name: example-dashboard}` for a Dashboard in the same namespace. If both fields are supplied, `dashboardId` takes precedence. Configuration objects pass through to the Tsuga API.",
     "TsugaCollectorConfig": "The name must be `cluster` (enforced by the CRD), so at most one config exists: TsugaMonitoring looks up that exact name, and collector child names are fixed. Secrets must exist in `collectorNamespace`. At least one agent signal must remain enabled. See [runtime defaults](configuration.md) for collector images and resources, which are resolved in code rather than by the CRD.",
-    "TsugaMonitoring": "Use one resource per namespace to avoid competing workload annotation owners. With `injectExistingWorkloads: false`, annotate selected pod templates manually; there is no implemented opt-in label selector.",
+    "TsugaMonitoring": "Use one resource per namespace to avoid competing workload annotation owners. With `injection: Manual`, annotate selected pod templates manually; there is no implemented opt-in label selector.",
 }
 
 

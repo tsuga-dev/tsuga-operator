@@ -8,4 +8,4 @@ spec:
     enabled: true
     languages:
     - python
-  injectExistingWorkloads: false
+  injection: Manual

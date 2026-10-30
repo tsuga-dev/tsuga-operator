@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The gateway sends `k8s.container.status.reason`, so monitors can catch containers stuck in `CrashLoopBackOff`, `ImagePullBackOff` or `CreateContainerConfigError`. The metric is experimental upstream and sends 9 points per container per collection, one per known reason, with 1 for the current one. To turn it off, use a gateway `customConfig`.
+- `TsugaMonitoring` `spec.injection`: `Namespace`, `Workloads` or `Manual`. `Namespace` puts the inject annotations on the Namespace, so the OpenTelemetry Operator injects pods when they are created and nothing is rolled. Running pods are instrumented when they next restart. It also covers pods from Jobs, CronJobs and bare pods. A pod template opts out with `instrumentation.opentelemetry.io/inject-<language>: "false"`. It is refused in the collector namespace (`Ready=False`, reason `CollectorNamespace`). The manager ClusterRole gains `patch` on `namespaces`. Installs that manage it themselves, including the `tsuga-operator` Helm chart, must add it before upgrading, or `Namespace`-mode TsugaMonitorings go `Ready=False` with reason `WorkloadPatchFailed`. Ship this release's TsugaMonitoring CRD with the image: on the old CRD the API server drops `injection` and defaults `injectExistingWorkloads: true`, so a TsugaMonitoring meant for `Namespace` mode runs in `Workloads` mode and rolls every workload in its namespace. See [Auto-instrumentation](docs/site/kubernetes-monitoring/auto-instrumentation.md). Before rolling back to an earlier operator, set `injection: Manual` on every `Namespace`-mode TsugaMonitoring, or delete them, and wait for them to reconcile. Earlier operators never remove Namespace annotations, so new pods keep being injected while the `Instrumentation` exists, and a TsugaMonitoring recreated later under the same name picks them up again.
+
+### Changed
+
+- `pipelineProcessors` now run just before `batch`, or last in a pipeline without `batch`, so filters and transforms act before data is batched. They used to run after `batch`, as in the kube-stack chart. Filters, transforms and other stateless processors give the same output. On the agent with `redaction` on, they now run before redaction instead of after it. With a redaction config that lists `allowed_keys`, attributes a `pipelineProcessors` transform adds are now dropped unless they are in that list; the default `allow_all_keys: true` is unaffected.
+- A `TsugaMonitoring` created without `injection` or `injectExistingWorkloads` now uses `Namespace` mode and no longer rolls every Deployment, StatefulSet and DaemonSet in the namespace. Existing TsugaMonitorings are unchanged: `injectExistingWorkloads` was stored when they were created, and `true` maps to `Workloads`, `false` to `Manual`. `injectExistingWorkloads` is deprecated; set `injection` instead.
+- **BREAKING** (Go API only): `TsugaMonitoringSpec.InjectExistingWorkloads` is a `*bool`; YAML is unchanged.
+
 ## [0.3.0] - 2026-10-22
 
 ### Added

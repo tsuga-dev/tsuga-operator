@@ -275,8 +275,8 @@ type CollectorTuning struct {
 	// Extra receiver names to add to this collector's pipelines, per signal.
 	// +optional
 	PipelineReceivers PipelineComponents `json:"pipelineReceivers,omitempty"`
-	// Extra processor names appended after the existing processors of this
-	// collector's pipelines, per signal.
+	// Extra processor names inserted before batch in this collector's
+	// pipelines (last in a pipeline without batch), per signal.
 	// +optional
 	PipelineProcessors PipelineComponents `json:"pipelineProcessors,omitempty"`
 	// Extension names appended to service.extensions.

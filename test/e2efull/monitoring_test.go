@@ -135,16 +135,9 @@ func tierBSpecs() {
 				DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
 				// Except for go (below), the workload is deployed BEFORE the
-				// TsugaMonitoring, because injectExistingWorkloads means exactly
-				// that. The controller
-				// annotates the Deployments it finds while reconciling the
-				// TsugaMonitoring, and it watches only TsugaMonitoring and the
-				// Instrumentation it owns - not Deployments. A workload created
-				// afterwards is therefore never annotated until something else
-				// touches the TsugaMonitoring, and the injection assertion below
-				// waits out its full timeout on a workload the operator was never
-				// asked to adopt. Workloads created later are the opt-in
-				// annotation's job, which "honours an opt-in annotation" covers.
+				// TsugaMonitoring, so this covers Workloads mode adopting an
+				// existing Deployment: the controller annotates its pod
+				// template, which rolls it.
 				deployWorkload := func(optIn bool) {
 					Expect(applyYAML(renderLanguageWorkload(namespace, language, optIn))).To(Succeed())
 					_, err := kubectl("wait", "--for=condition=Available",
@@ -152,7 +145,7 @@ func tierBSpecs() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 				applyMonitoring := func() {
-					Expect(applyYAML(renderMonitoring(namespace, true, []string{language}, true, ""))).To(Succeed())
+					Expect(applyYAML(renderMonitoring(namespace, true, []string{language}, "Workloads", ""))).To(Succeed())
 					Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 						"Ready", crTimeout)).To(Succeed())
 				}
@@ -213,7 +206,7 @@ func tierBSpecs() {
 			Expect(applyNamespace(namespace)).To(Succeed())
 			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
-			Expect(applyYAML(renderMonitoring(namespace, true, tierBLanguages, true, ""))).To(Succeed())
+			Expect(applyYAML(renderMonitoring(namespace, true, tierBLanguages, "Workloads", ""))).To(Succeed())
 			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 				"Ready", crTimeout)).To(Succeed())
 
@@ -233,7 +226,7 @@ func tierBSpecs() {
 
 			// resourceAttributes is the Instrumentation CRD's key; the schema
 			// rejects resource.attributes.
-			Expect(applyYAML(renderMonitoring(namespace, true, []string{"nodejs"}, true,
+			Expect(applyYAML(renderMonitoring(namespace, true, []string{"nodejs"}, "Workloads",
 				"resource:\n  resourceAttributes:\n    e2e.merged: \"yes\""))).To(Succeed())
 			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 				"Ready", crTimeout)).To(Succeed())
@@ -258,12 +251,58 @@ func tierBSpecs() {
 			}, ingestTimeout(), signalPollInterval).Should(BeNumerically(">", 0))
 		})
 
+		It("injects new pods through the namespace annotation without rolling existing ones", func() {
+			namespace := "e2e-inject-namespace"
+			Expect(applyNamespace(namespace)).To(Succeed())
+			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
+
+			Expect(applyYAML(renderLanguageWorkload(namespace, "nodejs", false))).To(Succeed())
+			_, err := kubectl("wait", "--for=condition=Available",
+				"-n", namespace, "deploy/app-nodejs", "--timeout=300s")
+			Expect(err).NotTo(HaveOccurred())
+			generation := func() (string, error) {
+				return kubectlStdout("get", "deploy", "app-nodejs", "-n", namespace, "-o", "jsonpath={.metadata.generation}")
+			}
+			before, err := generation()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(applyYAML(renderMonitoring(namespace, true, []string{"nodejs"}, "Namespace", ""))).To(Succeed())
+			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
+				"Ready", crTimeout)).To(Succeed())
+			namespaceAnnotation := func() (string, error) {
+				return kubectlStdout("get", "namespace", namespace,
+					"-o", `jsonpath={.metadata.annotations.instrumentation\.opentelemetry\.io/inject-nodejs}`)
+			}
+			Eventually(namespaceAnnotation, crTimeout, 5*time.Second).Should(Equal("e2e-monitoring"))
+
+			By("asserting the running Deployment was not rolled")
+			podContainers := func() (string, error) {
+				return kubectl("get", "pods", "-n", namespace, "-l", "app=nodejs",
+					"-o", "jsonpath={.items[*].spec.initContainers[*].name} {.items[*].spec.containers[*].name}")
+			}
+			Consistently(podContainers, 20*time.Second, 5*time.Second).ShouldNot(ContainSubstring(injectedContainer("nodejs")))
+			Expect(generation()).To(Equal(before))
+
+			By("restarting the Deployment, whose new pod is injected at admission")
+			_, err = kubectl("rollout", "restart", "deploy/app-nodejs", "-n", namespace)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(podContainers, crTimeout, 5*time.Second).Should(ContainSubstring(injectedContainer("nodejs")))
+			Eventually(func() (int, error) {
+				return cli.CountTracesForWorkload("app-nodejs", baselineCluster, "-15m")
+			}, ingestTimeout(), 10*time.Second).Should(BeNumerically(">", 0))
+
+			By("deleting the TsugaMonitoring, which strips the namespace annotation")
+			_, err = kubectl("delete", "tsugamonitoring", "e2e-monitoring", "-n", namespace, "--timeout=60s")
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(namespaceAnnotation, crTimeout, 5*time.Second).Should(BeEmpty())
+		})
+
 		It("creates no Instrumentation when disabled", func() {
 			namespace := "e2e-inject-off"
 			Expect(applyNamespace(namespace)).To(Succeed())
 			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
-			Expect(applyYAML(renderMonitoring(namespace, false, nil, true, ""))).To(Succeed())
+			Expect(applyYAML(renderMonitoring(namespace, false, nil, "Workloads", ""))).To(Succeed())
 			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 				"Ready", crTimeout)).To(Succeed())
 
@@ -274,24 +313,24 @@ func tierBSpecs() {
 			}, 20*time.Second, 5*time.Second).Should(BeEmpty())
 		})
 
-		It("annotates only annotated workloads when injectExistingWorkloads is false", func() {
+		It("annotates only annotated workloads in Manual mode", func() {
 			namespace := "e2e-inject-optin"
 			Expect(applyNamespace(namespace)).To(Succeed())
 			DeferCleanup(func() { _, _ = kubectl("delete", "namespace", namespace, "--wait=false") })
 
 			Expect(applyYAML(renderMonitoring(
-				namespace, true, []string{"nodejs"}, false, ""))).To(Succeed())
+				namespace, true, []string{"nodejs"}, "Manual", ""))).To(Succeed())
 			Expect(waitForCRPhase("tsugamonitoring", namespace, "e2e-monitoring",
 				"Ready", crTimeout)).To(Succeed())
 
-			// injectExistingWorkloads is false here, so annotateExistingWorkloads
-			// never runs in this namespace: it neither adds nor removes
+			// injection is Manual here, so the controller annotates nothing
+			// in this namespace: it neither adds nor removes
 			// annotations. A workload without the opt-in annotation not being
 			// injected proves nothing by itself - that holds even if the OTel
 			// webhook is down or injection is impossible in this cluster. The
 			// positive control below (a workload deployed already carrying the
 			// opt-in annotation, injected via the webhook directly rather than
-			// via annotateExistingWorkloads) establishes that injection is live
+			// via the controller) establishes that injection is live
 			// in this environment, so a dead webhook surfaces as a positive-
 			// control failure rather than a silently vacuous negative.
 			By("deploying a workload that already carries the opt-in annotation")
@@ -305,8 +344,8 @@ func tierBSpecs() {
 				return kubectl("get", "pods", "-n", namespace, "-l", "app=nodejs",
 					"-o", "jsonpath={.items[0].spec.initContainers[*].name}")
 			}, crTimeout, 5*time.Second).Should(ContainSubstring("opentelemetry"),
-				"a workload carrying the opt-in annotation must be injected even when "+
-					"injectExistingWorkloads is false")
+				"a workload carrying the opt-in annotation must be injected even in "+
+					"Manual mode")
 
 			By("deploying a second workload without the opt-in annotation")
 			unannotated := fmt.Sprintf(`apiVersion: apps/v1

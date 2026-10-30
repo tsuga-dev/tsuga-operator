@@ -727,8 +727,8 @@ type renderedMonitoring struct {
 		Namespace string `json:"namespace"`
 	} `json:"metadata"`
 	Spec struct {
-		InjectExistingWorkloads bool `json:"injectExistingWorkloads"`
-		Instrumentation         struct {
+		Injection       string `json:"injection"`
+		Instrumentation struct {
 			Enabled   bool     `json:"enabled"`
 			Languages []string `json:"languages"`
 		} `json:"instrumentation"`
@@ -772,7 +772,7 @@ func hasKey(t *testing.T, manifest string, path ...string) bool {
 }
 
 func TestRenderMonitoringProducesValidManifest(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-nodejs", true, []string{"nodejs", "java"}, true, "")
+	manifest := renderMonitoring("e2e-inject-nodejs", true, []string{"nodejs", "java"}, "Workloads", "")
 	parsed := parseMonitoring(t, manifest)
 
 	if parsed.APIVersion != "observability.tsuga.com/v1alpha1" {
@@ -781,8 +781,8 @@ func TestRenderMonitoringProducesValidManifest(t *testing.T) {
 	if parsed.Metadata.Namespace != "e2e-inject-nodejs" {
 		t.Errorf("want metadata.namespace %q, got %q", "e2e-inject-nodejs", parsed.Metadata.Namespace)
 	}
-	if !parsed.Spec.InjectExistingWorkloads {
-		t.Error("want spec.injectExistingWorkloads true")
+	if parsed.Spec.Injection != "Workloads" {
+		t.Errorf("want spec.injection Workloads, got %q", parsed.Spec.Injection)
 	}
 	if !parsed.Spec.Instrumentation.Enabled {
 		t.Error("want spec.instrumentation.enabled true")
@@ -794,7 +794,7 @@ func TestRenderMonitoringProducesValidManifest(t *testing.T) {
 }
 
 func TestRenderMonitoringDisabledInstrumentation(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-off", false, nil, true, "")
+	manifest := renderMonitoring("e2e-inject-off", false, nil, "Workloads", "")
 	parsed := parseMonitoring(t, manifest)
 
 	if parsed.Spec.Instrumentation.Enabled {
@@ -802,17 +802,17 @@ func TestRenderMonitoringDisabledInstrumentation(t *testing.T) {
 	}
 }
 
-func TestRenderMonitoringInjectExistingWorkloadsFalse(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-optin", true, []string{"nodejs"}, false, "")
+func TestRenderMonitoringManualInjection(t *testing.T) {
+	manifest := renderMonitoring("e2e-inject-optin", true, []string{"nodejs"}, "Manual", "")
 	parsed := parseMonitoring(t, manifest)
 
-	if parsed.Spec.InjectExistingWorkloads {
-		t.Error("want spec.injectExistingWorkloads false")
+	if parsed.Spec.Injection != "Manual" {
+		t.Errorf("want spec.injection Manual, got %q", parsed.Spec.Injection)
 	}
 }
 
 func TestRenderMonitoringOmitsLanguagesKeyWhenEmpty(t *testing.T) {
-	manifest := renderMonitoring("e2e-inject-off", false, nil, true, "")
+	manifest := renderMonitoring("e2e-inject-off", false, nil, "Workloads", "")
 
 	if hasKey(t, manifest, "spec", "instrumentation", "languages") {
 		t.Error("want no spec.instrumentation.languages key when languages is empty, " +

@@ -50,9 +50,9 @@ func tuneExtras(c map[string]interface{}, t v1alpha1.CollectorTuning) error {
 		}
 	}
 
-	appendToPipelines(c, fieldReceivers, t.PipelineReceivers)
-	appendToPipelines(c, fieldProcessors, t.PipelineProcessors)
-	appendToPipelines(c, fieldExporters, t.PipelineExporters)
+	addToPipelines(c, fieldReceivers, t.PipelineReceivers, appendMissing)
+	addToPipelines(c, fieldProcessors, t.PipelineProcessors, insertBeforeBatch)
+	addToPipelines(c, fieldExporters, t.PipelineExporters, appendMissing)
 
 	if len(t.ServiceExtensions) > 0 {
 		service := nestedMap(c, "service")
@@ -110,9 +110,9 @@ func addExtras(parent map[string]interface{}, section, kind string, extras map[s
 	return nil
 }
 
-// appendToPipelines appends the named components to the end of field in every
-// pipeline of each signal, so processors run after batch, as in the chart.
-func appendToPipelines(c map[string]interface{}, field string, add v1alpha1.PipelineComponents) {
+// addToPipelines merges the named components into field in every pipeline of
+// each signal.
+func addToPipelines(c map[string]interface{}, field string, add v1alpha1.PipelineComponents, merge func([]interface{}, []string) []interface{}) {
 	pipelines := asMapOrEmpty(pipelinesOf(c))
 	for signal, names := range map[string][]string{
 		"traces": add.Traces, "metrics": add.Metrics, "logs": add.Logs, "profiles": add.Profiles,
@@ -125,7 +125,7 @@ func appendToPipelines(c map[string]interface{}, field string, add v1alpha1.Pipe
 			if !ok || (pipelineName != signal && !strings.HasPrefix(pipelineName, signal+"/")) {
 				continue
 			}
-			pipeline[field] = appendMissing(sliceOf(pipeline[field]), names)
+			pipeline[field] = merge(sliceOf(pipeline[field]), names)
 		}
 	}
 }
@@ -137,6 +137,18 @@ func appendMissing(list []interface{}, names []string) []interface{} {
 		}
 	}
 	return list
+}
+
+// insertBeforeBatch places the names not already in list just before batch,
+// or last in a pipeline without batch, so filters and transforms run before
+// data is batched. The kube-stack chart appends them after batch instead.
+func insertBeforeBatch(list []interface{}, names []string) []interface{} {
+	i := slices.Index(list, interface{}("batch"))
+	if i < 0 {
+		return appendMissing(list, names)
+	}
+	missing := appendMissing(slices.Clone(list), names)[len(list):]
+	return slices.Concat(list[:i], missing, list[i:])
 }
 
 func checkPipelinesComplete(c map[string]interface{}) error {

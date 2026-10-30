@@ -149,8 +149,8 @@ func TestMonitoringReconcileInjectsExistingWorkloads(t *testing.T) {
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
 		Spec: v1alpha1.TsugaMonitoringSpec{
-			Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
-			InjectExistingWorkloads: true,
+			Instrumentation: v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
+			Injection:       v1alpha1.InjectionWorkloads,
 		},
 	}
 	dep := newTestDeployment("checkout", "payments")
@@ -213,8 +213,8 @@ func TestMonitoringReconcileSkipsInjectionWhenDisabledOnSpec(t *testing.T) {
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
 		Spec: v1alpha1.TsugaMonitoringSpec{
-			Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
-			InjectExistingWorkloads: false,
+			Instrumentation: v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
+			Injection:       v1alpha1.InjectionManual,
 		},
 	}
 	dep := newTestDeployment("checkout", "payments")
@@ -234,7 +234,7 @@ func TestMonitoringReconcileSkipsInjectionWhenDisabledOnSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(gotDep.Spec.Template.Annotations) != 0 {
-		t.Fatalf("want no annotations added when InjectExistingWorkloads is false, got %v", gotDep.Spec.Template.Annotations)
+		t.Fatalf("want no annotations added in Manual mode, got %v", gotDep.Spec.Template.Annotations)
 	}
 
 	inst := &unstructured.Unstructured{}
@@ -248,7 +248,7 @@ func TestMonitoringReconcileDisabledSkipsInstrumentation(t *testing.T) {
 	scheme := monitoringTestScheme(t)
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
-		Spec:       v1alpha1.TsugaMonitoringSpec{Instrumentation: v1alpha1.InstrumentationSpec{Enabled: false}, InjectExistingWorkloads: true},
+		Spec:       v1alpha1.TsugaMonitoringSpec{Instrumentation: v1alpha1.InstrumentationSpec{Enabled: false}, Injection: v1alpha1.InjectionWorkloads},
 	}
 	dep := newTestDeployment("checkout", "payments")
 	cl := fake.NewClientBuilder().WithScheme(scheme).
@@ -298,8 +298,8 @@ func TestMonitoringInstrumentedWorkloadsReportsTotalAcrossReconciles(t *testing.
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
 		Spec: v1alpha1.TsugaMonitoringSpec{
-			Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
-			InjectExistingWorkloads: true,
+			Instrumentation: v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
+			Injection:       v1alpha1.InjectionWorkloads,
 		},
 	}
 	dep := newTestDeployment("checkout", "payments")
@@ -350,8 +350,8 @@ func TestMonitoringCountsHandAnnotatedWorkloadsInOptInMode(t *testing.T) {
 	m := &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
 		Spec: v1alpha1.TsugaMonitoringSpec{
-			Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
-			InjectExistingWorkloads: false,
+			Instrumentation: v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java"}},
+			Injection:       v1alpha1.InjectionManual,
 		},
 	}
 	optedIn := newTestDeployment("checkout", "payments")
@@ -513,8 +513,8 @@ func newMonitoring(languages ...string) *v1alpha1.TsugaMonitoring {
 	return &v1alpha1.TsugaMonitoring{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "payments"},
 		Spec: v1alpha1.TsugaMonitoringSpec{
-			Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: languages},
-			InjectExistingWorkloads: true,
+			Instrumentation: v1alpha1.InstrumentationSpec{Enabled: true, Languages: languages},
+			Injection:       v1alpha1.InjectionWorkloads,
 		},
 	}
 }
@@ -1100,8 +1100,8 @@ func reconcileBulkMonitoring(t *testing.T, spec v1alpha1.TsugaMonitoringSpec) (c
 
 func TestBulkInjectionSkipsGo(t *testing.T) {
 	cl, got, err := reconcileBulkMonitoring(t, v1alpha1.TsugaMonitoringSpec{
-		Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java", "go"}},
-		InjectExistingWorkloads: true,
+		Instrumentation: v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"java", "go"}},
+		Injection:       v1alpha1.InjectionWorkloads,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1121,8 +1121,8 @@ func TestBulkInjectionSkipsGo(t *testing.T) {
 
 func TestBulkInjectionOnlyGo(t *testing.T) {
 	cl, got, err := reconcileBulkMonitoring(t, v1alpha1.TsugaMonitoringSpec{
-		Instrumentation:         v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"go"}},
-		InjectExistingWorkloads: true,
+		Instrumentation: v1alpha1.InstrumentationSpec{Enabled: true, Languages: []string{"go"}},
+		Injection:       v1alpha1.InjectionWorkloads,
 	})
 	if err != nil {
 		t.Fatal(err)

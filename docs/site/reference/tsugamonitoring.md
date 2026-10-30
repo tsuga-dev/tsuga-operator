@@ -7,7 +7,7 @@ hide:
 
 **API:** `observability.tsuga.com/v1alpha1` · **Scope:** Namespaced · **Short name:** `tsmon`
 
-Use one resource per namespace to avoid competing workload annotation owners. With `injectExistingWorkloads: false`, annotate selected pod templates manually; there is no implemented opt-in label selector.
+Use one resource per namespace to avoid competing workload annotation owners. With `injection: Manual`, annotate selected pod templates manually; there is no implemented opt-in label selector.
 
 ## Fields
 
@@ -16,7 +16,8 @@ Required is relative to the containing object. Defaults inside optional objects 
 | Field | Type | Required | Schema default | Description and constraints |
 | --- | --- | --- | --- | --- |
 | `spec` | object | No | — | TsugaMonitoringSpec is the desired per-namespace monitoring state.  |
-| `spec.injectExistingWorkloads` | boolean | No | `true` | When true, every eligible workload in the namespace is annotated for injection. When false, the operator annotates nothing; annotate selected pod templates manually.  |
+| `spec.injectExistingWorkloads` | boolean | No | — | Deprecated: use injection. true is Workloads, false is Manual. Ignored when injection is set.  |
+| `spec.injection` | string | No | — | How workloads are opted into injection. Namespace annotates the namespace: new pods are instrumented, running ones on their next restart, and nothing is rolled. Workloads annotates every Deployment, StatefulSet and DaemonSet pod template, which rolls them. Manual annotates nothing; annotate selected pod templates yourself. When unset, injectExistingWorkloads decides, and Namespace applies when that is unset too. enum: `["Namespace", "Workloads", "Manual"]` |
 | `spec.instrumentation` | object | No | — | InstrumentationSpec controls auto-instrumentation for a namespace.  |
 | `spec.instrumentation.enabled` | boolean | Yes | `false` | When turned off, the inject annotations the operator added to workloads in this namespace are removed, so they come back uninstrumented on their next roll. Inject annotations set by hand are left in place.  |
 | `spec.instrumentation.languages` | array of string | No | — | Languages to inject. Valid: java, nodejs, python, dotnet, go, apache-httpd, nginx. Dropping a language removes the inject annotation the operator added for it; an annotation set by hand for that language is left in place. item enum: `["java", "nodejs", "python", "dotnet", "go", "apache-httpd", "nginx"]` |

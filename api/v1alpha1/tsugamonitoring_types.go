@@ -33,12 +33,45 @@ type InstrumentationSpec struct {
 // TsugaMonitoringSpec is the desired per-namespace monitoring state.
 type TsugaMonitoringSpec struct {
 	Instrumentation InstrumentationSpec `json:"instrumentation,omitempty"`
-	// When true, every eligible workload in the namespace is annotated for
-	// injection. When false, the operator annotates nothing; annotate selected
-	// pod templates manually.
-	// +kubebuilder:default=true
+	// How workloads are opted into injection. Namespace annotates the
+	// namespace: new pods are instrumented, running ones on their next
+	// restart, and nothing is rolled. Workloads annotates every Deployment,
+	// StatefulSet and DaemonSet pod template, which rolls them. Manual
+	// annotates nothing; annotate selected pod templates yourself. When
+	// unset, injectExistingWorkloads decides, and Namespace applies when
+	// that is unset too.
+	// +kubebuilder:validation:Enum=Namespace;Workloads;Manual
 	// +optional
-	InjectExistingWorkloads bool `json:"injectExistingWorkloads"`
+	Injection InjectionMode `json:"injection,omitempty"`
+	// Deprecated: use injection. true is Workloads, false is Manual. Ignored
+	// when injection is set.
+	// +optional
+	InjectExistingWorkloads *bool `json:"injectExistingWorkloads,omitempty"`
+}
+
+// InjectionMode selects how workloads are opted into auto-instrumentation.
+type InjectionMode string
+
+const (
+	InjectionNamespace InjectionMode = "Namespace"
+	InjectionWorkloads InjectionMode = "Workloads"
+	InjectionManual    InjectionMode = "Manual"
+)
+
+// EffectiveInjection resolves injection against the deprecated
+// injectExistingWorkloads. TsugaMonitorings created before injection existed
+// had injectExistingWorkloads defaulted and stored, so they keep their mode.
+func (s TsugaMonitoringSpec) EffectiveInjection() InjectionMode {
+	switch {
+	case s.Injection != "":
+		return s.Injection
+	case s.InjectExistingWorkloads == nil:
+		return InjectionNamespace
+	case *s.InjectExistingWorkloads:
+		return InjectionWorkloads
+	default:
+		return InjectionManual
+	}
 }
 
 // TsugaMonitoringStatus is CollectionStatus plus the observed instrumentation

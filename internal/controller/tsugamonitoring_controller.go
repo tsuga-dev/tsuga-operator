@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,6 +62,7 @@ type TsugaMonitoringReconciler struct {
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=tsugamonitorings/finalizers,verbs=update
 //+kubebuilder:rbac:groups=opentelemetry.io,resources=instrumentations,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments;statefulsets;daemonsets,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;patch
 
 // agentOTLPEndpoint returns the in-cluster OTLP/HTTP endpoint of the
 // tsuga-agent collector's Service in collectorNamespace. Auto-instrumented
@@ -81,8 +83,7 @@ func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 	// Finalizer writes are patches: a full Update re-serializes spec through
-	// omitempty, dropping languages: [] and flipping a user-set
-	// injectExistingWorkloads: false back to its default of true.
+	// omitempty, dropping languages: [].
 	if !deleting && !controllerutil.ContainsFinalizer(m, monitoringFinalizer) {
 		patch := client.MergeFromWithOptions(m.DeepCopy(), client.MergeFromWithOptimisticLock{})
 		controllerutil.AddFinalizer(m, monitoringFinalizer)
@@ -95,7 +96,10 @@ func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		// going away) the wanted annotation set is empty, so this pass
 		// strips the inject annotations this CR added and leaves the
 		// workloads uninstrumented on their next roll.
-		instrumented, _, err := r.reconcileWorkloads(ctx, m, false)
+		if _, _, err := r.reconcileNamespace(ctx, m, false); err != nil {
+			return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
+		}
+		instrumented, _, err := r.reconcileWorkloads(ctx, m, false, nil)
 		if err != nil {
 			return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
 		}
@@ -129,6 +133,10 @@ func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return r.retireInstrumentation(ctx, m, reasonAgentDisabled,
 			"the cluster config disables the node agent, which auto-instrumented applications export to")
 	}
+	if m.Spec.EffectiveInjection() == v1alpha1.InjectionNamespace && m.Namespace == collectorCfg.CollectorNamespace {
+		return r.retireInstrumentation(ctx, m, reasonCollectorNamespace,
+			"Namespace injection here would instrument the Tsuga collectors; use injection: Workloads or Manual in this namespace")
+	}
 	endpoint := agentOTLPEndpoint(collectorCfg.CollectorNamespace, collection.AgentOTLPPort(collectorCfg, "http"))
 	grpcEndpoint := agentOTLPEndpoint(collectorCfg.CollectorNamespace, collection.AgentOTLPPort(collectorCfg, "grpc"))
 
@@ -141,10 +149,15 @@ func (r *TsugaMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return r.fail(ctx, m, reasonApplyFailed, err)
 	}
 
-	instrumented, conflicts, err := r.reconcileWorkloads(ctx, m, true)
+	fromNamespace, nsConflicts, err := r.reconcileNamespace(ctx, m, true)
 	if err != nil {
 		return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
 	}
+	instrumented, conflicts, err := r.reconcileWorkloads(ctx, m, true, fromNamespace)
+	if err != nil {
+		return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
+	}
+	conflicts = slices.Concat(nsConflicts, conflicts)
 
 	desired := v1alpha1.TsugaMonitoringStatus{
 		CollectionStatus: v1alpha1.CollectionStatus{
@@ -179,7 +192,10 @@ const languageGo = "go"
 // owned Instrumentation, report Ready=False. Nothing to retry until the config
 // changes, which the cluster-config watch already re-enqueues.
 func (r *TsugaMonitoringReconciler) retireInstrumentation(ctx context.Context, m *v1alpha1.TsugaMonitoring, reason, message string) (ctrl.Result, error) {
-	instrumented, _, err := r.reconcileWorkloads(ctx, m, false)
+	if _, _, err := r.reconcileNamespace(ctx, m, false); err != nil {
+		return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
+	}
+	instrumented, _, err := r.reconcileWorkloads(ctx, m, false, nil)
 	if err != nil {
 		return r.fail(ctx, m, reasonWorkloadPatchFailed, err)
 	}
@@ -217,13 +233,16 @@ func (r *TsugaMonitoringReconciler) syncStatus(ctx context.Context, m *v1alpha1.
 
 // reconcileWorkloads walks the Deployments, StatefulSets, and DaemonSets in
 // the TsugaMonitoring's namespace and returns how many of them are instrumented
-// by this CR. When InjectExistingWorkloads is set it also annotates them on the
-// way past.
+// by this CR. In Workloads mode it also annotates them on the way past. In
+// Namespace mode it only strips owned annotations for languages no longer
+// wanted: those still wanted stay, since stripping them would roll the
+// workload for nothing, and a workload counts when it leaves to the namespace
+// some inject annotation in fromNamespace, the ones the namespace holds for m.
 //
 // The count is read from the annotations present on each pod template rather
 // than from what this pass wrote, which makes it correct in both modes: in
-// opt-in mode the operator annotates nothing, yet workloads an app team
-// annotated by hand are still counted, and in inject-everything mode a
+// Manual mode the operator annotates nothing, yet workloads an app team
+// annotated by hand are still counted, and in Workloads mode a
 // steady-state pass that patches nothing still reports the full total.
 //
 // Jobs and CronJobs are intentionally not handled here - a Job's pod
@@ -232,7 +251,7 @@ func (r *TsugaMonitoringReconciler) syncStatus(ctx context.Context, m *v1alpha1.
 // pods.
 //
 // Annotations are removed as well as added: when instrumentation is disabled,
-// InjectExistingWorkloads is turned off, or a language is dropped from the
+// injection leaves Workloads mode, or a language is dropped from the
 // spec, the now-unwanted inject annotations this CR added are stripped, so the
 // workload comes back uninstrumented on its next roll.
 //
@@ -243,27 +262,17 @@ func (r *TsugaMonitoringReconciler) syncStatus(ctx context.Context, m *v1alpha1.
 // workload forever.
 //
 // go is never bulk-injected.
-func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v1alpha1.TsugaMonitoring, inject bool) (int32, []string, error) {
+func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v1alpha1.TsugaMonitoring, inject bool, fromNamespace map[string]string) (int32, []string, error) {
+	mode := m.Spec.EffectiveInjection()
 	var want map[string]string
-	if inject && m.DeletionTimestamp.IsZero() && m.Spec.InjectExistingWorkloads {
-		want = make(map[string]string, len(m.Spec.Instrumentation.Languages))
-		for _, lang := range m.Spec.Instrumentation.Languages {
-			if lang == languageGo {
-				continue
-			}
-			want[injectAnnotationPrefix+lang] = m.Name
-		}
+	if inject && m.DeletionTimestamp.IsZero() && mode != v1alpha1.InjectionManual {
+		want = injectWant(m)
 	}
+	add := mode == v1alpha1.InjectionWorkloads
 
-	monitorings := &v1alpha1.TsugaMonitoringList{}
-	if err := r.List(ctx, monitorings, client.InNamespace(m.Namespace)); err != nil {
+	others, err := r.otherMonitorings(ctx, m)
+	if err != nil {
 		return 0, nil, err
-	}
-	others := map[string]struct{}{}
-	for i := range monitorings.Items {
-		if name := monitorings.Items[i].Name; name != m.Name {
-			others[name] = struct{}{}
-		}
 	}
 	conflicts := map[string]struct{}{}
 
@@ -275,7 +284,7 @@ func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v
 	}
 	for i := range deployments.Items {
 		d := &deployments.Items[i]
-		n, err := r.syncWorkload(ctx, m, d, &d.Spec.Template.ObjectMeta, want, others, conflicts)
+		n, err := r.syncWorkload(ctx, m, d, &d.Spec.Template.ObjectMeta, want, add, fromNamespace, others, conflicts)
 		instrumented += n
 		if err != nil {
 			return instrumented, nil, err
@@ -288,7 +297,7 @@ func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v
 	}
 	for i := range statefulSets.Items {
 		s := &statefulSets.Items[i]
-		n, err := r.syncWorkload(ctx, m, s, &s.Spec.Template.ObjectMeta, want, others, conflicts)
+		n, err := r.syncWorkload(ctx, m, s, &s.Spec.Template.ObjectMeta, want, add, fromNamespace, others, conflicts)
 		instrumented += n
 		if err != nil {
 			return instrumented, nil, err
@@ -301,7 +310,7 @@ func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v
 	}
 	for i := range daemonSets.Items {
 		ds := &daemonSets.Items[i]
-		n, err := r.syncWorkload(ctx, m, ds, &ds.Spec.Template.ObjectMeta, want, others, conflicts)
+		n, err := r.syncWorkload(ctx, m, ds, &ds.Spec.Template.ObjectMeta, want, add, fromNamespace, others, conflicts)
 		instrumented += n
 		if err != nil {
 			return instrumented, nil, err
@@ -309,6 +318,66 @@ func (r *TsugaMonitoringReconciler) reconcileWorkloads(ctx context.Context, m *v
 	}
 
 	return instrumented, slices.Sorted(maps.Keys(conflicts)), nil
+}
+
+// reconcileNamespace brings the inject annotations on the TsugaMonitoring's
+// namespace in line with Namespace mode, with the same ownership and conflict
+// rules as pod templates. The OTel Operator reads them at pod admission, so
+// nothing is rolled. Outside Namespace mode, or with inject false, the wanted
+// set is empty and only what this CR added is stripped. It returns the wanted
+// inject annotations the namespace now points at m, which conflicting ones
+// do not.
+func (r *TsugaMonitoringReconciler) reconcileNamespace(ctx context.Context, m *v1alpha1.TsugaMonitoring, inject bool) (map[string]string, []string, error) {
+	ns := &corev1.Namespace{}
+	if err := r.Get(ctx, types.NamespacedName{Name: m.Namespace}, ns); err != nil {
+		return nil, nil, client.IgnoreNotFound(err)
+	}
+	var want map[string]string
+	if inject && m.DeletionTimestamp.IsZero() && m.Spec.EffectiveInjection() == v1alpha1.InjectionNamespace {
+		want = injectWant(m)
+	}
+	others, err := r.otherMonitorings(ctx, m)
+	if err != nil {
+		return nil, nil, err
+	}
+	conflicts := map[string]struct{}{}
+	orig := ns.DeepCopy()
+	if syncInjectAnnotations(ns, &ns.ObjectMeta, m, want, true, others, conflicts) {
+		if err := r.Patch(ctx, ns, client.MergeFrom(orig)); err != nil {
+			return nil, nil, err
+		}
+	}
+	held := maps.Clone(want)
+	maps.DeleteFunc(held, func(k, v string) bool { return injectTarget(ns.Annotations[k], m.Namespace) != v })
+	return held, slices.Sorted(maps.Keys(conflicts)), nil
+}
+
+// injectWant maps each inject annotation m wants to its value. go is never
+// injected in bulk.
+func injectWant(m *v1alpha1.TsugaMonitoring) map[string]string {
+	want := make(map[string]string, len(m.Spec.Instrumentation.Languages))
+	for _, lang := range m.Spec.Instrumentation.Languages {
+		if lang != languageGo {
+			want[injectAnnotationPrefix+lang] = m.Name
+		}
+	}
+	return want
+}
+
+// otherMonitorings returns the names of the other TsugaMonitorings in m's
+// namespace.
+func (r *TsugaMonitoringReconciler) otherMonitorings(ctx context.Context, m *v1alpha1.TsugaMonitoring) (map[string]struct{}, error) {
+	monitorings := &v1alpha1.TsugaMonitoringList{}
+	if err := r.List(ctx, monitorings, client.InNamespace(m.Namespace)); err != nil {
+		return nil, err
+	}
+	others := map[string]struct{}{}
+	for i := range monitorings.Items {
+		if name := monitorings.Items[i].Name; name != m.Name {
+			others[name] = struct{}{}
+		}
+	}
+	return others, nil
 }
 
 // syncWorkload brings one workload's inject annotations in line with want and
@@ -321,18 +390,31 @@ func (r *TsugaMonitoringReconciler) syncWorkload(
 	obj client.Object,
 	tmpl *metav1.ObjectMeta,
 	want map[string]string,
+	add bool,
+	fromNamespace map[string]string,
 	others, conflicts map[string]struct{},
 ) (int32, error) {
 	orig := obj.DeepCopyObject().(client.Object)
-	if syncInjectAnnotations(obj, tmpl, m, want, others, conflicts) {
+	if syncInjectAnnotations(obj, tmpl, m, want, add, others, conflicts) {
 		if err := r.Patch(ctx, obj, client.MergeFrom(orig)); err != nil {
 			return 0, err
 		}
 	}
-	if !instrumentedBy(tmpl, m) {
+	if !instrumentedBy(tmpl, m) && !inheritsNamespace(tmpl, fromNamespace) {
 		return 0, nil
 	}
 	return 1, nil
+}
+
+// inheritsNamespace reports whether the pod template leaves one of the
+// namespace's inject annotations unset, so its pods get it from there.
+func inheritsNamespace(tmpl *metav1.ObjectMeta, fromNamespace map[string]string) bool {
+	for k := range fromNamespace {
+		if _, set := tmpl.Annotations[k]; !set {
+			return true
+		}
+	}
+	return false
 }
 
 // instrumentedBy reports whether a pod template carries an OTel inject
@@ -369,18 +451,24 @@ func injectTarget(v, ns string) string {
 // is never overwritten; that language goes into conflicts instead. Likewise a
 // differing value the operator did not set (a hand-set name, "true", "false")
 // is never overwritten, so it is never claimed and later stripped.
+// With add false, nothing is set: the owned annotations want still names are
+// kept and the rest stripped.
 // Returns true when the workload needs a patch.
 func syncInjectAnnotations(
 	obj client.Object,
 	tmpl *metav1.ObjectMeta,
 	m *v1alpha1.TsugaMonitoring,
 	want map[string]string,
+	add bool,
 	others, conflicts map[string]struct{},
 ) bool {
 	owned := parseOwnedLanguages(obj.GetAnnotations()[ownedLanguagesAnnotation])
 	changed := false
 
 	for k, v := range want {
+		if !add {
+			break
+		}
 		if injectTarget(tmpl.Annotations[k], m.Namespace) == v {
 			continue
 		}
@@ -502,6 +590,8 @@ func (r *TsugaMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&appsv1.Deployment{}, enqueue, onSpecChange).
 		Watches(&appsv1.StatefulSet{}, enqueue, onSpecChange).
 		Watches(&appsv1.DaemonSet{}, enqueue, onSpecChange).
+		Watches(&corev1.Namespace{}, handler.EnqueueRequestsFromMapFunc(r.namespaceToMonitorings),
+			builder.WithPredicates(predicate.AnnotationChangedPredicate{})).
 		Named("tsugamonitoring").
 		Complete(r)
 }
@@ -522,11 +612,20 @@ func (r *TsugaMonitoringReconciler) clusterConfigToMonitorings(ctx context.Conte
 	return reqs
 }
 
+// namespaceToMonitorings re-enqueues a namespace's TsugaMonitorings when its
+// annotations change, so an edited inject annotation is re-asserted.
+func (r *TsugaMonitoringReconciler) namespaceToMonitorings(ctx context.Context, obj client.Object) []reconcile.Request {
+	return r.monitoringsIn(ctx, obj.GetName())
+}
+
 func (r *TsugaMonitoringReconciler) workloadToMonitorings(ctx context.Context, obj client.Object) []reconcile.Request {
+	return r.monitoringsIn(ctx, obj.GetNamespace())
+}
+
+func (r *TsugaMonitoringReconciler) monitoringsIn(ctx context.Context, namespace string) []reconcile.Request {
 	var list v1alpha1.TsugaMonitoringList
-	if err := r.List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
-		logf.FromContext(ctx).Error(err, "workloadToMonitorings: failed to list TsugaMonitorings",
-			"namespace", obj.GetNamespace(), "workload", obj.GetName())
+	if err := r.List(ctx, &list, client.InNamespace(namespace)); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list TsugaMonitorings", "namespace", namespace)
 		return nil
 	}
 	reqs := make([]reconcile.Request, 0, len(list.Items))

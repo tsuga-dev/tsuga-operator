@@ -161,6 +161,9 @@ var kitchenSinkChecks = []kitchenSinkCheck{
 		metric("k8s.node.condition_disk_pressure", "", absentUnlikeBaseline),
 		metric("k8s.node.allocatable_pods", "", absentUnlikeBaseline),
 	}},
+	{feature: "reports container status reasons", queries: []signalQuery{
+		metric("k8s.container.status.reason", "", present),
+	}},
 	{feature: "scrapes annotated pods", queries: []signalQuery{
 		metric(promFixtureMetric, annotationScrapeJob, present),
 	}},

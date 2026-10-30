@@ -18,7 +18,7 @@ Configure the equivalent dependency ordering and health checks in your GitOps to
 
 Manage Tsuga CRs in Git. The Tsuga operator owns generated OpenTelemetry resources; the OpenTelemetry Operator owns the resulting pods and services. Editing generated children produces competing field ownership and can be overwritten.
 
-For selective application instrumentation, set `injectExistingWorkloads: false` and manage pod-template annotations in the application repository. For namespace-wide instrumentation, account for the annotations added by the operator so your GitOps controller does not continually revert them.
+For selective application instrumentation, set `injection: Manual` and manage pod-template annotations in the application repository. For namespace-wide instrumentation, the default `injection: Namespace` annotates only the Namespace object, so pod templates in Git stay as written. If your GitOps controller also manages that Namespace, make sure it does not remove the operator's `instrumentation.opentelemetry.io/inject-*` annotations. With `injection: Workloads`, the operator annotates pod templates, so account for those annotations or your GitOps controller will keep reverting them.
 
 ## Review deletion as a product change
 
