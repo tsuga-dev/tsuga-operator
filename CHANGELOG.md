@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-30
+
 ### Added
 
 - Every `resource.opentelemetry.io/<attr>` pod annotation becomes the `<attr>` resource attribute on the agent, gateway, scraper and profiler, so `deployment.environment.name` and other semantic-convention attributes can be set per workload. See [Tuning collection](docs/site/kubernetes-monitoring/tuning.md#environment-team-and-service-attributes).
