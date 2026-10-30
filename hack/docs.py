@@ -71,6 +71,35 @@ def render(crd, version):
     ])
 
 
+def check_collector_monitors(docs):
+    """The collector-health monitors must stay scoped to the operator's collectors and alert per cluster."""
+    failures = []
+    for doc in docs:
+        name = doc["metadata"]["name"]
+        spec = doc["spec"]
+        config = spec["configuration"]
+        tags = {(t["key"], t["value"]) for t in spec.get("tags", [])}
+        if not {("source", "tsuga-operator"), ("component", "otel-collector")} <= tags:
+            failures.append(f"collector-monitors.yaml: {name}: missing source/component tags")
+        if config.get("aggregationAlertLogic") != "each":
+            failures.append(f"collector-monitors.yaml: {name}: aggregationAlertLogic must be each")
+        fields = config["groupByFields"][0]["fields"]
+        if fields[0] != "context.k8s.cluster.name":
+            failures.append(f"collector-monitors.yaml: {name}: must group by context.k8s.cluster.name first")
+        # Monitors take at most three Group by fields in the Tsuga UI.
+        if len(fields) > 3:
+            failures.append(f"collector-monitors.yaml: {name}: at most 3 group-by fields, found {len(fields)}")
+        for query in config["queries"]:
+            if "context.k8s.pod.name:tsuga-*" not in query["filter"]:
+                failures.append(f"collector-monitors.yaml: {name}: query filter must scope to context.k8s.pod.name:tsuga-*")
+            if "type" not in query.get("fill", {}).get("mode", {}):
+                failures.append(f"collector-monitors.yaml: {name}: every query needs a fill mode")
+            # A bare name resolves to whichever kind Tsuga prefers, which other collectors in the org can change.
+            if "metricKind" not in query:
+                failures.append(f"collector-monitors.yaml: {name}: every query must pin metricKind")
+    return failures
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Fail if generated pages are stale")
@@ -117,6 +146,8 @@ def main():
                 prom = obj["spec"].get("prometheus", {})
                 if prom.get("replicas", 1) > 1 and not prom.get("targetAllocator", {}).get("enabled", False):
                     failures.append(f"{path.name}: multiple scraper replicas require a Target Allocator")
+    monitors = SITE / "examples" / "collector-monitors.yaml"
+    failures += check_collector_monitors(list(yaml.safe_load_all(monitors.read_text())))
     if failures:
         raise SystemExit("\n".join(failures))
     print(f"Checked {len(schemas)} CRD references and {len(examples)} example files.")

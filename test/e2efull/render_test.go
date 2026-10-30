@@ -1067,3 +1067,40 @@ func TestRenderConflictingTuningConfigSetsCustomConfigAndExportOff(t *testing.T)
 		t.Errorf("gateway still has %s", tsugaExporterName)
 	}
 }
+
+func TestRenderCollectorMonitorsPrefixesRunAndOwner(t *testing.T) {
+	previousRunID := runID
+	runID = "e2e-testrunid"
+	defer func() { runID = previousRunID }()
+
+	monitors, err := renderCollectorMonitors("e2e-tier-c", "team-123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(monitors) != 6 {
+		t.Fatalf("want 6 collector monitors, got %d", len(monitors))
+	}
+	wantPriority := map[string]int{
+		"e2e-testrunid-collector-dropped": 1, "e2e-testrunid-collector-export-failures": 2,
+		"e2e-testrunid-collector-memory-limiter": 2, "e2e-testrunid-collector-receiver-errors": 3,
+		"e2e-testrunid-collector-telemetry-missing": 2, "e2e-testrunid-collector-queue-fill": 3,
+	}
+	for _, m := range monitors {
+		var parsed renderedMonitor
+		if err := yaml.Unmarshal([]byte(m.manifest), &parsed); err != nil {
+			t.Fatalf("%s: invalid YAML: %v", m.name, err)
+		}
+		if want, ok := wantPriority[parsed.Metadata.Name]; !ok || parsed.Spec.Priority != want || m.priority != want {
+			t.Errorf("%s: priority %d (reported %d), want %d", parsed.Metadata.Name, parsed.Spec.Priority, m.priority, want)
+		}
+		if m.name != parsed.Metadata.Name || parsed.Metadata.Namespace != "e2e-tier-c" || parsed.Spec.Owner != "team-123" {
+			t.Errorf("%s: name/namespace/owner = %q/%q/%q",
+				m.name, parsed.Metadata.Name, parsed.Metadata.Namespace, parsed.Spec.Owner)
+		}
+		// The sweeps match remote monitors by name, so the run id must be in spec.name.
+		if !strings.HasPrefix(parsed.Spec.Name, "e2e-testrunid ") {
+			t.Errorf("%s: spec.name %q does not start with the run id", m.name, parsed.Spec.Name)
+		}
+		assertRunTag(t, parsed.Spec.Tags, "e2e-testrunid")
+	}
+}

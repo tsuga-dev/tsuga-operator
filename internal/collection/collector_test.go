@@ -514,6 +514,42 @@ func TestRenderShipsCollectorSelfTelemetry(t *testing.T) {
 	}
 }
 
+// The collector-health monitors sum delta counters and scope to tsuga-* pods.
+func TestRenderSelfTelemetryIsDeltaAndPodAttributed(t *testing.T) {
+	cfg := effectiveWithPrometheus()
+	cfg.Profiling.Enabled = true
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	for _, obj := range objs {
+		if obj.GetKind() != "OpenTelemetryCollector" {
+			continue
+		}
+		seen++
+		pod, _, _ := unstructuredString(obj, "spec", "config", "service", "telemetry", "resource", "k8s.pod.name")
+		if pod != "${POD_NAME}" {
+			t.Errorf("%s: telemetry resource k8s.pod.name = %q, want ${POD_NAME}", obj.GetName(), pod)
+		}
+		readers, _, _ := unstructured.NestedSlice(obj.Object, "spec", "config", "service", "telemetry", "metrics", "readers")
+		if len(readers) == 0 {
+			t.Fatalf("%s: no telemetry readers", obj.GetName())
+		}
+		pref, _, _ := unstructured.NestedString(readers[0].(map[string]interface{}), "periodic", "exporter", "otlp", "temporality_preference")
+		if pref != "delta" {
+			t.Errorf("%s: temporality_preference = %q, want delta", obj.GetName(), pref)
+		}
+		env, _, _ := unstructured.NestedSlice(obj.Object, "spec", "env")
+		if !slices.ContainsFunc(env, func(e interface{}) bool { return e.(map[string]interface{})["name"] == "POD_NAME" }) {
+			t.Errorf("%s: POD_NAME env missing", obj.GetName())
+		}
+	}
+	if seen != 4 {
+		t.Fatalf("rendered %d collectors, want 4", seen)
+	}
+}
+
 func TestRenderGatewayHasMemoryLimiter(t *testing.T) {
 	objs, err := RenderCollectors(effective())
 	if err != nil {

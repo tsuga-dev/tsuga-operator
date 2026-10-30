@@ -1,0 +1,443 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Monitor
+metadata:
+  name: tsuga-collector-dropped
+  namespace: default
+spec:
+  name: OpenTelemetry Collector - Telemetry dropped (export queue full)
+  owner: <YOUR_TEAM_ID>
+  priority: 1
+  permissions: all
+  tags:
+  - key: source
+    value: tsuga-operator
+  - key: component
+    value: otel-collector
+  message: |-
+    OpenTelemetry Collector — Telemetry dropped (export queue full): {{alert_status}}.
+    Scope: {{alert_triggered_by}}.
+    Items dropped: {{alert_values[0]}}. Lookback: {{alert_timeframe}}. Conditions: {{alert_conditions}}.
+    The exporter queue is full and new data is dropped. Check destination availability and errors, and queue sizing. Collector logs: context.k8s.pod.name:tsuga-* in the affected cluster.
+    Monitor: {{monitor_url}}
+    Data: {{alert_data_url}}
+  configuration:
+    type: metric
+    timeframe: 5
+    queries:
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_enqueue_failed_log_records
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill: &id001
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_enqueue_failed_metric_points
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_enqueue_failed_spans
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_enqueue_failed_profile_samples
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill: *id001
+    conditions:
+    - formula: q1 + q2 + q3 + q4
+      operator: greater_than
+      threshold: 0
+    noDataBehavior: resolve
+    groupByFields:
+    - fields:
+      - context.k8s.cluster.name
+      - context.k8s.pod.name
+      limit: 100
+    aggregationAlertLogic: each
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Monitor
+metadata:
+  name: tsuga-collector-export-failures
+  namespace: default
+spec:
+  name: OpenTelemetry Collector - Export failures
+  owner: <YOUR_TEAM_ID>
+  priority: 2
+  permissions: all
+  tags:
+  - key: source
+    value: tsuga-operator
+  - key: component
+    value: otel-collector
+  message: |-
+    OpenTelemetry Collector — Export failures: {{alert_status}}.
+    Scope: {{alert_triggered_by}}.
+    Failed export ratio: {{alert_values[0]}}. Lookback: {{alert_timeframe}}. Conditions: {{alert_conditions}}.
+    Usually rate limits (429), intermittent errors from the destination, or a failing extra exporter. A rejected ingestion key or blocked egress to Tsuga shows as Self-telemetry missing instead. Collector logs: context.k8s.pod.name:tsuga-* in the affected cluster.
+    Monitor: {{monitor_url}}
+    Data: {{alert_data_url}}
+  configuration:
+    type: metric
+    timeframe: 10
+    queries:
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_send_failed_log_records
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_send_failed_metric_points
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_send_failed_spans
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_send_failed_profile_samples
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_sent_log_records
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_sent_metric_points
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_sent_spans
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_sent_profile_samples
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    conditions:
+    - formula: (q1 + q2 + q3 + q4) / (q1 + q2 + q3 + q4 + q5 + q6 + q7 + q8)
+      operator: greater_than
+      threshold: 0.05
+    noDataBehavior: resolve
+    groupByFields:
+    - fields:
+      - context.k8s.cluster.name
+      - context.k8s.pod.name
+      limit: 100
+    aggregationAlertLogic: each
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Monitor
+metadata:
+  name: tsuga-collector-memory-limiter
+  namespace: default
+spec:
+  name: OpenTelemetry Collector - Memory limiter refusing data
+  owner: <YOUR_TEAM_ID>
+  priority: 2
+  permissions: all
+  tags:
+  - key: source
+    value: tsuga-operator
+  - key: component
+    value: otel-collector
+  message: |-
+    OpenTelemetry Collector — Memory limiter refusing data: {{alert_status}}.
+    Scope: {{alert_triggered_by}}.
+    Items refused: {{alert_values[0]}}. Lookback: {{alert_timeframe}}. Conditions: {{alert_conditions}}.
+    The Collector is at its memory limit. Raise the memory limit or reduce load. Collector logs: context.k8s.pod.name:tsuga-* in the affected cluster.
+    Monitor: {{monitor_url}}
+    Data: {{alert_data_url}}
+  configuration:
+    type: metric
+    timeframe: 10
+    queries:
+    - aggregate:
+        type: sum
+        field: otelcol_processor_memory_limiter_refused_log_records
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_processor_memory_limiter_refused_metric_points
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_processor_memory_limiter_refused_spans
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    conditions:
+    - formula: q1 + q2 + q3
+      operator: greater_than
+      threshold: 0
+    noDataBehavior: resolve
+    groupByFields:
+    - fields:
+      - context.k8s.cluster.name
+      - context.k8s.pod.name
+      limit: 100
+    aggregationAlertLogic: each
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Monitor
+metadata:
+  name: tsuga-collector-receiver-errors
+  namespace: default
+spec:
+  name: OpenTelemetry Collector - Receivers refusing or failing
+  owner: <YOUR_TEAM_ID>
+  priority: 3
+  permissions: all
+  tags:
+  - key: source
+    value: tsuga-operator
+  - key: component
+    value: otel-collector
+  message: |-
+    OpenTelemetry Collector — Receivers refusing or failing: {{alert_status}}.
+    Scope: {{alert_triggered_by}}.
+    Refused or failed ratio: {{alert_values[0]}}. Lookback: {{alert_timeframe}}. Conditions: {{alert_conditions}}.
+    Receivers are rejecting or failing on incoming data. Check memory limiter refusals, exporter queue fill, and Collector CPU and memory. Collector logs: context.k8s.pod.name:tsuga-* in the affected cluster.
+    Monitor: {{monitor_url}}
+    Data: {{alert_data_url}}
+  configuration:
+    type: metric
+    timeframe: 10
+    queries:
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_refused_log_records
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_refused_metric_points
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_refused_spans
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_failed_log_records
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_failed_metric_points
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_failed_spans
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_accepted_log_records
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_accepted_metric_points
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    - aggregate:
+        type: sum
+        field: otelcol_receiver_accepted_spans
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    conditions:
+    - formula: (q1 + q2 + q3 + q4 + q5 + q6) / (q1 + q2 + q3 + q4 + q5 + q6 + q7 + q8 + q9)
+      operator: greater_than
+      threshold: 0.01
+    noDataBehavior: resolve
+    groupByFields:
+    - fields:
+      - context.k8s.cluster.name
+      - context.k8s.pod.name
+      limit: 100
+    aggregationAlertLogic: each
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Monitor
+metadata:
+  name: tsuga-collector-telemetry-missing
+  namespace: default
+spec:
+  name: OpenTelemetry Collector - Self-telemetry missing in a Kubernetes cluster
+  owner: <YOUR_TEAM_ID>
+  priority: 2
+  permissions: all
+  tags:
+  - key: source
+    value: tsuga-operator
+  - key: component
+    value: otel-collector
+  message: |-
+    OpenTelemetry Collector — Self-telemetry missing in a Kubernetes cluster: {{alert_status}}.
+    Scope: {{alert_triggered_by}}.
+    Self-metric points: {{alert_values[0]}}. Lookback: {{alert_timeframe}}. Conditions: {{alert_conditions}}.
+    No self-metrics from this cluster's collectors. Check that they run, that the ingestion key is valid (401/403 after a rotation), and that egress to Tsuga is open. Collector logs: context.k8s.pod.name:tsuga-* in the affected cluster.
+    Monitor: {{monitor_url}}
+    Data: {{alert_data_url}}
+  configuration:
+    type: metric
+    timeframe: 15
+    queries:
+    - aggregate:
+        type: count
+        field: otelcol_process_uptime
+      metricKind: delta-counter
+      filter: context.k8s.pod.name:tsuga-*
+      fill:
+        mode:
+          type: zero
+    conditions:
+    - formula: q1
+      operator: less_than
+      threshold: 1
+    noDataBehavior: alert
+    groupByFields:
+    - fields:
+      - context.k8s.cluster.name
+      limit: 100
+    aggregationAlertLogic: each
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: Monitor
+metadata:
+  name: tsuga-collector-queue-fill
+  namespace: default
+spec:
+  name: OpenTelemetry Collector - Exporter queue fill high
+  owner: <YOUR_TEAM_ID>
+  priority: 3
+  permissions: all
+  tags:
+  - key: source
+    value: tsuga-operator
+  - key: component
+    value: otel-collector
+  message: |-
+    OpenTelemetry Collector — Exporter queue fill high: {{alert_status}}.
+    Scope: {{alert_triggered_by}}.
+    Ratio of average queue size to average capacity (%): {{alert_values[0]}}. Lookback: {{alert_timeframe}}. Conditions: {{alert_conditions}}.
+    Inspect the affected exporter, destination latency and errors, queue settings, and Collector resource pressure. Collector logs: context.k8s.pod.name:tsuga-* in the affected cluster.
+    Monitor: {{monitor_url}}
+    Data: {{alert_data_url}}
+  configuration:
+    type: metric
+    timeframe: 5
+    queries:
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_queue_size
+      metricKind: gauge
+      filter: context.k8s.pod.name:tsuga-*
+      timeAggregate: avg
+      fill:
+        mode:
+          type: 'null'
+    - aggregate:
+        type: sum
+        field: otelcol_exporter_queue_capacity
+      metricKind: gauge
+      filter: context.k8s.pod.name:tsuga-*
+      timeAggregate: avg
+      fill:
+        mode:
+          type: 'null'
+    conditions:
+    - formula: 100 * q1 / q2
+      operator: greater_than
+      threshold: 70
+    noDataBehavior: keep_last_status
+    groupByFields:
+    - fields:
+      - context.k8s.cluster.name
+      - context.k8s.pod.name
+      - context.data_type
+      limit: 100
+    aggregationAlertLogic: each

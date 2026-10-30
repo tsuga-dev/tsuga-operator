@@ -139,6 +139,8 @@ Still applied:
 - The collector's env: the pod-metadata variables, and while it exports to Tsuga (`exportToTsuga` not `false`) `TSUGA_API_KEY`, plus `TSUGA_OTLP_ENDPOINT` when `export.endpointSecretRef` is set. `${env:TSUGA_API_KEY}` then resolves.
 - `__TSUGA_ENDPOINT__`, `__CLUSTER_NAME__` and `__SCRAPE_INTERVAL__` are replaced in the config text.
 
+Your config replaces the operator's `service.telemetry` too. To stay covered by the [collector health monitors](alerting.md#custom-config-and-disabled-export), set `k8s.pod.name: ${POD_NAME}` on its resource and `temporality_preference: delta` on its metrics reader.
+
 Ignored: every other config field on that collector, such as `kubeletStats`, `resourceDetection`, `redaction`, `export.encoding`, `export.compression`, `extraReceivers`, `pipelineExporters` and `serviceExtensions`.
 
 `export.tokenSecretRef` and the endpoint settings still feed `TSUGA_API_KEY`, `TSUGA_OTLP_ENDPOINT` and `__TSUGA_ENDPOINT__`. For a `customConfig` that does not send to Tsuga, set that collector's `exportToTsuga: false`; otherwise `spec.export` must be set with an endpoint, or the render fails.

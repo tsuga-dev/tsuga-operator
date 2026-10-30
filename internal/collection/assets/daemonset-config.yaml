@@ -264,12 +264,15 @@ service:
     resource:
       k8s.cluster.name: "__CLUSTER_NAME__"
       service.instance.id: ${POD_UID}
+      k8s.pod.name: ${POD_NAME}
     metrics:
       readers:
         - periodic:
             exporter:
               otlp:
                 protocol: http/protobuf
+                # Tsuga monitors sum delta counters; the SDK default is cumulative.
+                temporality_preference: delta
                 headers:
                   - name: Authorization
                     value: Bearer ${env:TSUGA_API_KEY}

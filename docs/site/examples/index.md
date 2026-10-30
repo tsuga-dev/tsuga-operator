@@ -13,6 +13,9 @@ Download an example, replace placeholders, and follow its guide before applying 
 | [postgres-manual.yaml](postgres-manual.yaml) | [PostgreSQL with manual provisioning](../kubernetes-monitoring/dbm.md#manual-provisioning) |
 | [monitoring.yaml](monitoring.yaml) | [Instrument selected workloads](../kubernetes-monitoring/auto-instrumentation.md) |
 | [collector-prometheus.yaml](collector-prometheus.yaml) | [Scrape Prometheus metrics](../kubernetes-monitoring/prometheus.md) |
+| [collector-monitors.yaml](collector-monitors.yaml) | [Alert on collector health](../kubernetes-monitoring/alerting.md) |
+
+`collector-monitors.yaml` holds six Monitors. Apply it once per organization, in a single cluster.
 
 `postgres.yaml` and `postgres-manual.yaml` are alternative definitions for the same database; choose one.
 

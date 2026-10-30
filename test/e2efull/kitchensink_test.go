@@ -215,6 +215,13 @@ var kitchenSinkChecks = []kitchenSinkCheck{
 	{feature: "receives OTLP on the custom endpoint", queries: []signalQuery{
 		spans(`context.service.name:"`+kitchenSinkEmitterName+`"`, present),
 	}},
+	// collector-monitors.yaml scopes every query to these pod names. The
+	// profiler is left out: it does not run on arm64 kind.
+	{feature: "ships pod-attributed collector self-metrics", queries: []signalQuery{
+		metric("otelcol_process_uptime", "context.k8s.pod.name:tsuga-agent-*", present),
+		metric("otelcol_process_uptime", "context.k8s.pod.name:tsuga-gateway-*", present),
+		metric("otelcol_process_uptime", "context.k8s.pod.name:tsuga-scraper-*", present),
+	}},
 }
 
 // renderWarningEventPod produces a pod that can never start, so the kubelet

@@ -63,7 +63,7 @@ The gateway runs as a single replica because its cluster receivers do not elect 
 
 ## Operability
 
-Monitor operator availability, reconcile errors, collector pod restarts, memory pressure, export failures, and data freshness. A `Ready` CR condition does not establish end-to-end telemetry health.
+Monitor operator availability, reconcile errors, collector pod restarts, memory pressure, export failures, and data freshness. [Alert on collector health](../kubernetes-monitoring/alerting.md) has monitors for the collector side. A `Ready` CR condition does not establish end-to-end telemetry health.
 
 Start application instrumentation with selected workloads, validate runtime compatibility, and observe rollout behavior before enabling namespace-wide injection. Manage scraping cardinality and volume by opting in only the pods you intend to collect.
 

@@ -3,9 +3,13 @@ package e2efull
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/yaml"
 )
 
 // inlineJSON renders a generated body as a YAML flow mapping. JSON is valid
@@ -979,6 +983,49 @@ spec:
     adminSecretRef:
       name: pg-admin
 `, namespace)
+}
+
+// collectorMonitor is one Monitor from the shipped collector-monitors.yaml
+// example, renamed for this run.
+type collectorMonitor struct {
+	name     string
+	priority int
+	manifest string
+}
+
+// renderCollectorMonitors loads docs/site/examples/collector-monitors.yaml as
+// users get it and rewrites only what a run needs: namespace, owner, and the
+// run id in metadata.name, spec.name (what the sweeps match) and an e2e-run tag.
+func renderCollectorMonitors(namespace, owner string) ([]collectorMonitor, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return nil, err
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "docs", "site", "examples", "collector-monitors.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	var out []collectorMonitor
+	for _, doc := range strings.Split(string(raw), "\n---\n") {
+		var m map[string]any
+		if err := yaml.Unmarshal([]byte(doc), &m); err != nil {
+			return nil, fmt.Errorf("parsing collector-monitors.yaml: %w", err)
+		}
+		metadata := m["metadata"].(map[string]any)
+		spec := m["spec"].(map[string]any)
+		name := runID + "-" + strings.TrimPrefix(metadata["name"].(string), "tsuga-")
+		metadata["name"] = name
+		metadata["namespace"] = namespace
+		spec["owner"] = owner
+		spec["name"] = runID + " " + spec["name"].(string)
+		spec["tags"] = append(spec["tags"].([]any), map[string]any{"key": "e2e-run", "value": runID})
+		manifest, err := yaml.Marshal(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, collectorMonitor{name: name, priority: int(spec["priority"].(float64)), manifest: string(manifest)})
+	}
+	return out, nil
 }
 
 // renderNodeLocalConfig produces a TsugaCollectorConfig whose agent scrapes

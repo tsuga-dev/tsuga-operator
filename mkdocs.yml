@@ -70,6 +70,7 @@ nav:
       - DBM: kubernetes-monitoring/dbm.md
       - Prometheus scraping: kubernetes-monitoring/prometheus.md
       - Tuning: kubernetes-monitoring/tuning.md
+      - Alert on collector health: kubernetes-monitoring/alerting.md
       - Other backends: kubernetes-monitoring/other-backends.md
       - Custom collector config: kubernetes-monitoring/custom-config.md
       - eBPF profiling: kubernetes-monitoring/profiling.md
