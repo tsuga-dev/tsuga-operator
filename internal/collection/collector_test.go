@@ -1,6 +1,7 @@
 package collection
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -909,6 +910,10 @@ func TestRenderPodDefaultsWhenNothingSet(t *testing.T) {
 			if name == profilerName && f == "nodeSelector" {
 				continue
 			}
+			// See TestRenderAgentDefaultPlacement.
+			if name == agentName && f != "nodeSelector" {
+				continue
+			}
 			if hasNestedField(obj, "spec", f) {
 				t.Fatalf("%s: %s must be absent when unset", name, f)
 			}
@@ -1096,6 +1101,91 @@ func TestAgentOTLPPort(t *testing.T) {
 				t.Fatalf("got %d, want %d", port, c.port)
 			}
 		})
+	}
+}
+
+func TestRenderAgentDefaultPlacement(t *testing.T) {
+	agentTolerations := func(cfg v1alpha1.TsugaCollectorConfigSpec) []interface{} {
+		tol, _, _ := unstructured.NestedSlice(collectorByName(t, cfg, agentName).Object, "spec", "tolerations")
+		return tol
+	}
+	agentAffinity := func(cfg v1alpha1.TsugaCollectorConfigSpec) map[string]interface{} {
+		a, _, _ := unstructured.NestedMap(collectorByName(t, cfg, agentName).Object, "spec", "affinity")
+		return a
+	}
+	exprKeys := func(affinity map[string]interface{}) []string {
+		terms, _, _ := unstructured.NestedSlice(affinity, "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms")
+		if len(terms) != 1 {
+			return nil
+		}
+		var keys []string
+		for _, e := range terms[0].(map[string]interface{})["matchExpressions"].([]interface{}) {
+			m := e.(map[string]interface{})
+			keys = append(keys, fmt.Sprintf("%s %s %v", m["key"], m["operator"], m["values"]))
+		}
+		return keys
+	}
+	wantExprs := []string{
+		"kubernetes.io/os In [linux]",
+		"eks.amazonaws.com/compute-type NotIn [fargate]",
+		"type NotIn [virtual-kubelet]",
+	}
+
+	cfg := allCollectorsOn()
+	if tol := agentTolerations(cfg); len(tol) != 1 || len(tol[0].(map[string]interface{})) != 1 || tol[0].(map[string]interface{})["operator"] != "Exists" {
+		t.Fatalf("agent must tolerate every taint by default, got %v", tol)
+	}
+	if got := exprKeys(agentAffinity(cfg)); !slices.Equal(got, wantExprs) {
+		t.Fatalf("agent default affinity want %v, got %v", wantExprs, got)
+	}
+
+	cfg = allCollectorsOn()
+	cfg.Tolerations = []corev1.Toleration{{Key: "dedicated", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}}
+	if tol := agentTolerations(cfg); len(tol) != 1 || tol[0].(map[string]interface{})["key"] != "dedicated" {
+		t.Fatalf("spec.tolerations must replace the agent default, got %v", tol)
+	}
+	if got := exprKeys(agentAffinity(cfg)); !slices.Equal(got, wantExprs) {
+		t.Fatalf("tolerations must not drop the affinity default, got %v", got)
+	}
+
+	cfg = allCollectorsOn()
+	cfg.Agent.Tolerations = []corev1.Toleration{{Key: "gpu", Operator: corev1.TolerationOpExists}}
+	if tol := agentTolerations(cfg); len(tol) != 1 || tol[0].(map[string]interface{})["key"] != "gpu" {
+		t.Fatalf("agent.tolerations must replace the agent default, got %v", tol)
+	}
+
+	cfg = allCollectorsOn()
+	cfg.Affinity = &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "zone", Operator: corev1.NodeSelectorOpIn, Values: []string{"a"}}}}},
+	}}}
+	if got := exprKeys(agentAffinity(cfg)); !slices.Equal(got, []string{"zone In [a]"}) {
+		t.Fatalf("spec.affinity must replace the agent default, got %v", got)
+	}
+	if tol := agentTolerations(cfg); tol != nil {
+		t.Fatalf("a custom affinity drops the exclusions, so it must drop the toleration default too, got %v", tol)
+	}
+
+	cfg = allCollectorsOn()
+	cfg.Agent.Affinity = &apiextensionsv1.JSON{Raw: []byte(`{}`)}
+	if a := agentAffinity(cfg); len(a) != 0 {
+		t.Fatalf("agent.affinity must replace the agent default, got %v", a)
+	}
+	if tol := agentTolerations(cfg); tol != nil {
+		t.Fatalf("an empty agent.affinity must drop the toleration default, got %v", tol)
+	}
+
+	// Decoded the way the API server's JSON reaches the controller.
+	for _, doc := range []string{`{"agent":{"tolerations":[]}}`, `{"tolerations":[]}`} {
+		cfg = allCollectorsOn()
+		if err := yaml.Unmarshal([]byte(doc), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if tol := agentTolerations(cfg); tol != nil {
+			t.Fatalf("%s must opt the agent out of the toleration default, got %v", doc, tol)
+		}
+		if got := exprKeys(agentAffinity(cfg)); !slices.Equal(got, wantExprs) {
+			t.Fatalf("%s must keep the affinity default, got %v", doc, got)
+		}
 	}
 }
 

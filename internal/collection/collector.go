@@ -63,6 +63,24 @@ var profilerDefaultResources = &corev1.ResourceRequirements{
 	Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("1Gi")},
 }
 
+// agentDefaultAffinity keeps the agent off the nodes its default tolerations
+// would otherwise admit but a Linux DaemonSet cannot run on: Windows, EKS
+// Fargate and virtual-kubelet nodes.
+func agentDefaultAffinity() map[string]interface{} {
+	expr := func(key, op, value string) interface{} {
+		return map[string]interface{}{"key": key, "operator": op, "values": []interface{}{value}}
+	}
+	return map[string]interface{}{"nodeAffinity": map[string]interface{}{
+		"requiredDuringSchedulingIgnoredDuringExecution": map[string]interface{}{
+			"nodeSelectorTerms": []interface{}{map[string]interface{}{"matchExpressions": []interface{}{
+				expr("kubernetes.io/os", "In", "linux"),
+				expr("eks.amazonaws.com/compute-type", "NotIn", "fargate"),
+				expr("type", "NotIn", "virtual-kubelet"),
+			}}},
+		},
+	}}
+}
+
 // substitute replaces the embedded config placeholders with the resolved
 // endpoint and cluster name for this collector configuration. When the
 // endpoint is sourced from a secret, the placeholder resolves to an env var
@@ -137,6 +155,17 @@ func collectorSpecs(cfg v1alpha1.TsugaCollectorConfigSpec) []collectorSpec {
 				}
 				_ = unstructured.SetNestedSlice(obj.Object, hostVolumes(agentMountsLogs(cfg)), "spec", "volumes")
 				_ = unstructured.SetNestedSlice(obj.Object, hostVolumeMounts(agentMountsLogs(cfg)), "spec", "volumeMounts")
+				// The OTel Operator gives a DaemonSet's Service
+				// internalTrafficPolicy: Local, so instrumented pods on a node
+				// without an agent drop their OTLP. Tolerating every taint is
+				// only safe with the default affinity's exclusions, and an
+				// explicit `tolerations: []` opts out.
+				if cfg.Agent.Affinity == nil && cfg.Affinity == nil {
+					_ = unstructured.SetNestedMap(obj.Object, agentDefaultAffinity(), "spec", "affinity")
+					if cfg.Agent.Tolerations == nil && cfg.Tolerations == nil {
+						_ = unstructured.SetNestedSlice(obj.Object, []interface{}{map[string]interface{}{"operator": "Exists"}}, "spec", "tolerations")
+					}
+				}
 			},
 		})
 	}

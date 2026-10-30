@@ -576,10 +576,14 @@ type TsugaCollectorConfigSpec struct {
 	// Default node selector for every collector.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Default tolerations for every collector.
+	// Default tolerations for every collector. When neither this,
+	// agent.tolerations nor an affinity is set, the agent tolerates every
+	// taint; an empty list opts out.
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// Default affinity for every collector.
+	// Default affinity for every collector. When neither this nor
+	// agent.affinity is set, the agent keeps off Windows, EKS Fargate and
+	// virtual-kubelet nodes.
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// +kubebuilder:default={create: true}

@@ -35,7 +35,7 @@ kubectl -n tsuga-operator-system get pods
 
 Expect `tsuga-agent` (DaemonSet) and `tsuga-gateway` (Deployment) collector resources. The OpenTelemetry Operator creates their pods asynchronously.
 
-On clusters with tainted nodes, add matching `agent.tolerations` (and `profiling.tolerations` if profiling is on) so an agent runs on every node. `spec.tolerations` also applies to the gateway and scraper; a key-less `operator: Exists` there keeps the single gateway pod on a dead node.
+The agent tolerates every taint by default, so it also runs on GPU, spot and other tainted nodes. It needs to: applications send to the agent Service, which only routes to the agent on the **same node**, so a node without an agent drops its applications' traces, metrics and logs. Setting `agent.tolerations` or `spec.tolerations` replaces the default (`[]` opts out), and so does setting any `agent.affinity` or `spec.affinity`; see [Agent placement](tuning.md#agent-placement). The profiler has no default tolerations: add `profiling.tolerations` if profiling is on. `spec.tolerations` also applies to the gateway and scraper; a key-less `operator: Exists` there keeps the single gateway pod on a dead node.
 
 ## 3. Verify data, not just configuration
 

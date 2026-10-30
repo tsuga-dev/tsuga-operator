@@ -54,11 +54,15 @@ If a corrected Secret has not taken effect, restart the operator. A client error
 3. Inspect collector logs for configuration, authentication, or export failures.
 4. Check network reachability to the configured OTLP endpoint and that the ingestion key matches it.
 5. Confirm you are querying the right cluster and recent time range in Tsuga; generate traffic if testing traces.
+6. If data is missing only from pods on some nodes, check that those nodes run an agent. Applications only reach the agent on their own node. Compare the number of regular Linux nodes with the agent DaemonSet's `DESIRED` (Windows, EKS Fargate and virtual-kubelet nodes are excluded on purpose), and a missing node's taints with the agent's tolerations (see [Agent placement](../kubernetes-monitoring/tuning.md#agent-placement)).
 
 ```sh
 kubectl -n tsuga-operator-system get opentelemetrycollectors,pods
 kubectl -n tsuga-operator-system describe pod <COLLECTOR_POD>
 kubectl -n tsuga-operator-system logs <COLLECTOR_POD> --all-containers=true --tail=100
+kubectl get nodes -l kubernetes.io/os=linux,eks.amazonaws.com/compute-type!=fargate,type!=virtual-kubelet --no-headers | wc -l
+kubectl -n tsuga-operator-system get daemonset tsuga-agent-collector
+kubectl describe node <NODE> | grep -A3 Taints
 ```
 
 Secret environment variables are not hot-reloaded. After updating keys or endpoint, follow [credential rotation](../how-to/credentials.md).

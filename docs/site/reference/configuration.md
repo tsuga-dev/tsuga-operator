@@ -25,7 +25,7 @@ The deployed manager reads `api-token` from `tsuga-credentials`. Collection-only
 | Resource limits | CPU `500m`, memory `512Mi` |
 | Resource override | `spec.resources` is the default for agent, gateway and scraper; `agent.resources`, `gateway.resources`, `prometheus.resources` replace it per collector |
 | Profiler resources | Requests `200m` / `256Mi`, limits `1` / `1Gi`; replace with `profiling.resources`. `spec.resources` does not apply |
-| Scheduling | `spec.nodeSelector`, `spec.tolerations`, `spec.affinity` apply to every collector; the same fields under `agent`, `gateway`, `prometheus` or `profiling` replace them for that collector |
+| Scheduling | `spec.nodeSelector`, `spec.tolerations`, `spec.affinity` apply to every collector; the same fields under `agent`, `gateway`, `prometheus` or `profiling` replace them for that collector. When no affinity is set, the agent keeps off Windows, EKS Fargate and virtual-kubelet nodes and, unless tolerations are set (`[]` opts out), tolerates every taint ([Agent placement](../kubernetes-monitoring/tuning.md#agent-placement)) |
 | Extra env | `extraEnvs` per collector, added after the operator's variables |
 | Agent host network | Off by default (`agent.hostNetwork`); when on, OTLP ports bind on the node IP |
 | ServiceAccounts | One per collector, named after it (`tsuga-agent`, ...), annotated with `serviceAccount.annotations`. The profiler's account exists only while profiling is enabled. `serviceAccount.create: false` runs everything as `serviceAccount.name` |

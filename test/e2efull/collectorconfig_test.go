@@ -97,6 +97,11 @@ func tierASpecs() {
 					"Ready", collectorTimeout)).To(Succeed())
 				Expect(waitForCollectorReady(collectorNS, "tsuga-agent", collectorTimeout)).To(Succeed())
 
+				if scenario.IsBaseline {
+					By("checking the agent comes back on a tainted node")
+					assertAgentToleratesTaint(collectorNS)
+				}
+
 				if scenario.ExpectGateway {
 					Expect(waitForCollectorReady(collectorNS, "tsuga-gateway", collectorTimeout)).To(Succeed())
 				} else {
@@ -273,4 +278,25 @@ func TestTierAScenariosUseRealRunIDNotPlaceholder(t *testing.T) {
 			t.Errorf("want cluster name %q to carry the real run id %q", s.ClusterName, runID)
 		}
 	}
+}
+
+// assertAgentToleratesTaint taints the kind node NoSchedule, deletes the agent
+// pod and expects the DaemonSet to put it back. Without a toleration for the
+// taint the DaemonSet stops desiring the node and no pod returns. NoSchedule
+// leaves the other running pods in place; the taint is removed before the
+// scenario schedules anything else.
+func assertAgentToleratesTaint(collectorNS string) {
+	const taint = "tsuga-e2e/coverage=x:NoSchedule"
+	node, err := kubectlStdout("get", "nodes", "-o", "jsonpath={.items[0].metadata.name}")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = kubectl("taint", "node", node, taint, "--overwrite")
+	Expect(err).NotTo(HaveOccurred())
+	untaint := func() { _, _ = kubectl("taint", "node", node, taint+"-") }
+	DeferCleanup(untaint)
+
+	_, err = kubectl("delete", "pods", "-n", collectorNS,
+		"-l", "app.kubernetes.io/name=tsuga-agent-collector", "--wait=true")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(waitForCollectorReady(collectorNS, "tsuga-agent", 90*time.Second)).To(Succeed())
+	untaint()
 }

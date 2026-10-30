@@ -33,9 +33,11 @@ spec:
   # Placement and identity. Per-collector fields (agent.tolerations, ...)
   # replace the spec-level defaults for that collector, and are preferred
   # for tolerations because spec.tolerations also reaches the single-replica
-  # gateway and the scraper. For example, add under agent:
+  # gateway and the scraper. The agent tolerates every taint by default; to
+  # narrow it, add under agent:
   #   tolerations:
-  #     - operator: Exists
+  #     - key: nvidia.com/gpu
+  #       operator: Exists
   # serviceAccount:
   #   annotations:
   #     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/tsuga-collectors

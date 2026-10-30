@@ -55,7 +55,7 @@ Provision credentials through a secret manager and document rotation. Restrict a
 
 ## Capacity
 
-By default, the agent, gateway and scraper each request `100m` CPU and `128Mi` memory, with limits of `500m` CPU and `512Mi` memory. The agent runs per eligible node, so account for its multiplied footprint.
+By default, the agent, gateway and scraper each request `100m` CPU and `128Mi` memory, with limits of `500m` CPU and `512Mi` memory. The agent runs on every regular Linux node (not Fargate or virtual nodes), tainted ones included unless you set tolerations, so account for its multiplied footprint.
 
 `spec.resources` replaces the defaults for the agent, gateway and scraper. The profiler has its own defaults and is sized with `profiling.resources`. Set complete requests and limits, then observe actual usage under representative load. The embedded memory limiter relies on a memory limit; do not remove it casually.
 

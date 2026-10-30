@@ -52,7 +52,10 @@ spec:
               topology.
             properties:
               affinity:
-                description: Default affinity for every collector.
+                description: |-
+                  Default affinity for every collector. When neither this nor
+                  agent.affinity is set, the agent keeps off Windows, EKS Fargate and
+                  virtual-kubelet nodes.
                 properties:
                   nodeAffinity:
                     description: Describes node affinity scheduling rules for the
@@ -3540,7 +3543,10 @@ spec:
                   rule: '!has(self.create) || self.create || (has(self.name) && size(self.name)
                     > 0)'
               tolerations:
-                description: Default tolerations for every collector.
+                description: |-
+                  Default tolerations for every collector. When neither this,
+                  agent.tolerations nor an affinity is set, the agent tolerates every
+                  taint; an empty list opts out.
                 items:
                   description: |-
                     The pod this Toleration is attached to tolerates any taint that matches

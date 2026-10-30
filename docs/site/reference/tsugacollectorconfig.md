@@ -16,7 +16,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | Field | Type | Required | Schema default | Description and constraints |
 | --- | --- | --- | --- | --- |
 | `spec` | object | No | — | TsugaCollectorConfigSpec is the desired cluster collection topology.  |
-| `spec.affinity` | object | No | — | Default affinity for every collector.  |
+| `spec.affinity` | object | No | — | Default affinity for every collector. When neither this nor agent.affinity is set, the agent keeps off Windows, EKS Fargate and virtual-kubelet nodes.  |
 | `spec.affinity.nodeAffinity` | object | No | — | Describes node affinity scheduling rules for the pod.  |
 | `spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution` | array of object | No | — | The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.  |
 | `spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[].preference` | object | Yes | — | A node selector term, associated with the corresponding weight.  |
@@ -530,7 +530,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.serviceAccount.create` | boolean | No | `true` | Create one ServiceAccount per collector, named after it. When false, every collector and the Target Allocator run as name.  |
 | `spec.serviceAccount.name` | string | No | — | Existing ServiceAccount in collectorNamespace, used when create is false. maxLength: `253`; pattern: `"^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"` |
 | `spec.serviceAccount` validation | CEL | — | — | serviceAccount.name is required when serviceAccount.create is false |
-| `spec.tolerations` | array of object | No | — | Default tolerations for every collector.  |
+| `spec.tolerations` | array of object | No | — | Default tolerations for every collector. When neither this, agent.tolerations nor an affinity is set, the agent tolerates every taint; an empty list opts out.  |
 | `spec.tolerations[].effect` | string | No | — | Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.  |
 | `spec.tolerations[].key` | string | No | — | Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.  |
 | `spec.tolerations[].operator` | string | No | — | Operator represents a key's relationship to the value. Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category. Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).  |

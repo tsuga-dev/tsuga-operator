@@ -26,11 +26,13 @@ spec:
     targetAllocator:
       enabled: false
       allocationStrategy: consistent-hashing
-  # Placement and identity. Prefer per-collector tolerations: spec.tolerations
-  # also reaches the single-replica gateway and the scraper.
+  # Placement and identity. The agent tolerates every taint by default; setting
+  # agent.tolerations narrows it. spec.tolerations also reaches the
+  # single-replica gateway and the scraper.
   # agent:
   #   tolerations:
-  #     - operator: Exists
+  #     - key: nvidia.com/gpu
+  #       operator: Exists
   # serviceAccount:
   #   annotations:
   #     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/tsuga-collectors

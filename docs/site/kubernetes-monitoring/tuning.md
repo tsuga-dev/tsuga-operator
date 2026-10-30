@@ -176,6 +176,27 @@ spec:
 
 `serviceNameEnvVar` names an environment variable of the profiled process whose value becomes the profile's service name, ahead of the other [service name sources](profiling.md).
 
+## Agent placement
+
+Applications send OTLP to the agent Service, which only routes to the agent on the sending pod's node: a node without an agent drops its applications' telemetry, and nothing reports it. So when neither `agent.affinity` nor `spec.affinity` is set, the agent gets a node affinity that keeps it off nodes a Linux DaemonSet cannot run on, and, unless `agent.tolerations` or `spec.tolerations` is set, a toleration for every taint, so it also runs on GPU, spot, dedicated and control-plane nodes:
+
+```yaml
+tolerations:
+  - operator: Exists
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - {key: kubernetes.io/os, operator: In, values: [linux]}
+            - {key: eks.amazonaws.com/compute-type, operator: NotIn, values: [fargate]}
+            - {key: type, operator: NotIn, values: [virtual-kubelet]}
+```
+
+Each setting replaces its default, it is not merged. Setting any affinity, even `{}`, also drops the default toleration, because tolerating every taint without the exclusions puts agent pods on nodes where they stay `Pending` (Fargate, virtual nodes) or fail to start (Windows). With a custom affinity, add the tolerations you need and keep the expressions above if the cluster has such nodes. `tolerations: []` opts out of the default toleration and keeps the default affinity.
+
+On self-managed clusters the agent runs on control-plane nodes and collects their pod logs (etcd, kube-apiserver), which adds log volume. Managed control planes (EKS, GKE, AKS) have no such nodes.
+
 ## Turning the agent off
 
 ```yaml
