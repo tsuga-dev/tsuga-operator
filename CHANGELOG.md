@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-30
+
 ### Added
 
 - Example monitors for collector health, [collector-monitors.yaml](docs/site/examples/collector-monitors.yaml): telemetry dropped, export failures, memory limiter refusals, receiver errors, exporter queue fill and missing self-telemetry, per cluster and collector pod. See [Alert on collector health](docs/site/kubernetes-monitoring/alerting.md).
