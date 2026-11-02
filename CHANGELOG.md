@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-02
+
 ### Changed
 
 - Collectors default to OTel Collector 0.164.0, from 0.161.0: the agent, scraper and PostgreSQL collectors on the contrib distribution, the gateway on the k8s distribution and the profiler on the eBPF profiler distribution. If you set `spec.image` or `profiling.image`, test the new release before moving to it.
