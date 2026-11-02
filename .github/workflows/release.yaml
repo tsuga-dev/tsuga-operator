@@ -114,3 +114,103 @@ jobs:
           name: "Release ${{ github.ref_name }}"
           body_path: dist/release-notes.md
           files: dist/install.yaml
+
+  # Opens a PR on tsuga-dev/helm-charts that ships this release: chart version
+  # and appVersion, CRDs, manager RBAC and the release's CHANGELOG section.
+  helm-chart-pr:
+    name: Open Helm chart PR
+    needs: release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: helm-charts
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/helm-charts
+          token: ${{ steps.app-token.outputs.token }}
+          path: helm-charts
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+
+      # The chart version is the operator version. Chart-only changes never bump
+      # it: they ship with the next operator release. A hand-bumped chart can
+      # already hold this version, and chart-releaser skips existing versions
+      # without failing, so the CRDs and RBAC would silently never ship.
+      - name: Update chart
+        env:
+          VERSION: ${{ github.ref_name }}
+          CHART: helm-charts/charts/tsuga-operator
+        run: |
+          VERSION=${VERSION#v}
+
+          if git -C helm-charts ls-remote --exit-code --tags origin "refs/tags/tsuga-operator-$VERSION" >/dev/null; then
+            echo "::error::helm-charts already has tag tsuga-operator-$VERSION; chart versions must track operator versions." >&2
+            exit 1
+          fi
+
+          sed -i -E \
+            -e "s/^version: .*/version: $VERSION/" \
+            -e "s/^appVersion: .*/appVersion: \"$VERSION\"/" \
+            "$CHART/Chart.yaml"
+
+          rm -f "$CHART"/conf/crds/*.yaml
+          cp config/crd/bases/*.yaml "$CHART/conf/crds/"
+
+          # Swap the manager ClusterRole rules for the controller-gen ones; the
+          # header and the metrics roles after it are chart-owned.
+          role="$CHART/templates/clusterrole.yaml"
+          {
+            sed '/^rules:/q' "$role"
+            sed '1,/^rules:/d' config/rbac/role.yaml
+            sed -n '/^{{- if .Values.manager.metrics.enabled }}/,$p' "$role"
+          } > "$RUNNER_TEMP/clusterrole.yaml"
+          mv "$RUNNER_TEMP/clusterrole.yaml" "$role"
+
+          changelog="$CHART/CHANGELOG.md"
+          if ! grep -qF "## [$VERSION]" "$changelog"; then
+            awk -v ver="$VERSION" '
+              /^## \[/ { if (found) exit; if (index($0, "[" ver "]")) found = 1 }
+              found { print }
+            ' CHANGELOG.md \
+              | sed "s#](docs/#](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/docs/#g" \
+              > "$RUNNER_TEMP/section.md"
+            test -s "$RUNNER_TEMP/section.md"
+            awk '
+              NR == FNR { section = section $0 "\n"; next }
+              !done && /^## \[/ { printf "%s", section; done = 1 }
+              { print }
+              END { if (!done) printf "\n%s", section }
+            ' "$RUNNER_TEMP/section.md" "$changelog" > "$RUNNER_TEMP/CHANGELOG.md"
+            mv "$RUNNER_TEMP/CHANGELOG.md" "$changelog"
+          fi
+
+          cd helm-charts
+          make generate-examples CHARTS=tsuga-operator
+          go run github.com/norwoodj/helm-docs/cmd/helm-docs@v1.14.2 --chart-search-root=charts/tsuga-operator
+
+      - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          path: helm-charts
+          token: ${{ steps.app-token.outputs.token }}
+          branch: release/tsuga-operator-${{ github.ref_name }}
+          delete-branch: true
+          title: 'feat(tsuga-operator): Update chart to operator ${{ github.ref_name }}'
+          commit-message: 'feat(tsuga-operator): Update chart to operator ${{ github.ref_name }}'
+          body: 'Ships [tsuga-operator ${{ github.ref_name }}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}): chart version, CRDs, manager RBAC, rendered examples, README and release notes.'
