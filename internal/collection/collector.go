@@ -44,7 +44,9 @@ const (
 	//
 	// The floor is v0.161.0: the configs extract container.image.tags, which
 	// older collectors accept but never emit.
-	defaultAgentImage   = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.164.0"
+	// renovate: datasource=github-releases depName=open-telemetry/opentelemetry-collector-releases
+	defaultAgentImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.164.0"
+	// renovate: datasource=github-releases depName=open-telemetry/opentelemetry-collector-releases
 	defaultGatewayImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.164.0"
 
 	// The scraper needs the prometheus receiver, which the k8s distribution
@@ -52,6 +54,7 @@ const (
 	defaultScraperImage = defaultAgentImage
 	// The profiling receiver ships only in the eBPF profiler distribution,
 	// so the profiler never takes spec.image.
+	// renovate: datasource=github-releases depName=open-telemetry/opentelemetry-collector-releases
 	defaultProfilerImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-ebpf-profiler:0.164.0"
 )
 
