@@ -15,10 +15,10 @@ The deployed manager reads `api-token` from `tsuga-credentials`. Collection-only
 | --- | --- |
 | Collection config name | Use `cluster`; required by the monitoring controller's lookup |
 | Collector namespace | `tsuga-operator-system`; create it before using a custom namespace |
-| Agent image | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.161.0` |
-| Gateway image | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.161.0` |
+| Agent image | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.164.0` |
+| Gateway image | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.164.0` |
 | Scraper image | Same default as agent |
-| Profiler image | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-ebpf-profiler:0.161.0`; override with `profiling.image` |
+| Profiler image | `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-ebpf-profiler:0.164.0`; override with `profiling.image` |
 | Profiling | Disabled unless enabled; samples at 20 Hz |
 | Image override | `spec.image` applies to the agent, gateway and scraper; must contain all required components. The profiler uses `profiling.image` |
 | Resource requests | CPU `100m`, memory `128Mi` |
@@ -69,7 +69,7 @@ The dedicated PostgreSQL collector runs as a single-replica Deployment in the da
 | Go | `1.27.2` module directive | Build and test toolchain |
 | cert-manager | `v1.18.2` | Makefile installation target |
 | OpenTelemetry Operator | `v0.160.0` | `make test-otel-schema` validates generated resources against this release's CRDs |
-| Collector distributions | `0.161.0` | Explicit images in collection renderer |
+| Collector distributions | `0.164.0` | Explicit images in collection renderer |
 
 The repository does not declare a general Kubernetes support matrix. Kubernetes Go library versions and envtest versions are not a support guarantee. Validate your cluster and admission policies in staging.
 

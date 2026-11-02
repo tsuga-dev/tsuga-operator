@@ -625,7 +625,7 @@ spec:
       metrics: [attributes/e2e-scraper]
   profiling:
     enabled: true
-    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-ebpf-profiler:0.160.0
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-ebpf-profiler:0.163.0
     serviceNameEnvVar: OTEL_SERVICE_NAME
     k8sAttributesMetadata: [k8s.namespace.name, k8s.pod.name]
     nodeSelector:

@@ -31,7 +31,7 @@ const (
 	// (internal/collection/collector.go), so the DaemonSet only carries it if
 	// the field took effect.
 	kitchenSinkProfilerImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/" +
-		"opentelemetry-collector-ebpf-profiler:0.160.0"
+		"opentelemetry-collector-ebpf-profiler:0.163.0"
 	warningEventPodName = "e2e-warning-event"
 )
 

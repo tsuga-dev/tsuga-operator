@@ -20,7 +20,7 @@ func sqlqueryDatasources(t *testing.T, obj *unstructured.Unstructured) []string 
 	receivers, _, _ := unstructured.NestedMap(obj.Object, "spec", "config", "receivers")
 	var out []string
 	for name, raw := range receivers {
-		if !strings.HasPrefix(name, "sqlquery/") {
+		if !strings.HasPrefix(name, "sql_query/") {
 			continue
 		}
 		ds, _ := raw.(map[string]interface{})["datasource"].(string)
@@ -68,7 +68,7 @@ func TestRenderPostgresCollectorSubstitutesTarget(t *testing.T) {
 	}
 	datasources := sqlqueryDatasources(t, obj)
 	if len(datasources) != 8 {
-		t.Fatalf("want 8 sqlquery datasources, got %d", len(datasources))
+		t.Fatalf("want 8 sql_query datasources, got %d", len(datasources))
 	}
 	expected := "host=orders-pg.rds.amazonaws.com port=6543 dbname=appdb user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=disable"
 	for i, ds := range datasources {

@@ -10,7 +10,7 @@ import (
 
 const postgresNamespace = "e2e-pg"
 
-// postgresBackendsMetric is confirmed live with `tsuga metrics list`. The sqlquery
+// postgresBackendsMetric is confirmed live with `tsuga metrics list`. The sql_query
 // receiver emits it with db.namespace, not postgresql.database.name.
 const postgresBackendsMetric = "postgresql.backends"
 
