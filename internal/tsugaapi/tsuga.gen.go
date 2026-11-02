@@ -1028,7 +1028,7 @@ type UpdateSloResponse struct {
 
 // CreateDashboardJSONBody defines parameters for CreateDashboard.
 type CreateDashboardJSONBody struct {
-	// Filters Dashboard-wide filters applied to every widget on the dashboard. Up to 10 filters are allowed.
+	// Filters Dashboard-wide filters applied to every widget on the dashboard.
 	Filters *[]struct {
 		// Exclude If true, widgets exclude telemetry whose value matches this filter instead of including it (is-not).
 		Exclude *bool `json:"exclude,omitempty"`
@@ -1171,7 +1171,7 @@ type QueryDashboardsJSONBodySortDirection string
 
 // UpdateDashboardJSONBody defines parameters for UpdateDashboard.
 type UpdateDashboardJSONBody struct {
-	// Filters Dashboard-wide filters applied to every widget on the dashboard. Up to 10 filters are allowed.
+	// Filters Dashboard-wide filters applied to every widget on the dashboard.
 	Filters *[]struct {
 		// Exclude If true, widgets exclude telemetry whose value matches this filter instead of including it (is-not).
 		Exclude *bool `json:"exclude,omitempty"`
