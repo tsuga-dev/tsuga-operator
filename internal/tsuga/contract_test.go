@@ -87,8 +87,8 @@ func TestGeneratedRequestFieldGapsAreReviewed(t *testing.T) {
 		crd      any
 		expected []string
 	}{
-		{"dashboard create", tsugaapi.CreateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"filters[].exclude", "folderId", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent"}},
-		{"dashboard update", tsugaapi.UpdateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"filters[].exclude", "folderId", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent"}},
+		{"dashboard create", tsugaapi.CreateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"filters[].exclude", "folderId", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent", "graphs[].tabId"}},
+		{"dashboard update", tsugaapi.UpdateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"filters[].exclude", "folderId", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent", "graphs[].tabId"}},
 		{"monitor create", tsugaapi.CreateMonitorJSONBody{}, v1alpha1.MonitorSpec{}, []string{"clusterIds"}},
 		{"monitor update", tsugaapi.UpdateMonitorJSONBody{}, v1alpha1.MonitorSpec{}, []string{"clusterIds"}},
 		{"slo create", tsugaapi.CreateSloJSONBody{}, v1alpha1.SLOSpec{}, nil},

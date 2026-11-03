@@ -1075,6 +1075,9 @@ type CreateDashboardJSONBody struct {
 		// Name Display name of the graph widget.
 		Name *string `json:"name,omitempty"`
 
+		// TabId ID of the dashboard tab that shows the widget. Widgets without a tab, or whose tab no longer exists, are shown in the first tab.
+		TabId *string `json:"tabId,omitempty"`
+
 		// Visualization Opaque Tsuga configuration passed through by the operator
 		Visualization map[string]interface{} `json:"visualization"`
 	} `json:"graphs"`
@@ -1217,6 +1220,9 @@ type UpdateDashboardJSONBody struct {
 
 		// Name Display name of the graph widget.
 		Name *string `json:"name,omitempty"`
+
+		// TabId ID of the dashboard tab that shows the widget. Widgets without a tab, or whose tab no longer exists, are shown in the first tab.
+		TabId *string `json:"tabId,omitempty"`
 
 		// Visualization Opaque Tsuga configuration passed through by the operator
 		Visualization map[string]interface{} `json:"visualization"`
