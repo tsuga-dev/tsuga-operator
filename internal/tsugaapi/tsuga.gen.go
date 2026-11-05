@@ -17,6 +17,90 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for DashboardSummaryTimePreset.
+const (
+	DashboardSummaryTimePresetCurrentDay      DashboardSummaryTimePreset = "current-day"
+	DashboardSummaryTimePresetCurrentMonth    DashboardSummaryTimePreset = "current-month"
+	DashboardSummaryTimePresetCurrentWeek     DashboardSummaryTimePreset = "current-week"
+	DashboardSummaryTimePresetCurrentYear     DashboardSummaryTimePreset = "current-year"
+	DashboardSummaryTimePresetPast12Hours     DashboardSummaryTimePreset = "past-12-hours"
+	DashboardSummaryTimePresetPast15Days      DashboardSummaryTimePreset = "past-15-days"
+	DashboardSummaryTimePresetPast15Minutes   DashboardSummaryTimePreset = "past-15-minutes"
+	DashboardSummaryTimePresetPast1Hour       DashboardSummaryTimePreset = "past-1-hour"
+	DashboardSummaryTimePresetPast24Hours     DashboardSummaryTimePreset = "past-24-hours"
+	DashboardSummaryTimePresetPast2Days       DashboardSummaryTimePreset = "past-2-days"
+	DashboardSummaryTimePresetPast2Hours      DashboardSummaryTimePreset = "past-2-hours"
+	DashboardSummaryTimePresetPast30Days      DashboardSummaryTimePreset = "past-30-days"
+	DashboardSummaryTimePresetPast30Minutes   DashboardSummaryTimePreset = "past-30-minutes"
+	DashboardSummaryTimePresetPast3Days       DashboardSummaryTimePreset = "past-3-days"
+	DashboardSummaryTimePresetPast3Months     DashboardSummaryTimePreset = "past-3-months"
+	DashboardSummaryTimePresetPast4Hours      DashboardSummaryTimePreset = "past-4-hours"
+	DashboardSummaryTimePresetPast5Minutes    DashboardSummaryTimePreset = "past-5-minutes"
+	DashboardSummaryTimePresetPast6Hours      DashboardSummaryTimePreset = "past-6-hours"
+	DashboardSummaryTimePresetPast7Days       DashboardSummaryTimePreset = "past-7-days"
+	DashboardSummaryTimePresetPrevious3Months DashboardSummaryTimePreset = "previous-3-months"
+	DashboardSummaryTimePresetPreviousDay     DashboardSummaryTimePreset = "previous-day"
+	DashboardSummaryTimePresetPreviousMonth   DashboardSummaryTimePreset = "previous-month"
+	DashboardSummaryTimePresetPreviousWeek    DashboardSummaryTimePreset = "previous-week"
+	DashboardSummaryTimePresetPreviousYear    DashboardSummaryTimePreset = "previous-year"
+)
+
+// Valid indicates whether the value is a known member of the DashboardSummaryTimePreset enum.
+func (e DashboardSummaryTimePreset) Valid() bool {
+	switch e {
+	case DashboardSummaryTimePresetCurrentDay:
+		return true
+	case DashboardSummaryTimePresetCurrentMonth:
+		return true
+	case DashboardSummaryTimePresetCurrentWeek:
+		return true
+	case DashboardSummaryTimePresetCurrentYear:
+		return true
+	case DashboardSummaryTimePresetPast12Hours:
+		return true
+	case DashboardSummaryTimePresetPast15Days:
+		return true
+	case DashboardSummaryTimePresetPast15Minutes:
+		return true
+	case DashboardSummaryTimePresetPast1Hour:
+		return true
+	case DashboardSummaryTimePresetPast24Hours:
+		return true
+	case DashboardSummaryTimePresetPast2Days:
+		return true
+	case DashboardSummaryTimePresetPast2Hours:
+		return true
+	case DashboardSummaryTimePresetPast30Days:
+		return true
+	case DashboardSummaryTimePresetPast30Minutes:
+		return true
+	case DashboardSummaryTimePresetPast3Days:
+		return true
+	case DashboardSummaryTimePresetPast3Months:
+		return true
+	case DashboardSummaryTimePresetPast4Hours:
+		return true
+	case DashboardSummaryTimePresetPast5Minutes:
+		return true
+	case DashboardSummaryTimePresetPast6Hours:
+		return true
+	case DashboardSummaryTimePresetPast7Days:
+		return true
+	case DashboardSummaryTimePresetPrevious3Months:
+		return true
+	case DashboardSummaryTimePresetPreviousDay:
+		return true
+	case DashboardSummaryTimePresetPreviousMonth:
+		return true
+	case DashboardSummaryTimePresetPreviousWeek:
+		return true
+	case DashboardSummaryTimePresetPreviousYear:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeleteResponseSuccess.
 const (
 	True DeleteResponseSuccess = true
@@ -826,6 +910,53 @@ type Dashboard struct {
 	} `json:"tags,omitempty"`
 }
 
+// DashboardSummary Dashboard as listed by the dashboard query: its fields without `graphs`, plus the number of widgets. Retrieve the dashboard by ID to read its widgets.
+//
+// Examples: {"filters":[{"key":"env","values":["production"]}],"id":"123-456-abc","name":"API Performance Overview","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}],"timePreset":"past-1-hour","widgetCount":1}
+type DashboardSummary struct {
+	// Filters Dashboard-wide filters applied to every widget on the dashboard.
+	Filters *[]struct {
+		// Exclude If true, widgets exclude telemetry whose value matches this filter instead of including it (is-not).
+		Exclude *bool `json:"exclude,omitempty"`
+
+		// Key Dashboard-wide filter key, usually a telemetry attribute name.
+		Key string `json:"key"`
+
+		// Values Allowed values for this dashboard-wide filter.
+		Values []string `json:"values"`
+	} `json:"filters,omitempty"`
+
+	// FolderId Folder that contains the dashboard. Set from the dashboard's saved folder relationship. Returned when the dashboard is in a folder; omitted when it is not.
+	FolderId *string `json:"folderId,omitempty"`
+
+	// Id Tsuga-generated dashboard ID assigned when the dashboard is created.
+	Id string `json:"id"`
+
+	// Name Display name of the dashboard. Set by the caller on create or update.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the dashboard. Set by the caller on create or update and used for dashboard access control.
+	Owner string `json:"owner"`
+
+	// Tags Key/value tags applied to the resource. Use them to organize resources and to satisfy tag policies.
+	Tags *[]struct {
+		// Key Tag key attached to the resource. Consumers can use key/value tags for filtering, ownership context, and policy checks.
+		Key string `json:"key"`
+
+		// Value Tag value attached to the resource for this key. Tsuga returns the value exactly as stored.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+
+	// TimePreset Relative time preset used when opening the dashboard.
+	TimePreset *DashboardSummaryTimePreset `json:"timePreset,omitempty"`
+
+	// WidgetCount Number of widgets on the dashboard.
+	WidgetCount float32 `json:"widgetCount"`
+}
+
+// DashboardSummaryTimePreset Relative time preset used when opening the dashboard.
+type DashboardSummaryTimePreset string
+
 // DeleteDashboardResponse defines model for DeleteDashboardResponse.
 type DeleteDashboardResponse struct {
 	// Data Confirmation that the targeted resource was deleted.
@@ -913,7 +1044,7 @@ type Monitor struct {
 
 // QueryDashboardsResponse defines model for QueryDashboardsResponse.
 type QueryDashboardsResponse struct {
-	Data []Dashboard `json:"data"`
+	Data []DashboardSummary `json:"data"`
 
 	// Metadata Metadata accompanying `data` on paginated operations, describing the full result set the page was taken from.
 	Metadata *ResponseMetadata `json:"metadata,omitempty"`
@@ -1772,13 +1903,13 @@ type ClientInterface interface {
 	// QueryDashboardsWithBody performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboardsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryDashboards performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboards(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteDashboard performs a DELETE /v1/dashboards/{id} (the `DeleteDashboard` operationId) request.
@@ -1936,7 +2067,7 @@ func (c *Client) CreateDashboard(ctx context.Context, body CreateDashboardJSONRe
 // QueryDashboardsWithBody performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *Client) QueryDashboardsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDashboardsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -1952,7 +2083,7 @@ func (c *Client) QueryDashboardsWithBody(ctx context.Context, contentType string
 // QueryDashboards performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *Client) QueryDashboards(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDashboardsRequest(c.Server, body)
 	if err != nil {
@@ -3018,7 +3149,7 @@ type ClientWithResponsesInterface interface {
 	// QueryDashboardsWithBodyWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	QueryDashboardsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error)
@@ -3026,7 +3157,7 @@ type ClientWithResponsesInterface interface {
 	// QueryDashboardsWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboardsWithResponse(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error)
 
 	// DeleteDashboardWithResponse performs a DELETE /v1/dashboards/{id} (the `DeleteDashboard` operationId) request.
@@ -4422,7 +4553,7 @@ func (c *ClientWithResponses) CreateDashboardWithResponse(ctx context.Context, b
 // QueryDashboardsWithBodyWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) QueryDashboardsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error) {
@@ -4436,7 +4567,7 @@ func (c *ClientWithResponses) QueryDashboardsWithBodyWithResponse(ctx context.Co
 // QueryDashboardsWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. See [Dashboards](/documentation/visualize/dashboards/index).
+// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *ClientWithResponses) QueryDashboardsWithResponse(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error) {
 	rsp, err := c.QueryDashboards(ctx, body, reqEditors...)
 	if err != nil {
