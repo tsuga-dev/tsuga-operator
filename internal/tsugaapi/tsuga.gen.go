@@ -1891,25 +1891,25 @@ type ClientInterface interface {
 	// CreateDashboardWithBody performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+	// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 	CreateDashboardWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateDashboard performs a POST /v1/dashboards (the `CreateDashboard` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+	// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 	CreateDashboard(ctx context.Context, body CreateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryDashboardsWithBody performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboardsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryDashboards performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboards(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteDashboard performs a DELETE /v1/dashboards/{id} (the `DeleteDashboard` operationId) request.
@@ -1919,89 +1919,89 @@ type ClientInterface interface {
 
 	// GetDashboard performs a GET /v1/dashboards/{id} (the `GetDashboard` operationId) request.
 	//
-	// Retrieves one dashboard by ID.
+	// Retrieves one dashboard by ID, with its widgets (graphs, charts) and their queries.
 	GetDashboard(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateDashboardWithBody performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+	// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 	UpdateDashboardWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateDashboard performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+	// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 	UpdateDashboard(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+	// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 	CreateMonitorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateMonitor performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+	// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 	CreateMonitor(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryMonitorsWithBody performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 	QueryMonitorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryMonitors performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 	QueryMonitors(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteMonitor performs a DELETE /v1/monitors/{id} (the `DeleteMonitor` operationId) request.
 	//
-	// Deletes a monitor by ID. Deleting a monitor stops future evaluations and alert transitions for that monitor.
+	// Deletes a monitor (alert) by ID: it stops evaluating and alerting.
 	DeleteMonitor(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMonitor performs a GET /v1/monitors/{id} (the `GetMonitor` operationId) request.
 	//
-	// Retrieves one monitor definition by ID.
+	// Retrieves one monitor (alert rule) definition by ID.
 	GetMonitor(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+	// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+	// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSloWithBody performs a POST /v1/slos (the `CreateSlo` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+	// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 	CreateSloWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSlo performs a POST /v1/slos (the `CreateSlo` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+	// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 	CreateSlo(ctx context.Context, body CreateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QuerySlosWithBody performs a POST /v1/slos/query (the `QuerySlos` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+	// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 	QuerySlosWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QuerySlos performs a POST /v1/slos/query (the `QuerySlos` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+	// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 	QuerySlos(ctx context.Context, body QuerySlosJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteSlo performs a DELETE /v1/slos/{id} (the `DeleteSlo` operationId) request.
@@ -2028,14 +2028,14 @@ type ClientInterface interface {
 
 	// ListTeams performs a GET /v1/teams (the `ListTeams` operationId) request.
 	//
-	// Lists teams visible to the authenticated operation key. Use this endpoint to inventory owners for resources, dashboards, monitors, routes, and policies. Pagination fields limit the returned page.
+	// Lists teams, the groups of users that own services, dashboards, monitors, routes, keys and policies.
 	ListTeams(ctx context.Context, params *ListTeamsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 // CreateDashboardWithBody performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 func (c *Client) CreateDashboardWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateDashboardRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2051,7 +2051,7 @@ func (c *Client) CreateDashboardWithBody(ctx context.Context, contentType string
 // CreateDashboard performs a POST /v1/dashboards (the `CreateDashboard` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 func (c *Client) CreateDashboard(ctx context.Context, body CreateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateDashboardRequest(c.Server, body)
 	if err != nil {
@@ -2067,7 +2067,7 @@ func (c *Client) CreateDashboard(ctx context.Context, body CreateDashboardJSONRe
 // QueryDashboardsWithBody performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *Client) QueryDashboardsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDashboardsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2083,7 +2083,7 @@ func (c *Client) QueryDashboardsWithBody(ctx context.Context, contentType string
 // QueryDashboards performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *Client) QueryDashboards(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDashboardsRequest(c.Server, body)
 	if err != nil {
@@ -2113,7 +2113,7 @@ func (c *Client) DeleteDashboard(ctx context.Context, id string, reqEditors ...R
 
 // GetDashboard performs a GET /v1/dashboards/{id} (the `GetDashboard` operationId) request.
 //
-// Retrieves one dashboard by ID.
+// Retrieves one dashboard by ID, with its widgets (graphs, charts) and their queries.
 func (c *Client) GetDashboard(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDashboardRequest(c.Server, id)
 	if err != nil {
@@ -2129,7 +2129,7 @@ func (c *Client) GetDashboard(ctx context.Context, id string, reqEditors ...Requ
 // UpdateDashboardWithBody performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 func (c *Client) UpdateDashboardWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDashboardRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -2145,7 +2145,7 @@ func (c *Client) UpdateDashboardWithBody(ctx context.Context, id string, content
 // UpdateDashboard performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 func (c *Client) UpdateDashboard(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDashboardRequest(c.Server, id, body)
 	if err != nil {
@@ -2161,7 +2161,7 @@ func (c *Client) UpdateDashboard(ctx context.Context, id string, body UpdateDash
 // CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 func (c *Client) CreateMonitorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateMonitorRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2177,7 +2177,7 @@ func (c *Client) CreateMonitorWithBody(ctx context.Context, contentType string, 
 // CreateMonitor performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 func (c *Client) CreateMonitor(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateMonitorRequest(c.Server, body)
 	if err != nil {
@@ -2193,7 +2193,7 @@ func (c *Client) CreateMonitor(ctx context.Context, body CreateMonitorJSONReques
 // QueryMonitorsWithBody performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 func (c *Client) QueryMonitorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryMonitorsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2209,7 +2209,7 @@ func (c *Client) QueryMonitorsWithBody(ctx context.Context, contentType string, 
 // QueryMonitors performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 func (c *Client) QueryMonitors(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryMonitorsRequest(c.Server, body)
 	if err != nil {
@@ -2224,7 +2224,7 @@ func (c *Client) QueryMonitors(ctx context.Context, body QueryMonitorsJSONReques
 
 // DeleteMonitor performs a DELETE /v1/monitors/{id} (the `DeleteMonitor` operationId) request.
 //
-// Deletes a monitor by ID. Deleting a monitor stops future evaluations and alert transitions for that monitor.
+// Deletes a monitor (alert) by ID: it stops evaluating and alerting.
 func (c *Client) DeleteMonitor(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteMonitorRequest(c.Server, id)
 	if err != nil {
@@ -2239,7 +2239,7 @@ func (c *Client) DeleteMonitor(ctx context.Context, id string, reqEditors ...Req
 
 // GetMonitor performs a GET /v1/monitors/{id} (the `GetMonitor` operationId) request.
 //
-// Retrieves one monitor definition by ID.
+// Retrieves one monitor (alert rule) definition by ID.
 func (c *Client) GetMonitor(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMonitorRequest(c.Server, id)
 	if err != nil {
@@ -2255,7 +2255,7 @@ func (c *Client) GetMonitor(ctx context.Context, id string, reqEditors ...Reques
 // UpdateMonitorWithBody performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
@@ -2271,7 +2271,7 @@ func (c *Client) UpdateMonitorWithBody(ctx context.Context, id string, contentTy
 // UpdateMonitor performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 func (c *Client) UpdateMonitor(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorRequest(c.Server, id, body)
 	if err != nil {
@@ -2287,7 +2287,7 @@ func (c *Client) UpdateMonitor(ctx context.Context, id string, body UpdateMonito
 // CreateSloWithBody performs a POST /v1/slos (the `CreateSlo` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 func (c *Client) CreateSloWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateSloRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2303,7 +2303,7 @@ func (c *Client) CreateSloWithBody(ctx context.Context, contentType string, body
 // CreateSlo performs a POST /v1/slos (the `CreateSlo` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 func (c *Client) CreateSlo(ctx context.Context, body CreateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateSloRequest(c.Server, body)
 	if err != nil {
@@ -2319,7 +2319,7 @@ func (c *Client) CreateSlo(ctx context.Context, body CreateSloJSONRequestBody, r
 // QuerySlosWithBody performs a POST /v1/slos/query (the `QuerySlos` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 func (c *Client) QuerySlosWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQuerySlosRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2335,7 +2335,7 @@ func (c *Client) QuerySlosWithBody(ctx context.Context, contentType string, body
 // QuerySlos performs a POST /v1/slos/query (the `QuerySlos` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 func (c *Client) QuerySlos(ctx context.Context, body QuerySlosJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQuerySlosRequest(c.Server, body)
 	if err != nil {
@@ -2412,7 +2412,7 @@ func (c *Client) UpdateSlo(ctx context.Context, id string, body UpdateSloJSONReq
 
 // ListTeams performs a GET /v1/teams (the `ListTeams` operationId) request.
 //
-// Lists teams visible to the authenticated operation key. Use this endpoint to inventory owners for resources, dashboards, monitors, routes, and policies. Pagination fields limit the returned page.
+// Lists teams, the groups of users that own services, dashboards, monitors, routes, keys and policies.
 func (c *Client) ListTeams(ctx context.Context, params *ListTeamsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTeamsRequest(c.Server, params)
 	if err != nil {
@@ -3135,7 +3135,7 @@ type ClientWithResponsesInterface interface {
 	// CreateDashboardWithBodyWithResponse performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+	// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateDashboardWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDashboardHTTPResponse, error)
@@ -3143,13 +3143,13 @@ type ClientWithResponsesInterface interface {
 	// CreateDashboardWithResponse performs a POST /v1/dashboards (the `CreateDashboard` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+	// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 	CreateDashboardWithResponse(ctx context.Context, body CreateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDashboardHTTPResponse, error)
 
 	// QueryDashboardsWithBodyWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	QueryDashboardsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error)
@@ -3157,7 +3157,7 @@ type ClientWithResponsesInterface interface {
 	// QueryDashboardsWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboardsWithResponse(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error)
 
 	// DeleteDashboardWithResponse performs a DELETE /v1/dashboards/{id} (the `DeleteDashboard` operationId) request.
@@ -3169,7 +3169,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetDashboardWithResponse performs a GET /v1/dashboards/{id} (the `GetDashboard` operationId) request.
 	//
-	// Retrieves one dashboard by ID.
+	// Retrieves one dashboard by ID, with its widgets (graphs, charts) and their queries.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetDashboardWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDashboardHTTPResponse, error)
@@ -3177,7 +3177,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateDashboardWithBodyWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+	// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateDashboardWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error)
@@ -3185,13 +3185,13 @@ type ClientWithResponsesInterface interface {
 	// UpdateDashboardWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+	// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 	UpdateDashboardWithResponse(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error)
 
 	// CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+	// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateMonitorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error)
@@ -3199,13 +3199,13 @@ type ClientWithResponsesInterface interface {
 	// CreateMonitorWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+	// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 	CreateMonitorWithResponse(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error)
 
 	// QueryMonitorsWithBodyWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	QueryMonitorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error)
@@ -3213,19 +3213,19 @@ type ClientWithResponsesInterface interface {
 	// QueryMonitorsWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+	// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 	QueryMonitorsWithResponse(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error)
 
 	// DeleteMonitorWithResponse performs a DELETE /v1/monitors/{id} (the `DeleteMonitor` operationId) request.
 	//
-	// Deletes a monitor by ID. Deleting a monitor stops future evaluations and alert transitions for that monitor.
+	// Deletes a monitor (alert) by ID: it stops evaluating and alerting.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	DeleteMonitorWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMonitorHTTPResponse, error)
 
 	// GetMonitorWithResponse performs a GET /v1/monitors/{id} (the `GetMonitor` operationId) request.
 	//
-	// Retrieves one monitor definition by ID.
+	// Retrieves one monitor (alert rule) definition by ID.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetMonitorWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMonitorHTTPResponse, error)
@@ -3233,7 +3233,7 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+	// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
@@ -3241,13 +3241,13 @@ type ClientWithResponsesInterface interface {
 	// UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+	// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 	UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error)
 
 	// CreateSloWithBodyWithResponse performs a POST /v1/slos (the `CreateSlo` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+	// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateSloWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSloHTTPResponse, error)
@@ -3255,13 +3255,13 @@ type ClientWithResponsesInterface interface {
 	// CreateSloWithResponse performs a POST /v1/slos (the `CreateSlo` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+	// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 	CreateSloWithResponse(ctx context.Context, body CreateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSloHTTPResponse, error)
 
 	// QuerySlosWithBodyWithResponse performs a POST /v1/slos/query (the `QuerySlos` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+	// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	QuerySlosWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QuerySlosHTTPResponse, error)
@@ -3269,7 +3269,7 @@ type ClientWithResponsesInterface interface {
 	// QuerySlosWithResponse performs a POST /v1/slos/query (the `QuerySlos` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+	// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 	QuerySlosWithResponse(ctx context.Context, body QuerySlosJSONRequestBody, reqEditors ...RequestEditorFn) (*QuerySlosHTTPResponse, error)
 
 	// DeleteSloWithResponse performs a DELETE /v1/slos/{id} (the `DeleteSlo` operationId) request.
@@ -3302,7 +3302,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListTeamsWithResponse performs a GET /v1/teams (the `ListTeams` operationId) request.
 	//
-	// Lists teams visible to the authenticated operation key. Use this endpoint to inventory owners for resources, dashboards, monitors, routes, and policies. Pagination fields limit the returned page.
+	// Lists teams, the groups of users that own services, dashboards, monitors, routes, keys and policies.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListTeamsWithResponse(ctx context.Context, params *ListTeamsParams, reqEditors ...RequestEditorFn) (*ListTeamsHTTPResponse, error)
@@ -4527,7 +4527,7 @@ func (r ListTeamsHTTPResponse) ContentType() string {
 // CreateDashboardWithBodyWithResponse performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateDashboardWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDashboardHTTPResponse, error) {
@@ -4541,7 +4541,7 @@ func (c *ClientWithResponses) CreateDashboardWithBodyWithResponse(ctx context.Co
 // CreateDashboardWithResponse performs a POST /v1/dashboards (the `CreateDashboard` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Creates a dashboard owned by the specified team. Use this to provision dashboards from automation or templates. The response returns the saved dashboard definition.
+// Creates a dashboard owned by the specified team, with its widgets (graphs). The response returns the saved dashboard definition.
 func (c *ClientWithResponses) CreateDashboardWithResponse(ctx context.Context, body CreateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDashboardHTTPResponse, error) {
 	rsp, err := c.CreateDashboard(ctx, body, reqEditors...)
 	if err != nil {
@@ -4553,7 +4553,7 @@ func (c *ClientWithResponses) CreateDashboardWithResponse(ctx context.Context, b
 // QueryDashboardsWithBodyWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) QueryDashboardsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error) {
@@ -4567,7 +4567,7 @@ func (c *ClientWithResponses) QueryDashboardsWithBodyWithResponse(ctx context.Co
 // QueryDashboardsWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Queries dashboards visible to the authenticated operation key. Use this endpoint to build dashboard inventories or synchronize dashboard metadata. Pagination fields limit the returned page; use the response metadata to request additional pages. Each dashboard is returned without its `graphs`; use `getDashboard` to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *ClientWithResponses) QueryDashboardsWithResponse(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error) {
 	rsp, err := c.QueryDashboards(ctx, body, reqEditors...)
 	if err != nil {
@@ -4591,7 +4591,7 @@ func (c *ClientWithResponses) DeleteDashboardWithResponse(ctx context.Context, i
 
 // GetDashboardWithResponse performs a GET /v1/dashboards/{id} (the `GetDashboard` operationId) request.
 //
-// Retrieves one dashboard by ID.
+// Retrieves one dashboard by ID, with its widgets (graphs, charts) and their queries.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetDashboardWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDashboardHTTPResponse, error) {
@@ -4605,7 +4605,7 @@ func (c *ClientWithResponses) GetDashboardWithResponse(ctx context.Context, id s
 // UpdateDashboardWithBodyWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateDashboardWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error) {
@@ -4619,7 +4619,7 @@ func (c *ClientWithResponses) UpdateDashboardWithBodyWithResponse(ctx context.Co
 // UpdateDashboardWithResponse performs a PUT /v1/dashboards/{id} (the `UpdateDashboard` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Updates an existing dashboard by ID. Top-level fields are patched from the request body and omitted ones keep their current values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or use `updateDashboardGraph` to change one widget.
+// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 func (c *ClientWithResponses) UpdateDashboardWithResponse(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error) {
 	rsp, err := c.UpdateDashboard(ctx, id, body, reqEditors...)
 	if err != nil {
@@ -4631,7 +4631,7 @@ func (c *ClientWithResponses) UpdateDashboardWithResponse(ctx context.Context, i
 // CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateMonitorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error) {
@@ -4645,7 +4645,7 @@ func (c *ClientWithResponses) CreateMonitorWithBodyWithResponse(ctx context.Cont
 // CreateMonitorWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Creates a monitor owned by the specified team. The monitor can evaluate logs, metrics, traces, anomaly behavior, certificate expiry, new error patterns, error pattern increases, Kubernetes faulty deployments, or faulty service deployments depending on its configuration.
+// Creates a monitor (alert, alert rule) owned by the specified team, on logs, metrics, traces, anomalies, certificate expiry, new or increasing error patterns, or faulty Kubernetes or service deployments. Notification rules decide where its alerts are sent.
 func (c *ClientWithResponses) CreateMonitorWithResponse(ctx context.Context, body CreateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorHTTPResponse, error) {
 	rsp, err := c.CreateMonitor(ctx, body, reqEditors...)
 	if err != nil {
@@ -4657,7 +4657,7 @@ func (c *ClientWithResponses) CreateMonitorWithResponse(ctx context.Context, bod
 // QueryMonitorsWithBodyWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) QueryMonitorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error) {
@@ -4671,7 +4671,7 @@ func (c *ClientWithResponses) QueryMonitorsWithBodyWithResponse(ctx context.Cont
 // QueryMonitorsWithResponse performs a POST /v1/monitors/query (the `QueryMonitors` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Queries monitors visible to the authenticated operation key. Use this endpoint to inventory monitor definitions, filter by owner, tag, priority, type, activity, cluster, or folder, and page through results. See [Monitors](/documentation/alert/monitors/index).
+// Lists or searches monitors (alerts, alert rules) by name, ID or query text, owner team, tag, priority, type, activity (active or snoozed), cluster or folder. See [Monitors](/documentation/alert/monitors/index).
 func (c *ClientWithResponses) QueryMonitorsWithResponse(ctx context.Context, body QueryMonitorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMonitorsHTTPResponse, error) {
 	rsp, err := c.QueryMonitors(ctx, body, reqEditors...)
 	if err != nil {
@@ -4682,7 +4682,7 @@ func (c *ClientWithResponses) QueryMonitorsWithResponse(ctx context.Context, bod
 
 // DeleteMonitorWithResponse performs a DELETE /v1/monitors/{id} (the `DeleteMonitor` operationId) request.
 //
-// Deletes a monitor by ID. Deleting a monitor stops future evaluations and alert transitions for that monitor.
+// Deletes a monitor (alert) by ID: it stops evaluating and alerting.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) DeleteMonitorWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMonitorHTTPResponse, error) {
@@ -4695,7 +4695,7 @@ func (c *ClientWithResponses) DeleteMonitorWithResponse(ctx context.Context, id 
 
 // GetMonitorWithResponse performs a GET /v1/monitors/{id} (the `GetMonitor` operationId) request.
 //
-// Retrieves one monitor definition by ID.
+// Retrieves one monitor (alert rule) definition by ID.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetMonitorWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMonitorHTTPResponse, error) {
@@ -4709,7 +4709,7 @@ func (c *ClientWithResponses) GetMonitorWithResponse(ctx context.Context, id str
 // UpdateMonitorWithBodyWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request,
 // with any type of body and a specified content type.
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
@@ -4723,7 +4723,7 @@ func (c *ClientWithResponses) UpdateMonitorWithBodyWithResponse(ctx context.Cont
 // UpdateMonitorWithResponse performs a PUT /v1/monitors/{id} (the `UpdateMonitor` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Updates an existing monitor definition by ID. Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
+// Updates a monitor (alert) by ID, such as its query, thresholds or snooze (`pauseUntil`, which pauses evaluation). Required fields and the submitted configuration are overwritten; omitted `message`, `tags`, `clusterIds`, `pauseUntil`, and `folderId` keep their existing values. Omitted `dashboardId` keeps the dashboard link; send `null` to clear it.
 func (c *ClientWithResponses) UpdateMonitorWithResponse(ctx context.Context, id string, body UpdateMonitorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorHTTPResponse, error) {
 	rsp, err := c.UpdateMonitor(ctx, id, body, reqEditors...)
 	if err != nil {
@@ -4735,7 +4735,7 @@ func (c *ClientWithResponses) UpdateMonitorWithResponse(ctx context.Context, id 
 // CreateSloWithBodyWithResponse performs a POST /v1/slos (the `CreateSlo` operationId) request,
 // with any type of body and a specified content type.
 //
-// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateSloWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSloHTTPResponse, error) {
@@ -4749,7 +4749,7 @@ func (c *ClientWithResponses) CreateSloWithBodyWithResponse(ctx context.Context,
 // CreateSloWithResponse performs a POST /v1/slos (the `CreateSlo` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Creates an SLO owned by the specified team. The SLO can be event-based (good/total queries) or time-based (a thresholded query over evaluation slices) depending on its configuration.
+// Creates an SLO (service level objective) owned by the specified team, with its alerts: event-based (good and total queries) or time-based (a thresholded query over evaluation slices).
 func (c *ClientWithResponses) CreateSloWithResponse(ctx context.Context, body CreateSloJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSloHTTPResponse, error) {
 	rsp, err := c.CreateSlo(ctx, body, reqEditors...)
 	if err != nil {
@@ -4761,7 +4761,7 @@ func (c *ClientWithResponses) CreateSloWithResponse(ctx context.Context, body Cr
 // QuerySlosWithBodyWithResponse performs a POST /v1/slos/query (the `QuerySlos` operationId) request,
 // with any type of body and a specified content type.
 //
-// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) QuerySlosWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QuerySlosHTTPResponse, error) {
@@ -4775,7 +4775,7 @@ func (c *ClientWithResponses) QuerySlosWithBodyWithResponse(ctx context.Context,
 // QuerySlosWithResponse performs a POST /v1/slos/query (the `QuerySlos` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Queries SLOs visible to the authenticated operation key. Use this endpoint to inventory SLO definitions, filter by owner, tag, status, or cluster, and page through results.
+// Lists or searches SLOs (service level objectives, error budgets) by owner, tag, status or cluster.
 func (c *ClientWithResponses) QuerySlosWithResponse(ctx context.Context, body QuerySlosJSONRequestBody, reqEditors ...RequestEditorFn) (*QuerySlosHTTPResponse, error) {
 	rsp, err := c.QuerySlos(ctx, body, reqEditors...)
 	if err != nil {
@@ -4838,7 +4838,7 @@ func (c *ClientWithResponses) UpdateSloWithResponse(ctx context.Context, id stri
 
 // ListTeamsWithResponse performs a GET /v1/teams (the `ListTeams` operationId) request.
 //
-// Lists teams visible to the authenticated operation key. Use this endpoint to inventory owners for resources, dashboards, monitors, routes, and policies. Pagination fields limit the returned page.
+// Lists teams, the groups of users that own services, dashboards, monitors, routes, keys and policies.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ListTeamsWithResponse(ctx context.Context, params *ListTeamsParams, reqEditors ...RequestEditorFn) (*ListTeamsHTTPResponse, error) {
