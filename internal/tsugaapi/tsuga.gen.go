@@ -1185,10 +1185,13 @@ type CreateDashboardJSONBody struct {
 		// DescriptionJustifyContent Flex alignment keyword used for widget layout
 		DescriptionJustifyContent *CreateDashboardJSONBodyGraphsDescriptionJustifyContent `json:"descriptionJustifyContent,omitempty"`
 
+		// GroupId ID of the group widget the widget belongs to. The group must be in the same tab, and cannot itself belong to a group.
+		GroupId *string `json:"groupId,omitempty"`
+
 		// Id Unique identifier of the graph widget inside the dashboard. Assign it when the graph is created; use it to target the graph in later update requests.
 		Id string `json:"id"`
 
-		// Layout Grid position and size of the widget. Optional; when provided, the size must be at least 2×2 (width×height) grid units, except note widgets which can go down to 1×1.
+		// Layout Grid position and size of the widget. Optional; when provided, the size must be at least 2×2 (width×height) grid units, except note widgets which can go down to 1×1, and group widgets which span the full 12 columns.
 		Layout *struct {
 			// H Height of the widget in grid rows, where each row is 50 pixels tall. Dashboard validation uses this with `w` and the widget type to reject layouts below the widget minimum.
 			H float32 `json:"h"`
@@ -1331,10 +1334,13 @@ type UpdateDashboardJSONBody struct {
 		// DescriptionJustifyContent Flex alignment keyword used for widget layout
 		DescriptionJustifyContent *UpdateDashboardJSONBodyGraphsDescriptionJustifyContent `json:"descriptionJustifyContent,omitempty"`
 
+		// GroupId ID of the group widget the widget belongs to. The group must be in the same tab, and cannot itself belong to a group.
+		GroupId *string `json:"groupId,omitempty"`
+
 		// Id Unique identifier of the graph widget inside the dashboard. Assign it when the graph is created; use it to target the graph in later update requests.
 		Id string `json:"id"`
 
-		// Layout Grid position and size of the widget. Optional; when provided, the size must be at least 2×2 (width×height) grid units, except note widgets which can go down to 1×1.
+		// Layout Grid position and size of the widget. Optional; when provided, the size must be at least 2×2 (width×height) grid units, except note widgets which can go down to 1×1, and group widgets which span the full 12 columns.
 		Layout *struct {
 			// H Height of the widget in grid rows, where each row is 50 pixels tall. Dashboard validation uses this with `w` and the widget type to reject layouts below the widget minimum.
 			H float32 `json:"h"`

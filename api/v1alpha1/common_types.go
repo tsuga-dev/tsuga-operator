@@ -63,6 +63,12 @@ type DashboardGraph struct {
 	Description string                `json:"description,omitempty"`
 	Layout      *DashboardGraphLayout `json:"layout,omitempty"`
 
+	// ID of the group widget this widget belongs to. The group must be in the same tab and cannot itself belong to a group.
+	GroupID *string `json:"groupId,omitempty"`
+
+	// ID of the tab this widget belongs to.
+	TabID *string `json:"tabId,omitempty"`
+
 	// Visualization is kept schemaless because the Tsuga API models this field as a discriminator-based union.
 	// The operator passes it through as opaque JSON; drift against the OpenAPI contract is gated by oasdiff in CI
 	// (see the openapi-drift-check make target) rather than encoding the full union in Go types.

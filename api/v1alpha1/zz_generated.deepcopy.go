@@ -292,6 +292,16 @@ func (in *DashboardGraph) DeepCopyInto(out *DashboardGraph) {
 		*out = new(DashboardGraphLayout)
 		**out = **in
 	}
+	if in.GroupID != nil {
+		in, out := &in.GroupID, &out.GroupID
+		*out = new(string)
+		**out = **in
+	}
+	if in.TabID != nil {
+		in, out := &in.TabID, &out.TabID
+		*out = new(string)
+		**out = **in
+	}
 	in.Visualization.DeepCopyInto(&out.Visualization)
 }
 

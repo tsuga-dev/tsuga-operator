@@ -21,6 +21,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.filters[].values` | array of string | Yes | — | — minItems: `1` |
 | `spec.graphs` | array of object | Yes | — | Ordered widgets that compose the dashboard. minItems: `1` |
 | `spec.graphs[].description` | string | No | — | —  |
+| `spec.graphs[].groupId` | string | No | — | ID of the group widget this widget belongs to. The group must be in the same tab and cannot itself belong to a group.  |
 | `spec.graphs[].id` | string | Yes | — | Unique widget id sent to Tsuga (required). minLength: `1` |
 | `spec.graphs[].layout` | object | No | — | —  |
 | `spec.graphs[].layout.h` | integer | Yes | — | — minimum: `1` |
@@ -28,6 +29,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.graphs[].layout.x` | integer | Yes | — | —  |
 | `spec.graphs[].layout.y` | integer | Yes | — | —  |
 | `spec.graphs[].name` | string | No | — | —  |
+| `spec.graphs[].tabId` | string | No | — | ID of the tab this widget belongs to.  |
 | `spec.graphs[].visualization` | JSON | Yes | — | Visualization is kept schemaless because the Tsuga API models this field as a discriminator-based union. The operator passes it through as opaque JSON; drift against the OpenAPI contract is gated by oasdiff in CI (see the openapi-drift-check make target) rather than encoding the full union in Go types. Opaque JSON; validated by Tsuga |
 | `spec.name` | string | Yes | — | — minLength: `1` |
 | `spec.owner` | string | No | — | Team ID that owns and manages the dashboard. Exactly one of owner and ownerName is required. minLength: `1` |
