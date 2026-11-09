@@ -912,8 +912,11 @@ type Dashboard struct {
 
 // DashboardSummary Dashboard as listed by the dashboard query: its fields without `graphs`, plus the number of widgets. Retrieve the dashboard by ID to read its widgets.
 //
-// Examples: {"filters":[{"key":"env","values":["production"]}],"id":"123-456-abc","name":"API Performance Overview","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}],"timePreset":"past-1-hour","widgetCount":1}
+// Examples: {"clusterIds":["cluster-123-abc"],"filters":[{"key":"env","values":["production"]}],"id":"123-456-abc","name":"API Performance Overview","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}],"timePreset":"past-1-hour","widgetCount":1}
 type DashboardSummary struct {
+	// ClusterIds Clusters selected when opening the dashboard.
+	ClusterIds *[]string `json:"clusterIds,omitempty"`
+
 	// Filters Dashboard-wide filters applied to every widget on the dashboard.
 	Filters *[]struct {
 		// Exclude If true, widgets exclude telemetry whose value matches this filter instead of including it (is-not).
@@ -1159,6 +1162,9 @@ type UpdateSloResponse struct {
 
 // CreateDashboardJSONBody defines parameters for CreateDashboard.
 type CreateDashboardJSONBody struct {
+	// ClusterIds IDs of the clusters to select when opening the dashboard (its default clusters). Optional; omit on update to keep the current clusters, or pass null to clear them.
+	ClusterIds *[]string `json:"clusterIds,omitempty"`
+
 	// Filters Dashboard-wide filters applied to every widget on the dashboard.
 	Filters *[]struct {
 		// Exclude If true, widgets exclude telemetry whose value matches this filter instead of including it (is-not).
@@ -1308,6 +1314,9 @@ type QueryDashboardsJSONBodySortDirection string
 
 // UpdateDashboardJSONBody defines parameters for UpdateDashboard.
 type UpdateDashboardJSONBody struct {
+	// ClusterIds IDs of the clusters to select when opening the dashboard (its default clusters). Optional; omit on update to keep the current clusters, or pass null to clear them.
+	ClusterIds *[]string `json:"clusterIds,omitempty"`
+
 	// Filters Dashboard-wide filters applied to every widget on the dashboard.
 	Filters *[]struct {
 		// Exclude If true, widgets exclude telemetry whose value matches this filter instead of including it (is-not).
