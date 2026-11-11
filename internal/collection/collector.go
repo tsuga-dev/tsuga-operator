@@ -45,9 +45,9 @@ const (
 	// The floor is v0.161.0: the configs extract container.image.tags, which
 	// older collectors accept but never emit.
 	// renovate: datasource=github-releases depName=open-telemetry/opentelemetry-collector-releases
-	defaultAgentImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.164.0"
+	defaultAgentImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.165.0"
 	// renovate: datasource=github-releases depName=open-telemetry/opentelemetry-collector-releases
-	defaultGatewayImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.164.0"
+	defaultGatewayImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.165.0"
 
 	// The scraper needs the prometheus receiver, which the k8s distribution
 	// does not carry, so it takes the same contrib distribution as the agent.
@@ -55,7 +55,7 @@ const (
 	// The profiling receiver ships only in the eBPF profiler distribution,
 	// so the profiler never takes spec.image.
 	// renovate: datasource=github-releases depName=open-telemetry/opentelemetry-collector-releases
-	defaultProfilerImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-ebpf-profiler:0.164.0"
+	defaultProfilerImage = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-ebpf-profiler:0.165.0"
 )
 
 // profilerDefaultResources follows the chart: eBPF sampling cost scales with
