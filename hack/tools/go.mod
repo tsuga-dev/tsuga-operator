@@ -1,6 +1,6 @@
 module github.com/tsuga-dev/tsuga-operator/hack/tools
 
-go 1.27.3
+go 1.27.4
 
 tool (
 	github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
