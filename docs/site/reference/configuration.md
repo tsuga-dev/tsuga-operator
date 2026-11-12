@@ -4,10 +4,10 @@
 
 | Variable | Required | Default | Use |
 | --- | --- | --- | --- |
-| `TSUGA_API_TOKEN` | Yes | None | Raw operation key; do not prefix with `Bearer` |
+| `TSUGA_API_TOKEN` | For Dashboard, Monitor, and SLO | None | Raw operation key; do not prefix with `Bearer` |
 | `TSUGA_BASE_URL` | No | `https://api.tsuga.com` | Tsuga management API base URL; must use `https://` or the operator exits at startup |
 
-The deployed manager reads `api-token` from `tsuga-credentials`. Collection-only usage still requires the operation key at startup.
+The deployed manager reads `api-token` from `tsuga-credentials`. The key is optional: without it the operator still runs collection but does not start the Dashboard, Monitor, and SLO controllers, and logs `TSUGA_API_TOKEN is not set` once at startup. Those resources keep their last status, and deleting one waits on its finalizer until the operator restarts with a key. A misspelled Secret or key name behaves the same way.
 
 ## Collection runtime defaults
 
@@ -60,7 +60,7 @@ Collector images must support the rendered components and emit `container.image.
 
 ## PostgreSQL runtime defaults
 
-The dedicated PostgreSQL collector runs as a single-replica Deployment in the database resource namespace. It uses the agent image default or `cluster.spec.image`, with fixed requests of `50m` CPU / `64Mi` memory and limits of `200m` / `256Mi`. It does not inherit `cluster.spec.resources`. Managed provisioning uses `postgres:17`, a 600-second Job deadline, and a backoff limit of 3. See [DBM](../kubernetes-monitoring/dbm.md) for credentials, TLS, and readiness behavior.
+The dedicated PostgreSQL collector runs as a single-replica Deployment in the database resource namespace. It uses `spec.image` on the `TsugaPostgresMonitoring`, else `cluster.spec.image`, else the agent image default. Resources default to requests of `50m` CPU / `64Mi` memory and limits of `200m` / `256Mi`; set `spec.resources` to replace them (raise the memory limit for servers with many statements in `pg_stat_statements`). Placement comes from `spec.nodeSelector` and `spec.tolerations`. It does not inherit `cluster.spec.resources`, `nodeSelector` or `tolerations`. Managed provisioning uses `postgres:17`, a 600-second Job deadline, and a backoff limit of 3. See [DBM](../kubernetes-monitoring/dbm.md) for credentials, TLS, and readiness behavior.
 
 ## Repository version pins
 

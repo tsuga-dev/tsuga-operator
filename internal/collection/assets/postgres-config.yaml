@@ -1,6 +1,6 @@
 receivers:
   postgresql:
-    endpoint: __PG_HOST__:__PG_PORT__
+    endpoint: __PG_CONNECT_HOST__:__PG_PORT__
     metrics:
       postgresql.bgwriter.buffers.allocated:
         enabled: true
@@ -42,13 +42,13 @@ receivers:
         enabled: true
       postgresql.wal.lag:
         enabled: true
-    password: ${env:OTEL_MONITOR_PASSWORD}
+    password: ${env:OTEL_MONITOR_PASSWORD:-secret-missing}
     tls:
       insecure: true
-    username: otel_monitor
+    username: "__PG_USER__"
   sql_query/pg_bloat:
     collection_interval: 3600s
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:
@@ -71,7 +71,7 @@ receivers:
         sql: SELECT * FROM otel.pg_bloat()
   sql_query/pg_connections:
     collection_interval: 30s
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:
@@ -94,7 +94,7 @@ receivers:
         sql: SELECT * FROM otel.pg_connections()
   sql_query/pg_locks:
     collection_interval: 30s
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:
@@ -133,7 +133,7 @@ receivers:
         sql: SELECT * FROM otel.pg_idle_in_transaction()
   sql_query/pg_replication:
     collection_interval: 30s
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:
@@ -149,7 +149,7 @@ receivers:
         sql: SELECT * FROM otel.pg_replication_slots()
   sql_query/pg_table_stats:
     collection_interval: 300s
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:
@@ -220,7 +220,7 @@ receivers:
         sql: SELECT * FROM otel.pg_table_stats()
   sql_query/pg_vacuum_progress:
     collection_interval: 60s
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:
@@ -262,7 +262,7 @@ receivers:
         sql: SELECT * FROM otel.pg_vacuum_progress()
   sql_query/pg_wal:
     collection_interval: 60s
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:
@@ -278,7 +278,7 @@ receivers:
             value_type: int
         sql: SELECT * FROM otel.pg_wal()
   sql_query/postgresql_top_queries:
-    datasource: host=__PG_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=otel_monitor password=${env:OTEL_MONITOR_PASSWORD} sslmode=__PG_SSLMODE__
+    datasource: host=__PG_CONNECT_HOST__ port=__PG_PORT__ dbname=__PG_DATABASE__ user=__PG_USER__ sslmode=__PG_SSLMODE__
     driver: postgres
     queries:
       - metrics:

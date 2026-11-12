@@ -30,6 +30,7 @@ const (
 	reasonCollectorNamespace   = "CollectorNamespace"
 	reasonProvisioningPending  = "ProvisioningPending"
 	reasonProvisioningFailed   = "ProvisioningFailed"
+	reasonRoleConflict         = "RoleConflict"
 
 	reasonPrometheusCRDsMissing = "PrometheusOperatorCRDsMissing"
 )

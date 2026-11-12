@@ -73,6 +73,30 @@ spec:
         exporters: [otlp_http/tsuga]
 ```
 
+## Cluster access
+
+Each collector's ClusterRole covers only its generated components. A component that reads the Kubernetes API, such as a `k8s_observer` that watches services and ingresses, needs `extraRules`, which is appended to that collector's role:
+
+```yaml
+spec:
+  agent:
+    extraExtensions:
+      k8s_observer:
+        auth_type: serviceAccount
+        observe_services: true
+        observe_ingresses: true
+    serviceExtensions: [k8s_observer]
+    extraRules:
+      - apiGroups: [""]
+        resources: [services]
+        verbs: [get, list, watch]
+      - apiGroups: [networking.k8s.io]
+        resources: [ingresses]
+        verbs: [get, list, watch]
+```
+
+Kubernetes only lets the operator grant access it holds itself. Its ClusterRole already covers the collector rules listed in [Production](../operations/production.md), services included. For anything else, such as ingresses above, bind the same rules to the operator's ServiceAccount (`tsuga-operator-controller-manager` in `tsuga-operator-system` with the default install) through your own ClusterRole. Without it, the reconcile fails with reason `ApplyFailed`, and the message lists the missing permissions. With `rbac.create: false`, `extraRules` is ignored.
+
 ## Errors
 
 A problem sets `Ready=False` with reason `RenderFailed`. The message starts with the collector name, then one of:

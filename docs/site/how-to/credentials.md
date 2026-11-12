@@ -4,7 +4,7 @@ The operator's operation key and the collectors' ingestion key serve different p
 
 | Key in the default Secret | Consumer | Purpose |
 | --- | --- | --- |
-| `api-token` | Tsuga operator | Dashboard, Monitor, and SLO API calls; required for process startup |
+| `api-token` | Tsuga operator | Dashboard, Monitor, and SLO API calls; optional for collection-only use |
 | `api-key` | Collectors | OTLP ingestion authentication |
 | `otlp-endpoint` | Collectors | OTLP export destination |
 

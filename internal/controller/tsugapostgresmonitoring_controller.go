@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -24,15 +25,16 @@ import (
 	"github.com/tsuga-dev/tsuga-operator/internal/collection"
 )
 
-// setupJobRecreateDelay gives a deleted setup Job time to leave the API
-// server before a Job with the same name is created again.
+// setupJobRecreateDelay gives a deleted setup Job or collector time to leave
+// the API server before one with the same name is created again.
 const setupJobRecreateDelay = 2 * time.Second
 
 // TsugaPostgresMonitoringReconciler reconciles TsugaPostgresMonitoring into a
 // deployment-mode OpenTelemetryCollector plus, in managed provisioning mode,
-// the setup Job that creates otel_monitor and the otel functions. It only
-// reads Secret metadata to verify ownership; pods get every
-// credential through secretKeyRef.
+// the setup Job that creates the monitoring role and the otel functions. Of
+// CRs that would set different passwords for one role on one server, only the
+// oldest is reconciled. It only reads Secret metadata, to verify ownership and
+// opt-in labels; pods get every credential through secretKeyRef.
 type TsugaPostgresMonitoringReconciler struct {
 	client.Client
 	APIReader client.Reader
@@ -63,22 +65,39 @@ func (r *TsugaPostgresMonitoringReconciler) Reconcile(ctx context.Context, req c
 	port := collection.AgentOTLPPort(clusterCfg, "grpc")
 	spec := collection.ResolvePostgres(pg.Spec)
 
-	// ponytail: Create on every reconcile; on AlreadyExists, createIfAbsent
-	// checks ownership with a metadata-only Get. RBAC cannot scope get to
-	// metadata, so the manager holds cluster-wide Secret get for this.
-	secret := collection.RenderPostgresMonitorSecret(pg.Name, pg.Namespace)
-	secretCreated, err := r.createIfAbsent(ctx, pg, secret)
-	if err != nil {
+	var all v1alpha1.TsugaPostgresMonitoringList
+	if err := r.List(ctx, &all); err != nil {
 		return r.fail(ctx, pg, reasonApplyFailed, err)
+	}
+	if winner := conflictWinner(pg, all.Items); winner != nil {
+		return r.yieldToWinner(ctx, pg, spec, winner)
+	}
+
+	passwordSecret := collection.PostgresPasswordSecretName(spec, pg.Name)
+	if err := r.checkCollectorSecrets(ctx, pg.Namespace, spec); err != nil {
+		return r.fail(ctx, pg, reasonProvisioningFailed, err)
+	}
+	secretCreated := false
+	if spec.PasswordSecretRef == nil {
+		// ponytail: Create on every reconcile; on AlreadyExists, createIfAbsent
+		// checks ownership with a metadata-only Get. RBAC cannot scope get to
+		// metadata, so the manager holds cluster-wide Secret get for this.
+		var err error
+		secretCreated, err = r.createIfAbsent(ctx, pg, collection.RenderPostgresMonitorSecret(pg.Name, pg.Namespace))
+		if err != nil {
+			return r.fail(ctx, pg, reasonApplyFailed, err)
+		}
 	}
 
 	var job *batchv1.Job
 	if spec.Provisioning.Mode != collection.PostgresModeManual {
+		var err error
 		job, err = collection.RenderPostgresSetupJob(pg.Name, pg.Namespace, spec)
 		if err != nil {
 			return r.fail(ctx, pg, reasonRenderFailed, err)
 		}
-		if err := r.checkAdminSecret(ctx, pg.Namespace, spec.Provisioning.AdminSecretRef.Name); err != nil {
+		if err := r.checkSecretLabel(ctx, pg.Namespace, spec.Provisioning.AdminSecretRef.Name,
+			collection.PostgresAdminSecretLabel, "admin", "adminSecretRef"); err != nil {
 			return r.fail(ctx, pg, reasonProvisioningFailed, err)
 		}
 		// A new monitor Secret means a new password. A Job that already ran set
@@ -104,11 +123,23 @@ func (r *TsugaPostgresMonitoringReconciler) Reconcile(ctx context.Context, req c
 	if err != nil {
 		return r.fail(ctx, pg, reasonRenderFailed, err)
 	}
+	if deleted, err := deleteOnModeChange(ctx, r.Client, pg, collector); err != nil {
+		return r.fail(ctx, pg, reasonApplyFailed, err)
+	} else if deleted {
+		return ctrl.Result{RequeueAfter: setupJobRecreateDelay}, nil
+	}
 	if err := r.apply(ctx, pg, collector); err != nil {
 		return r.fail(ctx, pg, reasonApplyFailed, err)
 	}
 	managed := make([]string, 0, 4)
-	managed = append(managed, secret.Name, collector.GetName())
+	if spec.PasswordSecretRef == nil {
+		managed = append(managed, passwordSecret)
+	}
+	managed = append(managed, collector.GetName())
+	var sidecarHint string
+	if spec.Mode == collection.PostgresCollectorSidecar {
+		sidecarHint = fmt.Sprintf("; add the pod annotation sidecar.opentelemetry.io/inject: %s to the database pod template", collector.GetName())
+	}
 
 	if spec.Provisioning.Mode == collection.PostgresModeManual {
 		if err := r.deleteStaleJobs(ctx, pg, ""); err != nil {
@@ -118,7 +149,7 @@ func (r *TsugaPostgresMonitoringReconciler) Reconcile(ctx context.Context, req c
 			return r.fail(ctx, pg, reasonApplyFailed, err)
 		}
 		return r.syncStatus(ctx, pg, managed, true, reasonReconciled, fmt.Sprintf(
-			"provisioning is manual: create otel_monitor with the password in secret %s", secret.Name))
+			"provisioning is manual: create role %s with the password in secret %s%s", spec.Role, passwordSecret, sidecarHint))
 	}
 
 	cm := collection.RenderPostgresSetupConfigMap(pg.Name, pg.Namespace)
@@ -140,8 +171,8 @@ func (r *TsugaPostgresMonitoringReconciler) Reconcile(ctx context.Context, req c
 		return r.fail(ctx, pg, reasonApplyFailed, err)
 	}
 
-	ready, reason, message := setupJobOutcome(job)
-	return r.syncStatus(ctx, pg, managed, ready, reason, message)
+	ready, reason, message := setupJobOutcome(job, spec.Role, passwordSecret)
+	return r.syncStatus(ctx, pg, managed, ready, reason, message+sidecarHint)
 }
 
 // agentOTLPGRPCEndpoint is the OTLP/gRPC address of the tsuga-agent Service,
@@ -154,24 +185,94 @@ func agentOTLPGRPCEndpoint(collectorNamespace string, port int32) string {
 // forward to, and reports Ready=False. The Secret and setup Job are left
 // alone: they are inert without the collector.
 func (r *TsugaPostgresMonitoringReconciler) retireCollector(ctx context.Context, pg *v1alpha1.TsugaPostgresMonitoring, reason, message string) (ctrl.Result, error) {
-	collector := &unstructured.Unstructured{}
-	collector.SetGroupVersionKind(collectorGVK)
-	key := types.NamespacedName{Name: pg.Name + "-pg", Namespace: pg.Namespace}
-	if err := r.Get(ctx, key, collector); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return r.fail(ctx, pg, reasonApplyFailed, err)
-		}
-	} else if metav1.IsControlledBy(collector, pg) {
-		if err := r.Delete(ctx, collector); client.IgnoreNotFound(err) != nil {
-			return r.fail(ctx, pg, reasonApplyFailed, err)
-		}
+	if err := r.deleteOwnedCollector(ctx, pg); err != nil {
+		return r.fail(ctx, pg, reasonApplyFailed, err)
 	}
 	return r.syncStatus(ctx, pg, nil, false, reason, message)
 }
 
+// yieldToWinner stops pg from touching a role another CR owns: no collector
+// and no setup Job, so pg never overwrites the winner's password. The Secret
+// is kept, so pg resumes cleanly once the conflict is gone.
+func (r *TsugaPostgresMonitoringReconciler) yieldToWinner(ctx context.Context, pg *v1alpha1.TsugaPostgresMonitoring, spec v1alpha1.TsugaPostgresMonitoringSpec, winner *v1alpha1.TsugaPostgresMonitoring) (ctrl.Result, error) {
+	if err := r.deleteOwnedCollector(ctx, pg); err != nil {
+		return r.fail(ctx, pg, reasonApplyFailed, err)
+	}
+	if err := r.deleteStaleJobs(ctx, pg, ""); err != nil {
+		return r.fail(ctx, pg, reasonApplyFailed, err)
+	}
+	return r.syncStatus(ctx, pg, nil, false, reasonRoleConflict, fmt.Sprintf(
+		"role %s on %s:%d is already used by TsugaPostgresMonitoring %s/%s; set a distinct spec.role or share spec.passwordSecretRef",
+		spec.Role, spec.Host, spec.Port, winner.Namespace, winner.Name))
+}
+
+func (r *TsugaPostgresMonitoringReconciler) deleteOwnedCollector(ctx context.Context, pg *v1alpha1.TsugaPostgresMonitoring) error {
+	collector := &unstructured.Unstructured{}
+	collector.SetGroupVersionKind(collectorGVK)
+	key := types.NamespacedName{Name: pg.Name + "-pg", Namespace: pg.Namespace}
+	if err := r.Get(ctx, key, collector); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	if !metav1.IsControlledBy(collector, pg) {
+		return nil
+	}
+	return client.IgnoreNotFound(r.Delete(ctx, collector))
+}
+
+// postgresServerKey identifies the role pg manages. A single-label host is a
+// Service in pg's namespace, so it is qualified with it, and the .svc and
+// .svc.cluster.local suffixes are dropped. Other DNS names for one server are
+// not matched.
+func postgresServerKey(pg *v1alpha1.TsugaPostgresMonitoring) string {
+	spec := collection.ResolvePostgres(pg.Spec)
+	host := strings.ToLower(spec.Host)
+	if !strings.Contains(host, ".") {
+		host += "." + pg.Namespace
+	}
+	host = strings.TrimSuffix(strings.TrimSuffix(host, ".svc.cluster.local"), ".svc")
+	return fmt.Sprintf("%s:%d/%s", host, spec.Port, spec.Role)
+}
+
+// conflictWinner returns the CR that owns self's role on self's server, or
+// nil when self does. CRs in one namespace naming the same passwordSecretRef
+// set the same password, so they do not conflict. The oldest CR wins, ties
+// broken by namespace/name.
+func conflictWinner(self *v1alpha1.TsugaPostgresMonitoring, all []v1alpha1.TsugaPostgresMonitoring) *v1alpha1.TsugaPostgresMonitoring {
+	key := postgresServerKey(self)
+	var winner *v1alpha1.TsugaPostgresMonitoring
+	for i := range all {
+		other := &all[i]
+		if other.DeletionTimestamp != nil ||
+			(other.Namespace == self.Namespace && other.Name == self.Name) ||
+			sharePasswordSecret(self, other) ||
+			postgresServerKey(other) != key {
+			continue
+		}
+		if winner == nil || olderPostgresMonitoring(other, winner) {
+			winner = other
+		}
+	}
+	if winner == nil || olderPostgresMonitoring(self, winner) {
+		return nil
+	}
+	return winner
+}
+
+func sharePasswordSecret(a, b *v1alpha1.TsugaPostgresMonitoring) bool {
+	return a.Namespace == b.Namespace && a.Spec.PasswordSecretRef != nil && b.Spec.PasswordSecretRef != nil &&
+		a.Spec.PasswordSecretRef.Name == b.Spec.PasswordSecretRef.Name
+}
+
+func olderPostgresMonitoring(a, b *v1alpha1.TsugaPostgresMonitoring) bool {
+	if !a.CreationTimestamp.Equal(&b.CreationTimestamp) {
+		return a.CreationTimestamp.Before(&b.CreationTimestamp)
+	}
+	return a.Namespace+"/"+a.Name < b.Namespace+"/"+b.Name
+}
+
 // setupJobOutcome maps the setup Job's terminal condition onto the Ready
 // condition. A Job with no terminal condition yet is pending.
-func setupJobOutcome(job *batchv1.Job) (bool, string, string) {
+func setupJobOutcome(job *batchv1.Job, role, passwordSecret string) (bool, string, string) {
 	for _, c := range job.Status.Conditions {
 		if c.Status != corev1.ConditionTrue {
 			continue
@@ -181,7 +282,8 @@ func setupJobOutcome(job *batchv1.Job) (bool, string, string) {
 			return true, reasonReconciled, fmt.Sprintf("setup job %s completed", job.Name)
 		case batchv1.JobFailed:
 			return false, reasonProvisioningFailed, fmt.Sprintf(
-				"setup job %s failed: see kubectl logs -n %s job/%s", job.Name, job.Namespace, job.Name)
+				"setup job %s failed: see kubectl logs -n %s job/%s (if role %s already exists and was not created by the operator, the password in secret %s must match it)",
+				job.Name, job.Namespace, job.Name, role, passwordSecret)
 		}
 	}
 	return false, reasonProvisioningPending, fmt.Sprintf("setup job %s has not completed yet", job.Name)
@@ -225,10 +327,29 @@ func (r *TsugaPostgresMonitoringReconciler) createIfAbsent(ctx context.Context, 
 	return err == nil, err
 }
 
-// checkAdminSecret requires the admin Secret to opt in with
-// PostgresAdminSecretLabel. Only metadata is read. Secrets are not watched, so
-// adding the label is picked up on the error backoff requeue.
-func (r *TsugaPostgresMonitoringReconciler) checkAdminSecret(ctx context.Context, namespace, name string) error {
+// checkCollectorSecrets requires the credentials opt-in label on every Secret
+// spec hands the collector: passwordSecretRef and the TLS volume's Secrets.
+func (r *TsugaPostgresMonitoringReconciler) checkCollectorSecrets(ctx context.Context, namespace string, spec v1alpha1.TsugaPostgresMonitoringSpec) error {
+	if spec.PasswordSecretRef != nil {
+		if err := r.checkSecretLabel(ctx, namespace, spec.PasswordSecretRef.Name,
+			collection.PostgresCredentialsSecretLabel, "password", "passwordSecretRef"); err != nil {
+			return err
+		}
+	}
+	for _, name := range collection.PostgresTLSSecretNames(spec) {
+		if err := r.checkSecretLabel(ctx, namespace, name,
+			collection.PostgresCredentialsSecretLabel, "tls", "tls.volume"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkSecretLabel requires a Secret named in field to opt in with label=true;
+// noun names the Secret in errors.
+// Only metadata is read. Secrets are not watched, so adding the label is
+// picked up on the error backoff requeue.
+func (r *TsugaPostgresMonitoringReconciler) checkSecretLabel(ctx context.Context, namespace, name, label, noun, field string) error {
 	reader := client.Reader(r.Client)
 	if r.APIReader != nil {
 		reader = r.APIReader
@@ -236,11 +357,11 @@ func (r *TsugaPostgresMonitoringReconciler) checkAdminSecret(ctx context.Context
 	metadata := &metav1.PartialObjectMetadata{}
 	metadata.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
 	if err := reader.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, metadata); err != nil {
-		return fmt.Errorf("admin secret %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("%s secret %s/%s: %w", noun, namespace, name, err)
 	}
-	if metadata.Labels[collection.PostgresAdminSecretLabel] != "true" {
-		return fmt.Errorf("admin secret %s/%s must be labeled %s=true to be used as adminSecretRef",
-			namespace, name, collection.PostgresAdminSecretLabel)
+	if metadata.Labels[label] != "true" {
+		return fmt.Errorf("%s secret %s/%s must be labeled %s=true to be used as %s",
+			noun, namespace, name, label, field)
 	}
 	return nil
 }
@@ -335,7 +456,9 @@ func (r *TsugaPostgresMonitoringReconciler) fail(ctx context.Context, pg *v1alph
 	return ctrl.Result{}, cause
 }
 
-// SetupWithManager watches the owned collector and setup Jobs. Secrets and
+// SetupWithManager watches the owned collector and setup Jobs, and requeues
+// the CRs sharing a role on one server when any of them changes, so a loser
+// takes over once the winner is deleted or moves. Secrets and
 // ConfigMaps are not watched: owning Secrets would cache every Secret in the
 // cluster, and both are recreated on the CR's next reconcile anyway.
 func (r *TsugaPostgresMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -346,6 +469,7 @@ func (r *TsugaPostgresMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) e
 		Owns(collector).
 		Owns(&batchv1.Job{}).
 		Watches(&v1alpha1.TsugaCollectorConfig{}, handler.EnqueueRequestsFromMapFunc(r.clusterConfigToPostgresMonitorings)).
+		Watches(&v1alpha1.TsugaPostgresMonitoring{}, handler.EnqueueRequestsFromMapFunc(r.sameServerPostgresMonitorings)).
 		Named("tsugapostgresmonitoring").
 		Complete(r)
 }
@@ -362,6 +486,32 @@ func (r *TsugaPostgresMonitoringReconciler) clusterConfigToPostgresMonitorings(c
 	reqs := make([]reconcile.Request, 0, len(list.Items))
 	for i := range list.Items {
 		reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&list.Items[i])})
+	}
+	return reqs
+}
+
+// sameServerPostgresMonitorings enqueues the other CRs sharing obj's server
+// key. A delete event carries the last state, and the map handler maps both
+// the old and new object on update, so rivals on a host obj left are requeued.
+func (r *TsugaPostgresMonitoringReconciler) sameServerPostgresMonitorings(ctx context.Context, obj client.Object) []reconcile.Request {
+	pg, ok := obj.(*v1alpha1.TsugaPostgresMonitoring)
+	if !ok {
+		return nil
+	}
+	var list v1alpha1.TsugaPostgresMonitoringList
+	if err := r.List(ctx, &list); err != nil {
+		logf.FromContext(ctx).Error(err, "sameServerPostgresMonitorings: failed to list TsugaPostgresMonitorings")
+		return nil
+	}
+	key := postgresServerKey(pg)
+	var reqs []reconcile.Request
+	for i := range list.Items {
+		other := &list.Items[i]
+		if (other.Namespace == pg.Namespace && other.Name == pg.Name) ||
+			postgresServerKey(other) != key {
+			continue
+		}
+		reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(other)})
 	}
 	return reqs
 }

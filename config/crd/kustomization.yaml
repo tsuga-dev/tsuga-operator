@@ -8,6 +8,7 @@ resources:
 - bases/observability.tsuga.com_tsugamonitorings.yaml
 - bases/observability.tsuga.com_slos.yaml
 - bases/observability.tsuga.com_tsugapostgresmonitorings.yaml
+- bases/observability.tsuga.com_tsugacollectors.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

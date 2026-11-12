@@ -191,6 +191,25 @@ func TestRenderCollectorRBACIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestExtraRulesAppendToOnlyTheirCollectorRole(t *testing.T) {
+	cfg := effective()
+	cfg.Agent.ExtraRules = []rbacv1.PolicyRule{
+		{APIGroups: []string{"networking.k8s.io"}, Resources: []string{"ingresses"}, Verbs: readVerbs},
+	}
+	roles, _ := renderedRBAC(t, cfg)
+
+	agent := roles[collectorRBACName(agentName)].Rules
+	if !grants(agent, "networking.k8s.io", "ingresses", "list") {
+		t.Fatalf("agent role misses extraRules: %v", agent)
+	}
+	if !grants(agent, "", "nodes/stats", "get") {
+		t.Fatalf("extraRules replaced the agent's built-in rules: %v", agent)
+	}
+	if gw := roles[collectorRBACName(gatewayName)].Rules; grants(gw, "networking.k8s.io", "ingresses", "list") {
+		t.Fatalf("agent extraRules leaked into the gateway role: %v", gw)
+	}
+}
+
 func TestRenderCollectorRBACSkipsDisabledCollectors(t *testing.T) {
 	cfg := effective()
 	cfg.Gateway.ClusterMetrics = false

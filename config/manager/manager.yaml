@@ -71,6 +71,7 @@ spec:
               secretKeyRef:
                 name: tsuga-credentials
                 key: api-token
+                optional: true
           - name: TSUGA_BASE_URL
             value: "https://api.tsuga.com"
         ports: []

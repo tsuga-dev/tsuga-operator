@@ -10,14 +10,16 @@ Download an example, replace placeholders, and follow its guide before applying 
 | [slo-time.yaml](slo-time.yaml) | [Time-based SLO](../slos/index.md#create-a-time-based-slo) |
 | [collector.yaml](collector.yaml) | [Collect cluster telemetry](../kubernetes-monitoring/getting-started.md) |
 | [postgres.yaml](postgres.yaml) | [PostgreSQL with managed provisioning](../kubernetes-monitoring/dbm.md#managed-provisioning) |
+| [postgres-verify-full.yaml](postgres-verify-full.yaml) | [PostgreSQL with certificate verification](../kubernetes-monitoring/dbm.md#tls) |
 | [postgres-manual.yaml](postgres-manual.yaml) | [PostgreSQL with manual provisioning](../kubernetes-monitoring/dbm.md#manual-provisioning) |
+| [custom-collector.yaml](custom-collector.yaml) | [Run a custom collector](../kubernetes-monitoring/custom-collectors.md) |
 | [monitoring.yaml](monitoring.yaml) | [Instrument selected workloads](../kubernetes-monitoring/auto-instrumentation.md) |
 | [collector-prometheus.yaml](collector-prometheus.yaml) | [Scrape Prometheus metrics](../kubernetes-monitoring/prometheus.md) |
 | [collector-monitors.yaml](collector-monitors.yaml) | [Alert on collector health](../kubernetes-monitoring/alerting.md) |
 
 `collector-monitors.yaml` holds six Monitors. Apply it once per organization, in a single cluster.
 
-`postgres.yaml` and `postgres-manual.yaml` are alternative definitions for the same database; choose one.
+`postgres.yaml`, `postgres-verify-full.yaml` and `postgres-manual.yaml` are alternative definitions for the same database; choose one.
 
 `collector.yaml` and `collector-prometheus.yaml` are alternative definitions of the same resource, `cluster`. Do not apply the directory wholesale. Choose one and merge changes into your authoritative manifest.
 

@@ -9,6 +9,7 @@ All six resources use `apiVersion: observability.tsuga.com/v1alpha1`.
 | [SLO](slo.md) | Namespaced | `tslo` | Manage a Tsuga service-level objective |
 | [TsugaCollectorConfig](tsugacollectorconfig.md) | Cluster | `tcc` | Configure generated collectors and RBAC |
 | [TsugaPostgresMonitoring](tsugapostgresmonitoring.md) | Namespaced | `tspg` | Monitor a PostgreSQL server |
+| [TsugaCollector](tsugacollector.md) | Namespaced | `tscol` | Run a custom collector |
 | [TsugaMonitoring](tsugamonitoring.md) | Namespaced | `tsmon` | Configure application instrumentation |
 
 The field tables are generated from this repository's CRD schemas. Runtime defaults and limitations are documented separately in [configuration and compatibility](configuration.md) and [reconciliation](../concepts/reconciliation.md).

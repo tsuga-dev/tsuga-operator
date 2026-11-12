@@ -61,4 +61,13 @@ resources:
   kind: TsugaPostgresMonitoring
   path: github.com/tsuga-dev/tsuga-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: tsuga.com
+  group: observability
+  kind: TsugaCollector
+  path: github.com/tsuga-dev/tsuga-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

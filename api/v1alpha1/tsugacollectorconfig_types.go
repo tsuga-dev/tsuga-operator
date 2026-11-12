@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -219,6 +220,14 @@ type CollectorTuning struct {
 	// Send this collector's telemetry to Tsuga. Unset means true.
 	// +optional
 	ExportToTsuga *bool `json:"exportToTsuga,omitempty"`
+	// Appended to this collector's ClusterRole, for the cluster access that
+	// components added through extraReceivers or extraExtensions need (for
+	// example services and ingresses for a k8s_observer). The operator can
+	// only grant what its own ClusterRole holds: add any rule beyond it there
+	// too, or the reconcile fails with ApplyFailed. Ignored when rbac.create
+	// is false.
+	// +optional
+	ExtraRules []rbacv1.PolicyRule `json:"extraRules,omitempty"`
 	// Exporters added to this collector's config, keyed by component name
 	// (for example otlp_http/backup). Passed to the collector as written.
 	// +kubebuilder:pruning:PreserveUnknownFields

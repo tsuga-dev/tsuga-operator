@@ -160,6 +160,8 @@ rules:
   - slos/status
   - tsugacollectorconfigs/finalizers
   - tsugacollectorconfigs/status
+  - tsugacollectors/finalizers
+  - tsugacollectors/status
   - tsugamonitorings/finalizers
   - tsugamonitorings/status
   - tsugapostgresmonitorings/finalizers
@@ -170,6 +172,7 @@ rules:
   - observability.tsuga.com
   resources:
   - tsugacollectorconfigs
+  - tsugacollectors
   - tsugapostgresmonitorings
   verbs:
   - get

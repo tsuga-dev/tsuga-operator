@@ -38,7 +38,7 @@ Wait for dependency webhooks to become reachable before creating their resources
 
 ## 2. Create the credentials Secret
 
-Use the raw operation key, without a `Bearer ` prefix. Replace the placeholder before running this command.
+Use the raw operation key, without a `Bearer ` prefix. Replace the placeholder before running this command. A collection-only install can skip `api-token`: the operator starts without it and does not reconcile Dashboard, Monitor, and SLO resources. Their status and finalizers stay as they are, so deleting one waits until the operator runs with a key again.
 
 ```sh
 kubectl create namespace tsuga-operator-system --dry-run=client -o yaml | kubectl apply -f -

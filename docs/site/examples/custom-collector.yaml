@@ -1,0 +1,57 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaCollector
+metadata:
+  name: ndm
+  namespace: observability
+spec:
+  collector:
+    mode: deployment
+    ports:
+      - name: netflow
+        port: 2055
+        protocol: UDP
+    config:
+      receivers:
+        netflow:
+          scheme: netflow
+          port: 2055
+        snmp/router:
+          collection_interval: 15s
+          endpoint: udp://<DEVICE_HOST>:161
+          version: v2c
+          community: ${env:SNMP_COMMUNITY}
+          metrics:
+            system.uptime:
+              unit: s
+              gauge:
+                value_type: int
+              scalar_oids:
+                - oid: 1.3.6.1.2.1.1.3.0
+      processors:
+        resource/ndm:
+          attributes:
+            - key: service.namespace
+              value: ndm
+              action: insert
+      extensions:
+        opamp:
+          server:
+            ws:
+              endpoint: ws://<OPAMP_SERVER>:4320/v1/opamp
+              tls:
+                insecure: true
+      service:
+        extensions: [opamp]
+        pipelines:
+          logs/netflow:
+            receivers: [netflow]
+            processors: [resource/ndm]
+          metrics/snmp:
+            receivers: [snmp/router]
+            processors: [resource/ndm]
+    env:
+      - name: SNMP_COMMUNITY
+        valueFrom:
+          secretKeyRef:
+            name: snmp-community
+            key: community

@@ -1,6 +1,8 @@
 package collection
 
 import (
+	"slices"
+
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -164,7 +166,7 @@ func RenderCollectorRBAC(cfg v1alpha1.TsugaCollectorConfigSpec) []client.Object 
 			&rbacv1.ClusterRole{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "ClusterRole"},
 				ObjectMeta: metav1.ObjectMeta{Name: name},
-				Rules:      append(k8sAttributesRules(), rules...),
+				Rules:      slices.Concat(k8sAttributesRules(), rules, spec.tuning.ExtraRules),
 			},
 			&rbacv1.ClusterRoleBinding{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "ClusterRoleBinding"},

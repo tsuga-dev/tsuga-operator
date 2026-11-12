@@ -6,4 +6,5 @@ resources:
 - observability_v1alpha1_tsugamonitoring.yaml
 - observability_v1alpha1_slo.yaml
 - observability_v1alpha1_tsugapostgresmonitoring.yaml
+- observability_v1alpha1_tsugacollector.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

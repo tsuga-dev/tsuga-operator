@@ -116,6 +116,20 @@ func TestRendersValidateAgainstPinnedOperatorCRDs(t *testing.T) {
 		t.Fatalf("render postgres collector: %v", err)
 	}
 	objs = append(objs, pgCollector)
+	custom, err := RenderCustomCollector("ndm", cfg.CollectorNamespace,
+		v1alpha1.TsugaCollectorSpec{Collector: &apiextensionsv1.JSON{Raw: []byte(`{
+		  "mode": "deployment",
+		  "ports": [{"name": "netflow", "port": 2055, "protocol": "UDP"}],
+		  "config": {
+		    "receivers": {"netflow": {"scheme": "netflow", "port": 2055}},
+		    "service": {"pipelines": {"logs/netflow": {"receivers": ["netflow"]}}}
+		  }}`)}},
+		cfg, "tsuga-agent-collector."+cfg.CollectorNamespace+".svc.cluster.local:4317",
+		"http://tsuga-agent-collector."+cfg.CollectorNamespace+".svc.cluster.local:4318")
+	if err != nil {
+		t.Fatalf("render custom collector: %v", err)
+	}
+	objs = append(objs, custom)
 
 	for _, obj := range objs {
 		if err := c.Create(ctx, obj, client.DryRunAll, client.FieldValidation(metav1.FieldValidationStrict)); err != nil {

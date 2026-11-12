@@ -10,6 +10,7 @@ from jsonschema import Draft4Validator
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "docs/site"
 NOTES = {
+    "TsugaCollector": "Run a custom OpenTelemetry collector from a native `OpenTelemetryCollector` spec, rendered as `tsuga-<name>`. The toggles add export to the node agent, self-telemetry and default processors without replacing anything the spec defines. Requires TsugaCollectorConfig named `cluster`. Resource names are limited to 36 characters. See the [custom collectors guide](../kubernetes-monitoring/custom-collectors.md).",
     "TsugaPostgresMonitoring": "Monitor one PostgreSQL server through a dedicated collector forwarding to the cluster agent. Requires TsugaCollectorConfig named `cluster`. Use one resource per server: the database role `otel_monitor` is shared. Include `provisioning` explicitly; managed mode requires an admin Secret, while manual mode requires DBA setup. Resource names are limited to 43 characters. See the [DBM guide](../kubernetes-monitoring/dbm.md).",
     "SLO": "Manage a native Tsuga SLO with an event- or time-based SLI. Targets must be strictly between 0 and 100; windows are 7, 30, or 90 days. SLI and alert configurations are passed through to Tsuga for validation. Omitting clusterIds selects all clusters; omitting alerts removes alerts. Remote updates recreate alerts with new IDs. See the [SLO guide](../slos/index.md).",
     "Dashboard": "Widget IDs (`spec.graphs[].id`) are required by the Kubernetes schema. Visualization objects pass through to the Tsuga API; Kubernetes does not validate their internal contract.",
@@ -23,7 +24,7 @@ def cell(value):
     return str(value).replace("|", "&#124;").replace("\n", " ")
 
 
-def fields(schema, prefix=""):
+def fields(schema, prefix="", crd_kind=""):
     for name, prop in schema.get("properties", {}).items():
         path = f"{prefix}.{name}" if prefix else name
         constraints = []
@@ -36,7 +37,7 @@ def fields(schema, prefix=""):
             constraints.append("Opaque JSON; validated by Tsuga")
         description = prop.get("description", "—")
         # These comments describe intent, not the current controller behavior.
-        if path == "spec.image":
+        if crd_kind == "TsugaCollectorConfig" and path == "spec.image":
             description = "Override the image for agent, gateway, and scraper; see runtime defaults."
         required = "Yes" if name in schema.get("required", []) else "No"
         default = f'`{cell(json.dumps(prop["default"]))}`' if "default" in prop else "—"
@@ -44,9 +45,9 @@ def fields(schema, prefix=""):
         if kind == "array":
             kind += f' of {prop.get("items", {}).get("type", "JSON")}'
         yield f"| `{path}` | {kind} | {required} | {default} | {cell(description)} {'; '.join(constraints)} |"
-        yield from fields(prop, path)
+        yield from fields(prop, path, crd_kind)
         if "items" in prop:
-            yield from fields(prop["items"], path + "[]")
+            yield from fields(prop["items"], path + "[]", crd_kind)
         for rule in prop.get("x-kubernetes-validations", []):
             yield f'| `{path}` validation | CEL | — | — | {cell(rule.get("message", rule["rule"]))} |'
 
@@ -63,7 +64,7 @@ def render(crd, version):
         "Required is relative to the containing object. Defaults inside optional objects apply only when the containing object exists. Status is read-only. Standard Kubernetes metadata fields are omitted.", "",
         "| Field | Type | Required | Schema default | Description and constraints |",
         "| --- | --- | --- | --- | --- |",
-        *fields({"properties": {k: v for k, v in schema["properties"].items() if k in ("spec", "status")}, "required": schema.get("required", [])}), "",
+        *fields({"properties": {k: v for k, v in schema["properties"].items() if k in ("spec", "status")}, "required": schema.get("required", [])}, crd_kind=kind), "",
         *[line for rule in schema.get("x-kubernetes-validations", []) for line in ("Validation: " + cell(rule.get("message", rule["rule"])), "")],
         "## Source", "",
         f'[CRD schema](https://github.com/tsuga-dev/tsuga-operator/blob/main/config/crd/bases/{spec["group"]}_{spec["names"]["plural"]}.yaml).', "",
@@ -142,6 +143,8 @@ def main():
                     failures.append(f"{path.name}: managed provisioning requires adminSecretRef.name; use explicit manual mode otherwise")
                 if len(obj["metadata"].get("name", "")) > 43:
                     failures.append(f"{path.name}: PostgreSQL resource names must be at most 43 characters")
+            if obj["kind"] == "TsugaCollector" and len(obj["metadata"].get("name", "")) > 36:
+                failures.append(f"{path.name}: TsugaCollector names must be at most 36 characters")
             if obj["kind"] == "TsugaCollectorConfig":
                 prom = obj["spec"].get("prometheus", {})
                 if prom.get("replicas", 1) > 1 and not prom.get("targetAllocator", {}).get("enabled", False):

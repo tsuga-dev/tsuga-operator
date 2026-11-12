@@ -5,22 +5,83 @@
 -- Requires PostgreSQL 13+ (pg_top_queries reads the PG13 pg_stat_statements
 -- columns total_exec_time / total_plan_time).
 -- Safe to re-run (all statements are idempotent).
+--
+-- psql variables:
+--   role          monitoring role, defaulted below
+--   set_password  optional; when set, \password reads the role's password
+--                 twice from stdin, for a role this script created only
+--   adopt         on/off, default off; mark an existing unmarked role as created here
+--   proven        on/off, default on; off keeps pg_monitor from an unmarked role
+-- By hand: psql -v role=<name> -f postgres-setup.sql
+
+\if :{?role}
+\else
+\set role otel_monitor
+\endif
+\if :{?adopt}
+\else
+\set adopt off
+\endif
+\if :{?proven}
+\else
+\set proven on
+\endif
+
+-- Concurrent runs on one database collide on CREATE ROLE, CREATE OR REPLACE
+-- FUNCTION and GRANT. The session lock serializes them and is released when
+-- psql exits. ponytail: advisory locks are per database, so runs against
+-- different databases on one server can still race on CREATE ROLE.
+SELECT pg_advisory_lock(hashtext('tsuga-operator-postgres-setup')) \gset
 
 -- ---------------------------------------------------------------------------
--- 1. Monitoring user
+-- 1. Monitoring role
+--
+-- A role this script creates carries the comment 'managed-by: tsuga-operator'.
+-- A role without it belongs to someone else (a DBA) and its password is never
+-- changed here.
 -- ---------------------------------------------------------------------------
 
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'otel_monitor') THEN
-    -- Created without a password; set it from the operator's generated Secret.
-    CREATE USER otel_monitor;
-    END IF;
-END;
-$$;
+-- One transaction, so a crash cannot leave the role created but unmarked.
+BEGIN;
+SELECT s FROM unnest(ARRAY[
+    format('CREATE ROLE %I LOGIN', :'role'),
+    format('COMMENT ON ROLE %I IS %L', :'role', 'managed-by: tsuga-operator')
+]) s
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role') \gexec
+COMMIT;
 
-GRANT pg_monitor TO otel_monitor;
-GRANT SELECT ON pg_stat_database TO otel_monitor;
+-- Roles created before the marker existed. The setup Job sets adopt=on only
+-- after logging in as the role with the operator's generated password, which
+-- proves the operator set that password.
+SELECT format('COMMENT ON ROLE %I IS %L', rolname, 'managed-by: tsuga-operator')
+FROM pg_roles
+WHERE rolname = :'role'
+  AND :'adopt' = 'on'
+  AND shobj_description(oid, 'pg_authid') IS NULL \gexec
+
+SELECT EXISTS (
+    SELECT FROM pg_roles
+    WHERE rolname = :'role'
+      AND shobj_description(oid, 'pg_authid') = 'managed-by: tsuga-operator'
+) AS managed \gset
+
+-- \password hashes the password client-side and sends only the hash.
+-- pg_stat_statements keeps ALTER ROLE text verbatim, and every pg_monitor
+-- member can read it, so a plain-text PASSWORD literal would reach the other
+-- monitoring roles on the server.
+\if :{?set_password}
+\if :managed
+\password :"role"
+\endif
+\endif
+
+-- An unmarked role gets pg_monitor only once a login with the Secret's
+-- password has proven it is the role the resource means.
+\if :managed
+SELECT format('GRANT pg_monitor TO %I', :'role') \gexec
+\elif :proven
+SELECT format('GRANT pg_monitor TO %I', :'role') \gexec
+\endif
 
 -- ---------------------------------------------------------------------------
 -- 2. Extension
@@ -32,8 +93,18 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 -- 3. Schema
 -- ---------------------------------------------------------------------------
 
+-- The schema and functions belong to the admin that first ran setup. Another
+-- admin, for example a second resource's on the same server, cannot replace
+-- them unless it holds that role, so it leaves them as they are.
+SELECT NOT EXISTS (
+    SELECT FROM pg_namespace WHERE nspname = 'otel' AND NOT pg_has_role(nspowner, 'USAGE')
+) AND NOT EXISTS (
+    SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'otel' AND NOT pg_has_role(p.proowner, 'USAGE')
+) AS owns_otel \gset
+\if :owns_otel
+
 CREATE SCHEMA IF NOT EXISTS otel;
-GRANT USAGE ON SCHEMA otel TO otel_monitor;
 
 -- ---------------------------------------------------------------------------
 -- 4. Monitoring functions
@@ -308,7 +379,8 @@ RETURNS TABLE(
     WHERE d.datname IS NOT NULL
     AND s.query != '<insufficient privilege>'
     AND s.query NOT LIKE '/* otel-collector-ignore */%'
-    -- pg_stat_statements keeps role DDL verbatim, password literal included.
+    -- pg_stat_statements keeps role DDL verbatim, password literal included,
+    -- such as the ALTER ROLE ... PASSWORD this setup script runs.
     AND s.query !~* '^\s*(alter|create)\s+(user|role)\M'
     ORDER BY s.calls DESC
     LIMIT 20;
@@ -317,6 +389,18 @@ COMMIT;
 
 -- ---------------------------------------------------------------------------
 -- 5. Grants
+--
+-- Granted to pg_monitor, which every monitoring role is a member of, rather
+-- than to the role: the DROP FUNCTION above wipes EXECUTE for every grantee,
+-- and one grantee re-granted on each run covers all monitoring roles on the
+-- server, whichever resource ran setup last.
 -- ---------------------------------------------------------------------------
 
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA otel TO otel_monitor;
+GRANT USAGE ON SCHEMA otel TO pg_monitor;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA otel TO pg_monitor;
+
+\else
+\echo 'otel schema belongs to a role this admin does not hold: keeping its functions'
+\endif
+
+GRANT SELECT ON pg_stat_database TO pg_monitor;

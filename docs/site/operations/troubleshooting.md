@@ -20,8 +20,7 @@ Describe the specific resource and compare `metadata.generation` with `status.ob
 
 | Symptom | Check | Action |
 | --- | --- | --- |
-| `CreateContainerConfigError` | Pod events identify a missing Secret or key | Provision `tsuga-credentials` with `api-token` in the operator namespace |
-| Missing `TSUGA_API_TOKEN` | Startup logs | Supply an operation key, including for collection-only use |
+| Dashboard, Monitor, or SLO status never updates | Startup logs report `TSUGA_API_TOKEN is not set` | Add `api-token` to `tsuga-credentials` and restart the operator |
 | `ImagePullBackOff` | Image tag, registry access, supported architecture | Use a published image tag and appropriate pull credentials |
 | Collection controllers disabled | OpenTelemetry CRDs missing at operator startup | Install dependencies, then restart the Tsuga operator |
 | Missing TargetAllocator kind / cache sync error | Installed upstream version | Install the repository's pinned OpenTelemetry Operator, including its TargetAllocator CRD |

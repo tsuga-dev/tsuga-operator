@@ -43,6 +43,14 @@ func tierPostgresSpecs() {
 			Expect(applyYAML(renderPostgresMonitoring(postgresNamespace))).To(Succeed())
 			Expect(waitForCRPhase("tsugapostgresmonitoring", postgresNamespace, "e2e-pg",
 				"Ready", crTimeout)).To(Succeed())
+
+			By("deploying a TLS-only Postgres and a verify-full, client-cert TsugaPostgresMonitoring")
+			tlsFixture, err := renderPostgresTLSFixture(postgresNamespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(applyYAML(tlsFixture)).To(Succeed())
+			Expect(applyYAML(renderPostgresTLSMonitoring(postgresNamespace))).To(Succeed())
+			Expect(waitForCRPhase("tsugapostgresmonitoring", postgresNamespace, "e2e-pg-tls",
+				"Ready", crTimeout)).To(Succeed())
 		})
 
 		It("delivers Postgres metrics to Tsuga", func() {
@@ -51,6 +59,15 @@ func tierPostgresSpecs() {
 					"db.namespace:*", "-15m")
 			}, ingestTimeout(), signalPollInterval).Should(BeNumerically(">", 0),
 				fmt.Sprintf("no %s series for cluster %s reached Tsuga", postgresBackendsMetric, pgCluster))
+		})
+
+		It("delivers metrics over verify-full with a client certificate", func() {
+			host := fmt.Sprintf("%s.%s.svc", postgresTLSHost, postgresNamespace)
+			Eventually(func() (int, error) {
+				return cli.CountMetricSeriesWhere(postgresBackendsMetric, pgCluster,
+					fmt.Sprintf("context.server.address:%q", host), "-15m")
+			}, ingestTimeout(), signalPollInterval).Should(BeNumerically(">", 0),
+				fmt.Sprintf("no %s series from %s reached Tsuga", postgresBackendsMetric, host))
 		})
 	})
 }

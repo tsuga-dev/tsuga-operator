@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,11 +14,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
 	"github.com/tsuga-dev/tsuga-operator/internal/collection"
@@ -159,6 +164,10 @@ func TestPostgresReconcileRequiresAdminSecretOptIn(t *testing.T) {
 			got, cond := pgReady(t, cl)
 			if cond.Reason != reasonProvisioningFailed || got.Status.Phase != phaseError {
 				t.Fatalf("want ProvisioningFailed/Error, got %s/%s", cond.Reason, got.Status.Phase)
+			}
+			want := "admin secret orders/orders-pg-admin must be labeled observability.tsuga.com/postgres-admin=true to be used as adminSecretRef"
+			if name != "missing" && cond.Message != want {
+				t.Fatalf("message = %q, want %q", cond.Message, want)
 			}
 		})
 	}
@@ -423,5 +432,299 @@ func TestPostgresAgentDisabledRemovesCollector(t *testing.T) {
 	key := types.NamespacedName{Name: collection.PostgresMonitorSecretName(pgKey.Name), Namespace: pgKey.Namespace}
 	if err := cl.Get(context.Background(), key, &corev1.Secret{}); !apierrors.IsNotFound(err) {
 		t.Fatalf("want no monitor Secret created, got err=%v", err)
+	}
+}
+
+var pgT0 = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+func newTestPGNamed(ns, name string, created time.Time, mutate func(*v1alpha1.TsugaPostgresMonitoringSpec)) *v1alpha1.TsugaPostgresMonitoring {
+	pg := newTestPG("managed")
+	pg.Namespace, pg.Name, pg.UID = ns, name, types.UID(ns+"/"+name)
+	pg.CreationTimestamp = metav1.NewTime(created)
+	if mutate != nil {
+		mutate(&pg.Spec)
+	}
+	return pg
+}
+
+func newTestPasswordSecret(labels map[string]string) *corev1.Secret {
+	return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "dba-pw", Namespace: pgKey.Namespace, Labels: labels}}
+}
+
+func withPasswordSecretRef(s *v1alpha1.TsugaPostgresMonitoringSpec) {
+	s.PasswordSecretRef = &corev1.LocalObjectReference{Name: "dba-pw"}
+}
+
+func reconcilePGKey(t *testing.T, r *TsugaPostgresMonitoringReconciler, key types.NamespacedName) {
+	t.Helper()
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func pgCondition(t *testing.T, cl client.Client, key types.NamespacedName) (*v1alpha1.TsugaPostgresMonitoring, *metav1.Condition) {
+	t.Helper()
+	got := &v1alpha1.TsugaPostgresMonitoring{}
+	if err := cl.Get(context.Background(), key, got); err != nil {
+		t.Fatal(err)
+	}
+	cond := meta.FindStatusCondition(got.Status.Conditions, conditionReady)
+	if cond == nil {
+		t.Fatal("no Ready condition")
+	}
+	return got, cond
+}
+
+func pgJobCount(t *testing.T, cl client.Client, key types.NamespacedName) int {
+	t.Helper()
+	jobs := &batchv1.JobList{}
+	if err := cl.List(context.Background(), jobs, client.InNamespace(key.Namespace),
+		client.MatchingLabels{collection.PostgresMonitoringLabel: key.Name}); err != nil {
+		t.Fatal(err)
+	}
+	return len(jobs.Items)
+}
+
+func pgHasCollector(t *testing.T, cl client.Client, key types.NamespacedName) bool {
+	t.Helper()
+	collector := &unstructured.Unstructured{}
+	collector.SetGroupVersionKind(collectorGVK)
+	err := cl.Get(context.Background(), types.NamespacedName{Name: key.Name + "-pg", Namespace: key.Namespace}, collector)
+	if err != nil && !apierrors.IsNotFound(err) {
+		t.Fatal(err)
+	}
+	return err == nil
+}
+
+func TestPostgresReconcileUsesPasswordSecretRef(t *testing.T) {
+	pg := newTestPG("managed")
+	withPasswordSecretRef(&pg.Spec)
+	cl, r := newPGClient(t, newTestCluster(), pg,
+		newTestPasswordSecret(map[string]string{collection.PostgresCredentialsSecretLabel: "true"}))
+	reconcilePG(t, r)
+
+	key := types.NamespacedName{Name: "orders-db-pg-monitor", Namespace: "orders"}
+	if err := cl.Get(context.Background(), key, &corev1.Secret{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("no generated Secret expected with passwordSecretRef, got err=%v", err)
+	}
+	jobs := setupJobs(t, cl)
+	if len(jobs) != 1 {
+		t.Fatalf("want 1 setup job, got %d", len(jobs))
+	}
+	var source string
+	for _, e := range jobs[0].Spec.Template.Spec.Containers[0].Env {
+		if e.Name == "OTEL_MONITOR_PASSWORD" {
+			source = e.ValueFrom.SecretKeyRef.Name
+		}
+	}
+	if source != "dba-pw" {
+		t.Fatalf("job reads the monitor password from %q", source)
+	}
+	got, _ := pgReady(t, cl)
+	if slices.Contains(got.Status.ManagedResources, "orders-db-pg-monitor") {
+		t.Fatalf("managed resources list an unused Secret: %v", got.Status.ManagedResources)
+	}
+}
+
+func TestPostgresReconcileRequiresPasswordSecretOptIn(t *testing.T) {
+	pg := newTestPG("managed")
+	withPasswordSecretRef(&pg.Spec)
+	cl, r := newPGClient(t, newTestCluster(), pg, newTestPasswordSecret(nil))
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: pgKey}); err == nil {
+		t.Fatal("want an error for a password Secret that did not opt in")
+	}
+	if n := len(setupJobs(t, cl)); n != 0 {
+		t.Fatalf("want no setup job, got %d", n)
+	}
+	_, cond := pgReady(t, cl)
+	if cond.Reason != reasonProvisioningFailed || !strings.Contains(cond.Message, "observability.tsuga.com/postgres-credentials=true") {
+		t.Fatalf("got %s %q", cond.Reason, cond.Message)
+	}
+}
+
+func TestPostgresReconcileManualMessageNamesRole(t *testing.T) {
+	pg := newTestPG("manual")
+	pg.Spec.Role = "dba_mon"
+	cl, r := newPGClient(t, newTestCluster(), pg)
+	reconcilePG(t, r)
+	if _, cond := pgReady(t, cl); !strings.Contains(cond.Message, "create role dba_mon") {
+		t.Fatalf("message %q", cond.Message)
+	}
+}
+
+func TestPostgresConflictOlderWins(t *testing.T) {
+	older := newTestPGNamed(pgKey.Namespace, pgKey.Name, pgT0, nil)
+	newer := newTestPGNamed("warehouse", "inventory", pgT0.Add(time.Hour), nil)
+	cl, r := newPGClient(t, newTestCluster(), older, newer)
+	newerKey := client.ObjectKeyFromObject(newer)
+	reconcilePGKey(t, r, newerKey)
+	reconcilePGKey(t, r, pgKey)
+
+	if pgJobCount(t, cl, pgKey) != 1 || !pgHasCollector(t, cl, pgKey) {
+		t.Fatal("the older CR should get its setup Job and collector")
+	}
+	if pgJobCount(t, cl, newerKey) != 0 || pgHasCollector(t, cl, newerKey) {
+		t.Fatal("the newer CR must get no setup Job and no collector")
+	}
+	got, cond := pgCondition(t, cl, newerKey)
+	if cond.Reason != reasonRoleConflict || got.Status.Phase != phaseError || !strings.Contains(cond.Message, "orders/orders-db") {
+		t.Fatalf("got %s phase %s %q", cond.Reason, got.Status.Phase, cond.Message)
+	}
+}
+
+func TestPostgresConflictHostCaseInsensitive(t *testing.T) {
+	older := newTestPGNamed(pgKey.Namespace, "a", pgT0, func(s *v1alpha1.TsugaPostgresMonitoringSpec) { s.Host = "PG.example.com" })
+	newer := newTestPGNamed(pgKey.Namespace, "b", pgT0.Add(time.Hour), func(s *v1alpha1.TsugaPostgresMonitoringSpec) { s.Host = "pg.example.com" })
+	cl, r := newPGClient(t, newTestCluster(), older, newer)
+	reconcilePGKey(t, r, client.ObjectKeyFromObject(newer))
+	if _, cond := pgCondition(t, cl, client.ObjectKeyFromObject(newer)); cond.Reason != reasonRoleConflict {
+		t.Fatalf("want RoleConflict, got %s", cond.Reason)
+	}
+}
+
+func TestPostgresConflictDistinctRolesCoexist(t *testing.T) {
+	a := newTestPGNamed(pgKey.Namespace, "a", pgT0, func(s *v1alpha1.TsugaPostgresMonitoringSpec) { s.Role = "a_mon" })
+	b := newTestPGNamed(pgKey.Namespace, "b", pgT0.Add(time.Hour), func(s *v1alpha1.TsugaPostgresMonitoringSpec) { s.Role = "b_mon" })
+	cl, r := newPGClient(t, newTestCluster(), a, b)
+	for _, pg := range []*v1alpha1.TsugaPostgresMonitoring{a, b} {
+		key := client.ObjectKeyFromObject(pg)
+		reconcilePGKey(t, r, key)
+		if _, cond := pgCondition(t, cl, key); cond.Reason != reasonProvisioningPending || pgJobCount(t, cl, key) != 1 {
+			t.Fatalf("%s: got %s", key, cond.Reason)
+		}
+	}
+}
+
+func TestPostgresConflictIgnoresSharedPasswordSecret(t *testing.T) {
+	a := newTestPGNamed(pgKey.Namespace, "a", pgT0, withPasswordSecretRef)
+	b := newTestPGNamed(pgKey.Namespace, "b", pgT0.Add(time.Hour), withPasswordSecretRef)
+	cl, r := newPGClient(t, newTestCluster(), a, b,
+		newTestPasswordSecret(map[string]string{collection.PostgresCredentialsSecretLabel: "true"}))
+	key := client.ObjectKeyFromObject(b)
+	reconcilePGKey(t, r, key)
+	if _, cond := pgCondition(t, cl, key); cond.Reason != reasonProvisioningPending || pgJobCount(t, cl, key) != 1 {
+		t.Fatalf("CRs sharing a password Secret must not conflict, got %s", cond.Reason)
+	}
+}
+
+func TestPostgresConflictLoserRecoversWhenWinnerDeleted(t *testing.T) {
+	winner := newTestPGNamed(pgKey.Namespace, "a", pgT0, nil)
+	loser := newTestPGNamed(pgKey.Namespace, "b", pgT0.Add(time.Hour), nil)
+	cl, r := newPGClient(t, newTestCluster(), winner, loser)
+	loserKey := client.ObjectKeyFromObject(loser)
+	reconcilePGKey(t, r, loserKey)
+	if _, cond := pgCondition(t, cl, loserKey); cond.Reason != reasonRoleConflict {
+		t.Fatalf("want RoleConflict first, got %s", cond.Reason)
+	}
+
+	if err := cl.Delete(context.Background(), winner); err != nil {
+		t.Fatal(err)
+	}
+	reqs := r.sameServerPostgresMonitorings(context.Background(), winner)
+	if len(reqs) != 1 || reqs[0].NamespacedName != loserKey {
+		t.Fatalf("deleting the winner should requeue the loser, got %v", reqs)
+	}
+	reconcilePGKey(t, r, loserKey)
+	if _, cond := pgCondition(t, cl, loserKey); cond.Reason != reasonProvisioningPending || pgJobCount(t, cl, loserKey) != 1 {
+		t.Fatalf("loser should provision once the winner is gone, got %s", cond.Reason)
+	}
+}
+
+func TestPostgresConflictUpdateHostRequeuesOldRivals(t *testing.T) {
+	onX := func(s *v1alpha1.TsugaPostgresMonitoringSpec) { s.Host = "x.example.com" }
+	onY := func(s *v1alpha1.TsugaPostgresMonitoringSpec) { s.Host = "y.example.com" }
+	moved := newTestPGNamed(pgKey.Namespace, "a", pgT0, onY)
+	rivalX := newTestPGNamed(pgKey.Namespace, "b", pgT0.Add(time.Hour), onX)
+	rivalY := newTestPGNamed(pgKey.Namespace, "c", pgT0.Add(time.Hour), onY)
+	_, r := newPGClient(t, moved, rivalX, rivalY)
+
+	old := moved.DeepCopy()
+	onX(&old.Spec)
+	q := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+	defer q.ShutDown()
+	handler.EnqueueRequestsFromMapFunc(r.sameServerPostgresMonitorings).Update(context.Background(),
+		event.UpdateEvent{ObjectOld: old, ObjectNew: moved}, q)
+
+	seen := map[types.NamespacedName]bool{}
+	for q.Len() > 0 {
+		req, _ := q.Get()
+		seen[req.NamespacedName] = true
+		q.Done(req)
+	}
+	if !seen[client.ObjectKeyFromObject(rivalX)] || !seen[client.ObjectKeyFromObject(rivalY)] || len(seen) != 2 {
+		t.Fatalf("want the rivals on the old and new host requeued, got %v", seen)
+	}
+}
+
+func TestPostgresJobFailureMessageMentionsUnmanagedRole(t *testing.T) {
+	cl, r := newPGClient(t, newTestCluster(), newTestPG("managed"))
+	reconcilePG(t, r)
+	finishJob(t, cl, setupJobs(t, cl)[0], batchv1.JobFailed)
+	reconcilePG(t, r)
+	if _, cond := pgReady(t, cl); !strings.Contains(cond.Message, "was not created by the operator") ||
+		!strings.Contains(cond.Message, "orders-db-pg-monitor") {
+		t.Fatalf("message %q", cond.Message)
+	}
+}
+
+func TestPostgresReconcileSidecarTellsWhichAnnotation(t *testing.T) {
+	pg := newTestPG("manual")
+	pg.Spec.Mode = collection.PostgresCollectorSidecar
+	cl, r := newPGClient(t, newTestCluster(), pg)
+	reconcilePG(t, r)
+
+	_, cond := pgReady(t, cl)
+	if !strings.Contains(cond.Message, "sidecar.opentelemetry.io/inject: orders-db-pg") {
+		t.Fatalf("message %q does not name the inject annotation", cond.Message)
+	}
+}
+
+func TestPostgresReconcileRequiresTLSSecretOptIn(t *testing.T) {
+	tlsSecret := func(name string, labels map[string]string) *corev1.Secret {
+		return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: pgKey.Namespace, Labels: labels}}
+	}
+	optIn := map[string]string{collection.PostgresCredentialsSecretLabel: "true"}
+	pg := newTestPG("manual")
+	pg.Spec.SSLMode = "verify-full"
+	pg.Spec.TLS = &v1alpha1.PostgresTLSSpec{CAFile: "ca.crt", Volume: v1alpha1.PostgresTLSVolumeSource{
+		Projected: &corev1.ProjectedVolumeSource{Sources: []corev1.VolumeProjection{
+			{Secret: &corev1.SecretProjection{LocalObjectReference: corev1.LocalObjectReference{Name: "pg-ca"}}},
+			{Secret: &corev1.SecretProjection{LocalObjectReference: corev1.LocalObjectReference{Name: "app-db-creds"}}},
+		}},
+	}}
+	cl, r := newPGClient(t, newTestCluster(), pg, tlsSecret("pg-ca", optIn), tlsSecret("app-db-creds", nil))
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: pgKey}); err == nil {
+		t.Fatal("want an error for a TLS Secret that did not opt in")
+	}
+	if pgHasCollector(t, cl, pgKey) {
+		t.Fatal("no collector may mount an unlabeled Secret")
+	}
+	_, cond := pgReady(t, cl)
+	if cond.Reason != reasonProvisioningFailed || !strings.Contains(cond.Message, "app-db-creds") {
+		t.Fatalf("got %s %q", cond.Reason, cond.Message)
+	}
+}
+
+func TestPostgresConflictQualifiesShortHostWithNamespace(t *testing.T) {
+	short := func(s *v1alpha1.TsugaPostgresMonitoringSpec) { s.Host = "postgres" }
+	teamA := newTestPGNamed("team-a", "db", pgT0, short)
+	teamB := newTestPGNamed("team-b", "db", pgT0.Add(time.Hour), short)
+	fqdn := newTestPGNamed("other", "db", pgT0.Add(2*time.Hour), func(s *v1alpha1.TsugaPostgresMonitoringSpec) {
+		s.Host = "postgres.team-a.svc.cluster.local"
+	})
+	objs := make([]client.Object, 0, 7)
+	objs = append(objs, newTestCluster(), teamA, teamB, fqdn)
+	for _, ns := range []string{"team-a", "team-b", "other"} {
+		objs = append(objs, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "orders-pg-admin", Namespace: ns, Labels: adminOptIn}})
+	}
+	cl, r := newPGClient(t, objs...)
+	keyB, keyFQDN := client.ObjectKeyFromObject(teamB), client.ObjectKeyFromObject(fqdn)
+	reconcilePGKey(t, r, keyB)
+	if _, cond := pgCondition(t, cl, keyB); cond.Reason == reasonRoleConflict {
+		t.Fatal("host postgres in two namespaces names two servers")
+	}
+	reconcilePGKey(t, r, keyFQDN)
+	if _, cond := pgCondition(t, cl, keyFQDN); cond.Reason != reasonRoleConflict {
+		t.Fatalf("postgres.team-a.svc.cluster.local is team-a's postgres, got %s", cond.Reason)
 	}
 }

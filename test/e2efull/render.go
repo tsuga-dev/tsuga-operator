@@ -1,8 +1,16 @@
 package e2efull
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -981,11 +989,167 @@ metadata:
 spec:
   host: postgres.%[1]s.svc
   sslMode: disable
+  role: otel_monitor
   provisioning:
     mode: managed
     adminSecretRef:
       name: pg-admin
 `, namespace)
+}
+
+// postgresTLSHost is the Service name of the TLS server; the server
+// certificate is issued for its in-namespace DNS name.
+const postgresTLSHost = "postgres-tls"
+
+// renderPostgresTLSFixture produces a Postgres server that only accepts TLS
+// connections presenting a client certificate signed by a fresh CA, plus the
+// Secrets holding the server and client certificates. It reuses the pg-admin
+// Secret renderPostgresFixture creates.
+func renderPostgresTLSFixture(namespace string) (string, error) {
+	host := postgresTLSHost + "." + namespace + ".svc"
+	ca, caKey, err := issueCert(&x509.Certificate{IsCA: true, BasicConstraintsValid: true,
+		KeyUsage: x509.KeyUsageCertSign}, "e2e-pg-ca", nil, nil)
+	if err != nil {
+		return "", err
+	}
+	server, serverKey, err := issueCert(&x509.Certificate{DNSNames: []string{host},
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}, host, ca, caKey)
+	if err != nil {
+		return "", err
+	}
+	client, clientKey, err := issueCert(&x509.Certificate{
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}, "otel_monitor", ca, caKey)
+	if err != nil {
+		return "", err
+	}
+	tlsData := func(cert *x509.Certificate, key *ecdsa.PrivateKey) (string, error) {
+		keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+		if err != nil {
+			return "", err
+		}
+		b64 := func(typ string, der []byte) string {
+			return base64.StdEncoding.EncodeToString(pem.EncodeToMemory(&pem.Block{Type: typ, Bytes: der}))
+		}
+		return fmt.Sprintf("{ca.crt: %s, tls.crt: %s, tls.key: %s}",
+			b64("CERTIFICATE", ca.Raw), b64("CERTIFICATE", cert.Raw), b64("PRIVATE KEY", keyDER)), nil
+	}
+	serverData, err := tlsData(server, serverKey)
+	if err != nil {
+		return "", err
+	}
+	clientData, err := tlsData(client, clientKey)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`apiVersion: v1
+kind: Secret
+metadata: {name: pg-server-tls, namespace: %[1]s}
+data: %[3]s
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pg-client-tls
+  namespace: %[1]s
+  labels: {observability.tsuga.com/postgres-credentials: "true"}
+data: %[4]s
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: pg-hba, namespace: %[1]s}
+data:
+  pg_hba.conf: |
+    local all all trust
+    hostssl all all all scram-sha-256 clientcert=verify-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: %[2]s, namespace: %[1]s}
+spec:
+  selector:
+    matchLabels: {app: %[2]s}
+  template:
+    metadata:
+      labels: {app: %[2]s}
+    spec:
+      # Postgres accepts a root-owned key at 0640 (416) or tighter; fsGroup lets it read it.
+      securityContext: {fsGroup: 999}
+      containers:
+        - name: postgres
+          image: postgres:17
+          args: ["-c", "shared_preload_libraries=pg_stat_statements", "-c", "ssl=on",
+            "-c", "ssl_cert_file=/tls/tls.crt", "-c", "ssl_key_file=/tls/tls.key",
+            "-c", "ssl_ca_file=/tls/ca.crt", "-c", "hba_file=/hba/pg_hba.conf"]
+          env:
+            - {name: POSTGRES_PASSWORD, value: e2e-admin}
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - {name: tls, mountPath: /tls, readOnly: true}
+            - {name: hba, mountPath: /hba, readOnly: true}
+      volumes:
+        - {name: tls, secret: {secretName: pg-server-tls, defaultMode: 416}}
+        - {name: hba, configMap: {name: pg-hba}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: %[2]s, namespace: %[1]s}
+spec:
+  selector: {app: %[2]s}
+  ports:
+    - port: 5432
+`, namespace, postgresTLSHost, serverData, clientData), nil
+}
+
+// issueCert creates a P-256 key and a certificate from tmpl for it, signed by
+// parent, or self-signed when parent is nil.
+func issueCert(tmpl *x509.Certificate, cn string, parent *x509.Certificate,
+	parentKey *ecdsa.PrivateKey) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
+	if err != nil {
+		return nil, nil, err
+	}
+	tmpl.SerialNumber, tmpl.Subject = serial, pkix.Name{CommonName: cn}
+	tmpl.NotBefore, tmpl.NotAfter = time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour)
+	if parent == nil {
+		parent, parentKey = tmpl, key
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, parent, &key.PublicKey, parentKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	cert, err := x509.ParseCertificate(der)
+	return cert, key, err
+}
+
+// renderPostgresTLSMonitoring produces a TsugaPostgresMonitoring that reaches
+// the renderPostgresTLSFixture server with verify-full and a client certificate.
+func renderPostgresTLSMonitoring(namespace string) string {
+	return fmt.Sprintf(`apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaPostgresMonitoring
+metadata:
+  name: e2e-pg-tls
+  namespace: %[1]s
+spec:
+  host: %[2]s.%[1]s.svc
+  sslMode: verify-full
+  role: otel_monitor
+  tls:
+    volume:
+      secret:
+        secretName: pg-client-tls
+    caFile: ca.crt
+    certFile: tls.crt
+    keyFile: tls.key
+  provisioning:
+    mode: managed
+    adminSecretRef:
+      name: pg-admin
+`, namespace, postgresTLSHost)
 }
 
 // collectorMonitor is one Monitor from the shipped collector-monitors.yaml

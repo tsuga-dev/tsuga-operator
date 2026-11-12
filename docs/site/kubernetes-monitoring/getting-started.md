@@ -2,7 +2,7 @@
 
 **Prerequisite: [operator and collection dependencies installed](../getting-started/index.md)**
 
-This tutorial creates node agents and a cluster gateway. You need your Tsuga OTLP endpoint and ingestion key. The operation key remains required for the operator process.
+This tutorial creates node agents and a cluster gateway. You need your Tsuga OTLP endpoint and ingestion key. The operation key is only needed for Dashboards, Monitors, and SLOs; omit `api-token` for collection only.
 
 ## 1. Provide all credential keys
 

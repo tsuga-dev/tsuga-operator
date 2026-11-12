@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -24,12 +25,15 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/tsuga-dev/tsuga-operator/api/v1alpha1"
 )
 
 const clusterConfigName = "cluster"
@@ -78,6 +82,23 @@ func SetupCollectionControllers(mgr ctrl.Manager, log logr.Logger) error {
 		}
 	} else {
 		log.Info("OpenTelemetryCollector CRD not found; disabling the TsugaPostgresMonitoring controller. Install the OpenTelemetry Operator to enable telemetry collection (see README).")
+	}
+
+	// The TsugaCollector CRD ships in this release, so a chart that lags the
+	// image lacks it; registering the controller then would fail cache sync.
+	collectorCRServed, err := crdServed(mgr.GetRESTMapper(), v1alpha1.GroupVersion.WithKind("TsugaCollector"))
+	if err != nil {
+		return err
+	}
+	if served[collectorGVK] && collectorCRServed {
+		if err := (&TsugaCollectorReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+	} else {
+		log.Info("OpenTelemetryCollector or TsugaCollector CRD not found; disabling the TsugaCollector controller. Install the OpenTelemetry Operator and this release's CRDs to enable it (see README).")
 	}
 
 	if served[instrumentationGVK] {
@@ -130,4 +151,24 @@ func applyControlled(ctx context.Context, c client.Client, reader client.Reader,
 		return err
 	}
 	return c.Patch(ctx, obj, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership) //nolint:staticcheck // obj is an unstructured.Unstructured; the typed client.Client.Apply() needs a runtime.ApplyConfiguration, which unstructured objects don't have
+}
+
+// deleteOnModeChange deletes owner's existing collector when its spec.mode
+// differs from desired's, since the OpenTelemetry Operator webhook rejects a
+// mode change. It reports whether it deleted one; the caller requeues and
+// creates the collector again once it is gone.
+func deleteOnModeChange(ctx context.Context, c client.Client, owner client.Object, desired *unstructured.Unstructured) (bool, error) {
+	existing := &unstructured.Unstructured{}
+	existing.SetGroupVersionKind(collectorGVK)
+	if err := c.Get(ctx, client.ObjectKeyFromObject(desired), existing); err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+	mode := func(u *unstructured.Unstructured) string {
+		m, _, _ := unstructured.NestedString(u.Object, "spec", "mode")
+		return cmp.Or(m, "deployment")
+	}
+	if !metav1.IsControlledBy(existing, owner) || mode(existing) == mode(desired) {
+		return false, nil
+	}
+	return true, client.IgnoreNotFound(c.Delete(ctx, existing))
 }

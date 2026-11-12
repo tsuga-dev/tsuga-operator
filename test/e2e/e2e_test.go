@@ -489,6 +489,143 @@ spec:
 			}
 			Eventually(verifyCollector, 3*time.Minute).Should(Succeed())
 		})
+
+		It("should scrape Postgres from a sidecar in the database pod", func() {
+			const pgNamespace = "e2e-pg-sidecar"
+			// The resource goes first so the collector exists when the database
+			// pod is created; injection happens only at pod creation.
+			monitoring := `apiVersion: v1
+kind: Namespace
+metadata:
+  name: e2e-pg-sidecar
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pg-admin
+  namespace: e2e-pg-sidecar
+  labels:
+    observability.tsuga.com/postgres-admin: "true"
+stringData:
+  username: postgres
+  password: e2e-admin
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaCollectorConfig
+metadata:
+  name: cluster
+spec:
+  clusterName: e2e
+  export:
+    endpoint: https://otlp.e2e.invalid
+    tokenSecretRef:
+      name: tsuga-credentials
+      key: api-token
+  agent: {}
+  gateway: {}
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: TsugaPostgresMonitoring
+metadata:
+  name: e2e-pg
+  namespace: e2e-pg-sidecar
+spec:
+  host: postgres.e2e-pg-sidecar.svc
+  mode: sidecar
+  sslMode: disable
+  provisioning:
+    mode: managed
+    adminSecretRef:
+      name: pg-admin
+`
+			database := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: e2e-pg-sidecar
+spec:
+  selector:
+    matchLabels: {app: postgres}
+  template:
+    metadata:
+      labels: {app: postgres}
+      annotations:
+        sidecar.opentelemetry.io/inject: e2e-pg-pg
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17
+          args: ["-c", "shared_preload_libraries=pg_stat_statements"]
+          env:
+            - name: POSTGRES_PASSWORD
+              value: e2e-admin
+          ports:
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: e2e-pg-sidecar
+spec:
+  selector: {app: postgres}
+  ports:
+    - port: 5432
+`
+			apply := func(manifest string) {
+				cmd := exec.Command("kubectl", "apply", "-f", "-")
+				cmd.Stdin = strings.NewReader(manifest)
+				_, err := utils.Run(cmd)
+				Expect(err).NotTo(HaveOccurred())
+			}
+			apply(monitoring)
+			DeferCleanup(func() {
+				_, _ = utils.Run(exec.Command("kubectl", "delete", "ns", pgNamespace, "--ignore-not-found", "--timeout=120s"))
+				_, _ = utils.Run(exec.Command("kubectl", "delete", "tsugacollectorconfig", "cluster",
+					"--ignore-not-found", "--timeout=60s"))
+			})
+
+			By("waiting for the sidecar collector")
+			Eventually(func(g Gomega) {
+				out, err := utils.Run(exec.Command("kubectl", "get", "opentelemetrycollector", "e2e-pg-pg", "-n", pgNamespace,
+					"-o", "jsonpath={.spec.mode}"))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).To(Equal("sidecar"))
+			}, time.Minute).Should(Succeed())
+			apply(database)
+
+			By("waiting for the setup job and the inject hint")
+			Eventually(func(g Gomega) {
+				out, err := utils.Run(exec.Command("kubectl", "get", "tspg", "e2e-pg", "-n", pgNamespace,
+					"-o", `jsonpath={.status.conditions[?(@.type=="Ready")].status}/{.status.conditions[?(@.type=="Ready")].message}`))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).To(HavePrefix("True/"))
+				g.Expect(out).To(ContainSubstring("sidecar.opentelemetry.io/inject: e2e-pg-pg"))
+			}, 5*time.Minute).Should(Succeed())
+
+			By("checking the sidecar was injected into the database pod")
+			// On Kubernetes 1.29+ the OTel Operator injects a native sidecar,
+			// which reports under initContainerStatuses.
+			Eventually(func(g Gomega) {
+				out, err := utils.Run(exec.Command("kubectl", "get", "pods", "-n", pgNamespace, "-l", "app=postgres",
+					"-o", `jsonpath={range .items[0].status.initContainerStatuses[*]}{.name}={.ready} {end}`+
+						`{range .items[0].status.containerStatuses[*]}{.name}={.ready} {end}`))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(strings.Fields(out)).To(ConsistOf("otc-container=true", "postgres=true"))
+			}, 3*time.Minute).Should(Succeed())
+
+			By("checking the sidecar logged in as otel_monitor and ran the otel queries")
+			// Only the collector calls the otel.* functions; the setup Job just
+			// creates them.
+			Eventually(func(g Gomega) {
+				out, err := utils.Run(exec.Command("kubectl", "exec", "-n", pgNamespace, "deploy/postgres", "-c", "postgres", "--",
+					"psql", "-U", "postgres", "-tAc",
+					"SELECT count(*) FROM pg_stat_statements s JOIN pg_roles r ON r.oid = s.userid "+
+						"WHERE r.rolname = 'otel_monitor' AND s.query LIKE '%otel.pg_%'"))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(strings.TrimSpace(out)).NotTo(Equal("0"))
+			}, 3*time.Minute, 10*time.Second).Should(Succeed())
+		})
 	})
 })
 
