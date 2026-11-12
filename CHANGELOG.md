@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-12
+
 ### Added
 
 - `TsugaCollectorConfig` `extraRules` on `agent`, `gateway`, `prometheus` and `profiling`, appended to that collector's ClusterRole for components added through `extraReceivers` or `extraExtensions`. The operator must hold any rule it grants: bind rules beyond its ClusterRole to the operator's ServiceAccount, or the reconcile fails with `ApplyFailed`. See [Cluster access](docs/site/kubernetes-monitoring/custom-config.md#cluster-access).
