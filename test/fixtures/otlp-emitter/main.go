@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
@@ -61,8 +62,17 @@ func emit(endpoint, service string, interval time.Duration, stop <-chan struct{}
 		return fmt.Errorf("build resource: %w", err)
 	}
 
+	tracesURL, err := url.JoinPath(endpoint, "/v1/traces")
+	if err != nil {
+		return fmt.Errorf("traces url: %w", err)
+	}
+	metricsURL, err := url.JoinPath(endpoint, "/v1/metrics")
+	if err != nil {
+		return fmt.Errorf("metrics url: %w", err)
+	}
+
 	traceExporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpointURL(endpoint), otlptracehttp.WithInsecure())
+		otlptracehttp.WithEndpointURL(tracesURL), otlptracehttp.WithInsecure())
 	if err != nil {
 		return fmt.Errorf("trace exporter: %w", err)
 	}
@@ -76,7 +86,7 @@ func emit(endpoint, service string, interval time.Duration, stop <-chan struct{}
 	}()
 
 	metricExporter, err := otlpmetrichttp.New(ctx,
-		otlpmetrichttp.WithEndpointURL(endpoint), otlpmetrichttp.WithInsecure())
+		otlpmetrichttp.WithEndpointURL(metricsURL), otlpmetrichttp.WithInsecure())
 	if err != nil {
 		return fmt.Errorf("metric exporter: %w", err)
 	}
