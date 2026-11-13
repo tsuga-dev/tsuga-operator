@@ -745,6 +745,22 @@ func TestRenderUsesImageTagsAttribute(t *testing.T) {
 	}
 }
 
+// Faulty-deployment detection keys on k8s.replicaset.name, which the
+// opentelemetry-kube-stack chart extracts by default.
+func TestRenderExtractsReplicaSetName(t *testing.T) {
+	cfg := effective()
+	cfg.Prometheus.Enabled = true
+	objs, err := RenderCollectors(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, obj := range objs {
+		if !nestedStringSliceContains(obj, "k8s.replicaset.name", "spec", "config", "processors", "k8s_attributes", "extract", "metadata") {
+			t.Fatalf("%s: k8s_attributes metadata must include k8s.replicaset.name", obj.GetName())
+		}
+	}
+}
+
 func TestRenderGatewayCollectsWarningEvents(t *testing.T) {
 	objs, err := RenderCollectors(effective())
 	if err != nil {

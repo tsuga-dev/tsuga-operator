@@ -179,7 +179,6 @@ var kitchenSinkChecks = []kitchenSinkCheck{
 		spans(`span_attributes.e2e.card:"`+cardNumber+`"`, absentUnlikeBaseline),
 	}},
 	{feature: "applies the k8sAttributes metadata override", queries: []signalQuery{
-		spans("context.k8s.replicaset.name:*", present),
 		spans("context.container.image.tags:*", absentUnlikeBaseline),
 	}},
 	{feature: "emits span metrics with the configured dimension", queries: []signalQuery{

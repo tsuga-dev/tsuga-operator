@@ -479,9 +479,7 @@ const kitchenSinkSuffix = "ks"
 //
 // k8sAttributes.metadata is the agent's built-in list from
 // internal/collection/assets/daemonset-config.yaml without
-// container.image.tags, plus k8s.replicaset.name, which the k8s_attributes
-// processor supports but does not extract by default and which every
-// Deployment pod, the otlp-emitter included, has.
+// container.image.tags.
 //
 // The agent's extra components form one loop the collector must accept at
 // startup: otlp/e2e feeds traces/e2e-in, which hands them through the
@@ -647,6 +645,7 @@ spec:
     metadata:
       - k8s.namespace.name
       - k8s.deployment.name
+      - k8s.replicaset.name
       - k8s.statefulset.name
       - k8s.daemonset.name
       - k8s.cronjob.name
@@ -660,7 +659,6 @@ spec:
       - k8s.container.name
       - container.id
       - container.image.name
-      - k8s.replicaset.name
   resourceDetection:
     enabled: true
     detectors: [env]
