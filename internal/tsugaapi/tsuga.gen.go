@@ -1452,6 +1452,7 @@ type CreateMonitorJSONBodyPriority int
 
 // QueryMonitorsJSONBody defines parameters for QueryMonitors.
 type QueryMonitorsJSONBody struct {
+	// Filters Filters applied to narrow the returned monitors
 	Filters *struct {
 		// Activity Restrict results by activity status: active monitors or currently snoozed monitors
 		Activity *QueryMonitorsJSONBodyFiltersActivity `json:"activity,omitempty"`
