@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-13
+
 ### Added
 
 - The agent, gateway and scraper extract `k8s.replicaset.name` by default, as the `opentelemetry-kube-stack` chart does. Faulty-deployment detection keys on it to tell a Deployment's revisions apart. It adds no series, since a pod keeps one ReplicaSet for its whole life. A `k8sAttributes.metadata` override still replaces the whole list, so add it there if you set one.
