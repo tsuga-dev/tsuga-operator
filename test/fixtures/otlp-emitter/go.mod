@@ -1,6 +1,6 @@
 module github.com/tsuga-dev/tsuga-operator/test/fixtures/otlp-emitter
 
-go 1.26.8
+go 1.27.4
 
 require (
 	go.opentelemetry.io/otel v1.47.0
