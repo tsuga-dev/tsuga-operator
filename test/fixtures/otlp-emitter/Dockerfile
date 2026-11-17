@@ -1,4 +1,4 @@
-FROM golang:1.26 AS build
+FROM golang:1.27 AS build
 WORKDIR /src
 COPY test/fixtures/otlp-emitter/go.mod test/fixtures/otlp-emitter/go.sum ./
 RUN go mod download
