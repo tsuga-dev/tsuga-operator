@@ -1698,6 +1698,15 @@ type QueryDashboardsJSONBody struct {
 				Value string `json:"value"`
 			} `json:"values"`
 		} `json:"tags,omitempty"`
+
+		// WidgetQuery Text filter for what dashboard widgets query, such as a service, field, metric or function. Returns dashboards with at least one matching widget or dashboard-wide filter; get a returned dashboard by ID to read its widgets.
+		WidgetQuery *struct {
+			// Exclude If true, exclude dashboards with a matching widget or dashboard-wide filter instead of including them
+			Exclude *bool `json:"exclude,omitempty"`
+
+			// Value Substring matched case-insensitively against every text value in the widget queries (filters, aggregate types such as `percentile`, fields, metric names and PromQL), in the group-by fields and in the dashboard-wide filters applied to every widget. Display settings, such as the widget type, legend or units, and note text are not matched. Omit the whole `widgetQuery` filter to skip it.
+			Value string `json:"value"`
+		} `json:"widgetQuery,omitempty"`
 	} `json:"filters,omitempty"`
 
 	// Limit Maximum number of items to return in this page. Omit to use the public API default of 100.
@@ -2497,13 +2506,13 @@ type ClientInterface interface {
 	// QueryDashboardsWithBody performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboardsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryDashboards performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboards(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteDashboard performs a DELETE /v1/dashboards/{id} (the `DeleteDashboard` operationId) request.
@@ -2833,7 +2842,7 @@ func (c *Client) CreateDashboard(ctx context.Context, body CreateDashboardJSONRe
 // QueryDashboardsWithBody performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 // with any type of body and a specified content type.
 //
-// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *Client) QueryDashboardsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDashboardsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2849,7 +2858,7 @@ func (c *Client) QueryDashboardsWithBody(ctx context.Context, contentType string
 // QueryDashboards performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *Client) QueryDashboards(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDashboardsRequest(c.Server, body)
 	if err != nil {
@@ -4487,7 +4496,7 @@ type ClientWithResponsesInterface interface {
 	// QueryDashboardsWithBodyWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	QueryDashboardsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error)
@@ -4495,7 +4504,7 @@ type ClientWithResponsesInterface interface {
 	// QueryDashboardsWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+	// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 	QueryDashboardsWithResponse(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error)
 
 	// DeleteDashboardWithResponse performs a DELETE /v1/dashboards/{id} (the `DeleteDashboard` operationId) request.
@@ -6811,7 +6820,7 @@ func (c *ClientWithResponses) CreateDashboardWithResponse(ctx context.Context, b
 // QueryDashboardsWithBodyWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request,
 // with any type of body and a specified content type.
 //
-// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) QueryDashboardsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error) {
@@ -6825,7 +6834,7 @@ func (c *ClientWithResponses) QueryDashboardsWithBodyWithResponse(ctx context.Co
 // QueryDashboardsWithResponse performs a POST /v1/dashboards/query (the `QueryDashboards` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Lists or searches dashboards by name or ID substring, owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
+// Lists or searches dashboards by name or ID substring, by what their widgets query (a service, field, metric or function), owning team, tags or folder. Results omit widgets (`graphs`) and give `widgetCount`; get a dashboard by ID to read its widgets. See [Dashboards](/documentation/visualize/dashboards/index).
 func (c *ClientWithResponses) QueryDashboardsWithResponse(ctx context.Context, body QueryDashboardsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardsHTTPResponse, error) {
 	rsp, err := c.QueryDashboards(ctx, body, reqEditors...)
 	if err != nil {
