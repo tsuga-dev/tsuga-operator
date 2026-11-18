@@ -13,8 +13,8 @@ func TestCountContainerLogsFiltersByClusterAndStream(t *testing.T) {
 	bin := stubCLI(t, `
 case "$*" in
   *"context.k8s.cluster.name:\"run-s01\" AND log.iostream:\"stdout\""*)
-    echo '{"logs":[{"message":"a"},{"message":"b"}]}' ;;
-  *) echo '{"logs":[]}' ;;
+    echo '{"data":[{"message":"a"},{"message":"b"}]}' ;;
+  *) echo '{"data":[]}' ;;
 esac`)
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = bin
@@ -36,24 +36,18 @@ esac`)
 	}
 }
 
-func TestCountContainerLogsAcceptsEnvelopeAndBareShapes(t *testing.T) {
-	// The API wraps responses as {"requestId":..,"data":{..}}; the CLI may or
-	// may not unwrap that before printing. Both must decode, because a silent
-	// zero here fails every positive assertion in the suite.
-	for name, payload := range map[string]string{
-		"enveloped": `{"requestId":"r1","data":{"logs":[{"message":"a"},{"message":"b"}]}}`,
-		"bare":      `{"logs":[{"message":"a"},{"message":"b"}]}`,
-	} {
-		bin := stubCLI(t, "cat <<'JSON'\n"+payload+"\nJSON")
-		c := New(testConfig(), &bytes.Buffer{})
-		c.Bin = bin
-		got, err := c.CountContainerLogs("run-s01", "-15m")
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if got != 2 {
-			t.Errorf("%s: want 2 logs, got %d", name, got)
-		}
+// The CLI rejects -o on every subcommand: JSON is its only output.
+func TestCountLogsPassesNoOutputFlag(t *testing.T) {
+	bin := stubCLI(t, `
+case "$*" in
+  *" -o "*) echo "Unrecognized flag: -o in command tsuga logs search" >&2; exit 1 ;;
+  *) echo '{"data":[{"message":"a"}]}' ;;
+esac`)
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = bin
+
+	if n, err := c.CountContainerLogs("run-s01", "-15m"); err != nil || n != 1 {
+		t.Fatalf("want 1 log and no error, got %d, %v", n, err)
 	}
 }
 
@@ -160,8 +154,8 @@ func TestCountTracesForWorkloadFiltersByWorkloadAndCluster(t *testing.T) {
 	bin := stubCLI(t, `
 case "$*" in
   *"context.k8s.cluster.name:\"run-s01\" AND context.k8s.deployment.name:\"checkout\""*)
-    echo '{"spans":[{"spanId":"1"}]}' ;;
-  *) echo '{"spans":[]}' ;;
+    echo '{"data":[{"span_id":"1"}]}' ;;
+  *) echo '{"data":[]}' ;;
 esac`)
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = bin
@@ -245,8 +239,8 @@ func TestCountK8sObjectLogsRequiresTheReceiverScope(t *testing.T) {
 scope=github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8sobjectsreceiver
 case "$*" in
   *"context.k8s.cluster.name:\"run-s01\" AND context.scope.name:\"$scope\""*)
-    echo '{"logs":[{"message":"a"},{"message":"b"}]}' ;;
-  *) echo '{"logs":[]}' ;;
+    echo '{"data":[{"message":"a"},{"message":"b"}]}' ;;
+  *) echo '{"data":[]}' ;;
 esac`)
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = bin
@@ -272,8 +266,8 @@ func TestCountLogsAndsTheExtraQueryOntoTheClusterFilter(t *testing.T) {
 	bin := stubCLI(t, `
 case "$*" in
   *'--query context.k8s.cluster.name:"c1" AND context.k8s.event.reason:* '*)
-    echo '{"logs":[{"message":"a"},{"message":"b"}]}' ;;
-  *) echo '{"logs":[]}' ;;
+    echo '{"data":[{"message":"a"},{"message":"b"}]}' ;;
+  *) echo '{"data":[]}' ;;
 esac`)
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = bin
@@ -291,8 +285,8 @@ func TestCountLogsWithNoExtraQueryUsesTheClusterFilterAlone(t *testing.T) {
 	bin := stubCLI(t, `
 case "$*" in
   *'--query context.k8s.cluster.name:"c1" --from'*)
-    echo '{"logs":[{"message":"a"}]}' ;;
-  *) echo '{"logs":[]}' ;;
+    echo '{"data":[{"message":"a"}]}' ;;
+  *) echo '{"data":[]}' ;;
 esac`)
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = bin
@@ -310,8 +304,8 @@ func TestCountSpansAndsTheExtraQueryOntoTheClusterFilter(t *testing.T) {
 	bin := stubCLI(t, `
 case "$*" in
   *'--query context.k8s.cluster.name:"c1" AND span.kind:server '*)
-    echo '{"spans":[{"spanId":"1"},{"spanId":"2"}]}' ;;
-  *) echo '{"spans":[]}' ;;
+    echo '{"data":[{"span_id":"1"},{"span_id":"2"}]}' ;;
+  *) echo '{"data":[]}' ;;
 esac`)
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = bin
@@ -351,13 +345,13 @@ func pagedStub(t *testing.T) string {
 	return stubCLI(t, `
 case "$*" in
   *"--offset 0"*)
-    echo "Showing 1000 of 1001 (offset 0). Use --limit (max 1000) and --offset 1000 for the next page."
-    printf '['
+    echo "Showing 1000 of 1001 (offset 0). Next page: tsuga dashboards list --limit 1000 --offset 1000"
+    printf '{"data":['
     printf '{"id":"p1","name":"e2e-abc12345-first"}'
     i=0
     while [ $i -lt 999 ]; do printf ',{"id":"f%s","name":"filler"}' $i; i=$((i+1)); done
-    echo ']' ;;
-  *"--offset 1000"*) echo '[{"id":"p2","name":"e2e-abc12345-second"}]' ;;
+    echo '],"metadata":{"pagination":{"totalCount":1001}}}' ;;
+  *"--offset 1000"*) echo '{"data":[{"id":"p2","name":"e2e-abc12345-second"}]}' ;;
   *) echo "unexpected offset: $*" >&2; exit 1 ;;
 esac`)
 }
@@ -378,10 +372,10 @@ func TestListTaggedWithRunReadsEveryPageAndStopsOnShortPage(t *testing.T) {
 func TestListTaggedWithRunStopsWhenTheCLIIgnoresOffset(t *testing.T) {
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = stubCLI(t, `
-printf '[{"id":"p1","name":"e2e-abc12345"}'
+printf '{"data":[{"id":"p1","name":"e2e-abc12345"}'
 i=0
 while [ $i -lt 999 ]; do printf ',{"id":"f%s","name":"filler"}' $i; i=$((i+1)); done
-echo ']'`)
+echo ']}'`)
 
 	got, err := c.ListTaggedWithRun("monitors", "e2e-abc12345")
 	if err != nil {
@@ -396,10 +390,10 @@ func TestListTaggedWithRunGivesUpAfterThePageCap(t *testing.T) {
 	c := New(testConfig(), &bytes.Buffer{})
 	c.Bin = stubCLI(t, `
 offset=$(echo "$*" | sed 's/.*--offset \([0-9]*\).*/\1/')
-printf '[{"id":"first-%s","name":"filler"}' "$offset"
+printf '{"data":[{"id":"first-%s","name":"filler"}' "$offset"
 i=0
 while [ $i -lt 999 ]; do printf ',{"id":"f%s","name":"filler"}' $i; i=$((i+1)); done
-echo ']'`)
+echo ']}'`)
 
 	if _, err := c.ListTaggedWithRun("monitors", "e2e-abc12345"); err == nil {
 		t.Fatal("want an error once the page cap is reached")

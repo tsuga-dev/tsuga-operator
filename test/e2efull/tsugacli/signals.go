@@ -9,42 +9,6 @@ import (
 	"time"
 )
 
-// unwrapData returns the contents of a `data` envelope when the payload has
-// one, and the payload untouched otherwise.
-//
-// The Tsuga API wraps every response as {"requestId": ..., "data": ...}, but
-// the CLI may unwrap that before printing. Rather than bet the suite on which
-// one arrives — a wrong guess decodes to zero items silently, which fails every
-// positive assertion and makes every negative one vacuous — accept both.
-// Response shapes verified against public-open-api.json: /v1/logs/search
-// returns data.logs, /v1/traces/search returns data.spans, and the
-// kubernetes-explorer endpoints return data as a bare array whose cluster field
-// is named `cluster`.
-func unwrapData(raw []byte) []byte {
-	var envelope struct {
-		Data json.RawMessage `json:"data"`
-	}
-	if err := json.Unmarshal(raw, &envelope); err == nil && len(envelope.Data) > 0 {
-		return envelope.Data
-	}
-	return raw
-}
-
-// decodeLogs accepts both shapes `logs search -o json` has printed: a bare
-// array (CLI v1.53+) and the older `{"logs": [...]}` object.
-func decodeLogs(out []byte) ([]json.RawMessage, error) {
-	raw := unwrapData(out)
-	var logs []json.RawMessage
-	if err := json.Unmarshal(raw, &logs); err == nil {
-		return logs, nil
-	}
-	var body struct {
-		Logs []json.RawMessage `json:"logs"`
-	}
-	err := json.Unmarshal(raw, &body)
-	return body.Logs, err
-}
-
 // SignalCounter returns how many items of one telemetry kind exist for a
 // cluster name. Used by AssertAbsentWithControl.
 type SignalCounter func(clusterName string) (int, error)
@@ -77,12 +41,6 @@ func ClusterFilter(clusterName string) string {
 // whenever kubernetesObjects is on. Measured: a scenario with agent.logs off
 // and kubernetesObjects on returned 100 records unfiltered and 0 with this
 // term.
-//
-// Note on `-o json`: `logs search` is the ONLY tsuga subcommand that accepts an
-// output flag. Every other one — traces search, aggregation, kubernetes, teams,
-// dashboards, monitors — rejects it with "unknown option '-o'" and fails the
-// call outright. JSON is their default output regardless, so the flag buys
-// nothing. Do not add it elsewhere for consistency's sake.
 func (c *Client) CountContainerLogs(clusterName, from string) (int, error) {
 	return c.CountLogs(clusterName, `log.iostream:"stdout"`, from)
 }
@@ -101,12 +59,12 @@ func andClusterFilter(clusterName, extraQuery string) string {
 func (c *Client) CountLogs(clusterName, extraQuery, from string) (int, error) {
 	out, err := c.Run("logs", "search",
 		"--query", andClusterFilter(clusterName, extraQuery),
-		"--from="+from, "--max-results", "100", "-o", "json")
+		"--from="+from, "--max-results", "100")
 	if err != nil {
 		return 0, err
 	}
-	logs, err := decodeLogs(out)
-	if err != nil {
+	var logs []json.RawMessage
+	if err := json.Unmarshal(out, &logs); err != nil {
 		return 0, fmt.Errorf("decode logs response: %w: %s", err, c.redact(string(out)))
 	}
 	return len(logs), nil
@@ -121,13 +79,11 @@ func (c *Client) CountSpans(clusterName, extraQuery, from string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	var body struct {
-		Spans []json.RawMessage `json:"spans"`
-	}
-	if err := json.Unmarshal(unwrapData(out), &body); err != nil {
+	var spans []json.RawMessage
+	if err := json.Unmarshal(out, &spans); err != nil {
 		return 0, fmt.Errorf("decode traces response: %w: %s", err, c.redact(string(out)))
 	}
-	return len(body.Spans), nil
+	return len(spans), nil
 }
 
 // k8sObjectsScope is the instrumentation scope the k8s_objects receiver stamps
@@ -252,7 +208,7 @@ func (c *Client) CountMetricSeriesWhere(metricName, clusterName, extraFilter, fr
 			Value float64 `json:"value"`
 		} `json:"results"`
 	}
-	if err := json.Unmarshal(unwrapData(out), &result); err != nil {
+	if err := json.Unmarshal(out, &result); err != nil {
 		return 0, fmt.Errorf("decode aggregation response: %w: %s", err, c.redact(string(out)))
 	}
 	total := 0
@@ -278,7 +234,7 @@ func (c *Client) explorerRows(subcommand string) ([]explorerRow, error) {
 		return nil, err
 	}
 	var rows []explorerRow
-	if err := json.Unmarshal(unwrapData(out), &rows); err != nil {
+	if err := json.Unmarshal(out, &rows); err != nil {
 		return nil, fmt.Errorf("decode %s response: %w: %s", subcommand, err, c.redact(string(out)))
 	}
 	return rows, nil
@@ -428,9 +384,9 @@ func (c *Client) ListTaggedWithRun(kind, runID string) ([]TaggedResource, error)
 		if err != nil {
 			return nil, fmt.Errorf("listing %s: %w", kind, err)
 		}
-		items, err := decodeResources(out, kind)
-		if err != nil {
-			return nil, err
+		var items []TaggedResource
+		if err := json.Unmarshal(out, &items); err != nil {
+			return nil, fmt.Errorf("decoding %s list: %w", kind, err)
 		}
 		if len(items) > 0 && items[0].ID == previousFirst {
 			return tagged, nil
@@ -442,26 +398,6 @@ func (c *Client) ListTaggedWithRun(kind, runID string) ([]TaggedResource, error)
 		previousFirst = items[0].ID
 	}
 	return nil, fmt.Errorf("listing %s: more than %d pages", kind, maxListPages)
-}
-
-// decodeResources decodes a `tsuga <kind> list` payload. The CLI prints a
-// "Showing 100 of 104 (offset 0). Use --limit ..." line on stdout before the
-// JSON when the listing is paged, so lines before the first one that opens
-// the JSON array are skipped.
-func decodeResources(payload []byte, kind string) ([]TaggedResource, error) {
-	text := string(payload)
-	for !strings.HasPrefix(text, "[") && !strings.HasPrefix(text, "{") {
-		_, rest, found := strings.Cut(text, "\n")
-		if !found {
-			break
-		}
-		text = rest
-	}
-	var items []TaggedResource
-	if err := json.Unmarshal([]byte(text), &items); err != nil {
-		return nil, fmt.Errorf("decoding %s list: %w", kind, err)
-	}
-	return items, nil
 }
 
 // filterTagged keeps only the resources whose NAME carries runID; every name

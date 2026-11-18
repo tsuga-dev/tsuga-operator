@@ -1,6 +1,8 @@
 package tsugacli
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -101,9 +103,10 @@ func IsNotFound(err error) bool {
 	return notFoundPattern.MatchString(cliErr.Output)
 }
 
-// Run invokes the CLI with the global flags prepended and returns stdout.
-// A rate-limited response is retried with backoff; every other failure is
-// returned as a *CLIError on the first attempt.
+// Run invokes the CLI with the global flags prepended and returns the JSON
+// payload of its response (see payload). A rate-limited response is retried
+// with backoff; every other failure is returned as a *CLIError on the first
+// attempt.
 func (c *Client) Run(args ...string) ([]byte, error) {
 	full := append([]string{
 		"--operation-api-key", c.cfg.APIToken,
@@ -120,7 +123,7 @@ func (c *Client) Run(args ...string) ([]byte, error) {
 	for attempt := 1; ; attempt++ {
 		out, err := exec.Command(c.Bin, full...).CombinedOutput()
 		if err == nil {
-			return out, nil
+			return payload(out), nil
 		}
 		cliErr := &CLIError{
 			Args:     c.redact(strings.Join(args, " ")),
@@ -139,6 +142,26 @@ func (c *Client) Run(args ...string) ([]byte, error) {
 		time.Sleep(delay)
 		delay *= 2
 	}
+}
+
+// payload returns what the CLI printed inside the {"data": ...} envelope every
+// response carries, skipping the "Showing 1 of 141 (offset 0). Next page: ..."
+// line a paged list prints before the JSON.
+func payload(out []byte) []byte {
+	for len(out) > 0 && out[0] != '[' && out[0] != '{' {
+		_, rest, found := bytes.Cut(out, []byte("\n"))
+		if !found {
+			break
+		}
+		out = rest
+	}
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(out, &envelope); err == nil && len(envelope.Data) > 0 {
+		return envelope.Data
+	}
+	return out
 }
 
 func exitCode(err error) int {
@@ -164,8 +187,9 @@ func (c *Client) redact(text string) string {
 var versionToken = regexp.MustCompile(`\d+(?:\.\d+)*`)
 
 // CheckVersion fails when the installed CLI is older than minimum. The suite
-// depends on -o json and on the kubernetes and traces subcommands, so an old
-// CLI must be an explicit failure rather than a confusing assertion error.
+// depends on the CLI's response format and on the kubernetes and traces
+// subcommands, so an old CLI must be an explicit failure rather than a
+// confusing assertion error.
 func (c *Client) CheckVersion(minimum string) error {
 	out, err := exec.Command(c.Bin, "--version").CombinedOutput()
 	if err != nil {

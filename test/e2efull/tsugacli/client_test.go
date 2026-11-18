@@ -55,6 +55,23 @@ func TestRunInjectsKeyAndClusterFlags(t *testing.T) {
 	}
 }
 
+// Every CLI response is a {"data": ...} envelope, and a paged list prints a
+// "Showing" line before it; callers get the payload alone.
+func TestRunReturnsThePayloadInsideTheDataEnvelope(t *testing.T) {
+	bin := stubCLI(t, `echo "Showing 1 of 2 (offset 0). Next page: tsuga dashboards list --limit 1 --offset 1"
+echo '{"data":[{"id":"d1"}],"metadata":{"pagination":{"totalCount":2}}}'`)
+	c := New(testConfig(), &bytes.Buffer{})
+	c.Bin = bin
+
+	out, err := c.Run("dashboards", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(out)) != `[{"id":"d1"}]` {
+		t.Fatalf("want the data payload alone, got: %s", out)
+	}
+}
+
 func TestRunRedactsTokenFromLog(t *testing.T) {
 	bin := stubCLI(t, `echo '{}'`)
 	var logged bytes.Buffer

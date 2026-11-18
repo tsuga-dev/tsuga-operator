@@ -18,7 +18,7 @@ const (
 	// locally. The repo's own `make kind-deploy` avoids this the same way, with
 	// KIND_IMG ?= tsuga-operator:kind.
 	operatorImage = "tsuga-e2e/tsuga-operator:e2e"
-	minimumCLI    = "1.3.0"
+	minimumCLI    = "1.212.0"
 )
 
 // cli and runID are declared in cluster.go; this file only assigns them.

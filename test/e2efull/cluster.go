@@ -287,8 +287,7 @@ func requireTeam() (id, name string) {
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("listing teams: %v", err))
 	}
-	// `tsuga teams list` returns a bare JSON array, not an object with a
-	// "teams" key. Verified against the live CLI.
+	// cli.Run unwraps the CLI's {"data": [...]} envelope to the bare array.
 	var teams []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
