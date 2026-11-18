@@ -134,6 +134,51 @@ func (e TeamVisibility) Valid() bool {
 	}
 }
 
+// Defines values for QueryDashboardFoldersJSONBodySortBy.
+const (
+	QueryDashboardFoldersJSONBodySortByDashboardCount QueryDashboardFoldersJSONBodySortBy = "dashboardCount"
+	QueryDashboardFoldersJSONBodySortByName           QueryDashboardFoldersJSONBodySortBy = "name"
+	QueryDashboardFoldersJSONBodySortByOwner          QueryDashboardFoldersJSONBodySortBy = "owner"
+	QueryDashboardFoldersJSONBodySortByTags           QueryDashboardFoldersJSONBodySortBy = "tags"
+	QueryDashboardFoldersJSONBodySortByUpdatedAt      QueryDashboardFoldersJSONBodySortBy = "updatedAt"
+)
+
+// Valid indicates whether the value is a known member of the QueryDashboardFoldersJSONBodySortBy enum.
+func (e QueryDashboardFoldersJSONBodySortBy) Valid() bool {
+	switch e {
+	case QueryDashboardFoldersJSONBodySortByDashboardCount:
+		return true
+	case QueryDashboardFoldersJSONBodySortByName:
+		return true
+	case QueryDashboardFoldersJSONBodySortByOwner:
+		return true
+	case QueryDashboardFoldersJSONBodySortByTags:
+		return true
+	case QueryDashboardFoldersJSONBodySortByUpdatedAt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryDashboardFoldersJSONBodySortDirection.
+const (
+	QueryDashboardFoldersJSONBodySortDirectionAsc  QueryDashboardFoldersJSONBodySortDirection = "asc"
+	QueryDashboardFoldersJSONBodySortDirectionDesc QueryDashboardFoldersJSONBodySortDirection = "desc"
+)
+
+// Valid indicates whether the value is a known member of the QueryDashboardFoldersJSONBodySortDirection enum.
+func (e QueryDashboardFoldersJSONBodySortDirection) Valid() bool {
+	switch e {
+	case QueryDashboardFoldersJSONBodySortDirectionAsc:
+		return true
+	case QueryDashboardFoldersJSONBodySortDirectionDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateDashboardJSONBodyGraphsDescriptionAlign.
 const (
 	CreateDashboardJSONBodyGraphsDescriptionAlignCenter    CreateDashboardJSONBodyGraphsDescriptionAlign = "center"
@@ -425,6 +470,51 @@ func (e UpdateDashboardJSONBodyTimePreset) Valid() bool {
 	case UpdateDashboardJSONBodyTimePresetPreviousWeek:
 		return true
 	case UpdateDashboardJSONBodyTimePresetPreviousYear:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryMonitorFoldersJSONBodySortBy.
+const (
+	QueryMonitorFoldersJSONBodySortByMonitorCount QueryMonitorFoldersJSONBodySortBy = "monitorCount"
+	QueryMonitorFoldersJSONBodySortByName         QueryMonitorFoldersJSONBodySortBy = "name"
+	QueryMonitorFoldersJSONBodySortByOwner        QueryMonitorFoldersJSONBodySortBy = "owner"
+	QueryMonitorFoldersJSONBodySortByTags         QueryMonitorFoldersJSONBodySortBy = "tags"
+	QueryMonitorFoldersJSONBodySortByUpdatedAt    QueryMonitorFoldersJSONBodySortBy = "updatedAt"
+)
+
+// Valid indicates whether the value is a known member of the QueryMonitorFoldersJSONBodySortBy enum.
+func (e QueryMonitorFoldersJSONBodySortBy) Valid() bool {
+	switch e {
+	case QueryMonitorFoldersJSONBodySortByMonitorCount:
+		return true
+	case QueryMonitorFoldersJSONBodySortByName:
+		return true
+	case QueryMonitorFoldersJSONBodySortByOwner:
+		return true
+	case QueryMonitorFoldersJSONBodySortByTags:
+		return true
+	case QueryMonitorFoldersJSONBodySortByUpdatedAt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryMonitorFoldersJSONBodySortDirection.
+const (
+	QueryMonitorFoldersJSONBodySortDirectionAsc  QueryMonitorFoldersJSONBodySortDirection = "asc"
+	QueryMonitorFoldersJSONBodySortDirectionDesc QueryMonitorFoldersJSONBodySortDirection = "desc"
+)
+
+// Valid indicates whether the value is a known member of the QueryMonitorFoldersJSONBodySortDirection enum.
+func (e QueryMonitorFoldersJSONBodySortDirection) Valid() bool {
+	switch e {
+	case QueryMonitorFoldersJSONBodySortDirectionAsc:
+		return true
+	case QueryMonitorFoldersJSONBodySortDirectionDesc:
 		return true
 	default:
 		return false
@@ -872,9 +962,31 @@ func (e UpdateSloJSONBodyTimeframeDays) Valid() bool {
 // ClientErrorEnvelope Opaque Tsuga configuration passed through by the operator
 type ClientErrorEnvelope map[string]interface{}
 
+// CreateDashboardFolderResponse defines model for CreateDashboardFolderResponse.
+type CreateDashboardFolderResponse struct {
+	// Data Folder used to organize dashboards into a two-level hierarchy
+	//
+	// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+	Data DashboardFolder `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
 // CreateDashboardResponse defines model for CreateDashboardResponse.
 type CreateDashboardResponse struct {
 	Data Dashboard `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
+// CreateMonitorFolderResponse defines model for CreateMonitorFolderResponse.
+type CreateMonitorFolderResponse struct {
+	// Data Folder used to organize monitors into a two-level hierarchy
+	//
+	// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+	Data MonitorFolder `json:"data"`
 
 	// RequestId Identifier used to trace the lifecycle of this API request
 	RequestId string `json:"requestId"`
@@ -899,6 +1011,61 @@ type CreateSloResponse struct {
 // Dashboard defines model for Dashboard.
 type Dashboard struct {
 	Id string `json:"id"`
+
+	// Tags Key/value tags applied to the resource. Use them to organize resources and to satisfy tag policies.
+	Tags *[]struct {
+		// Key Tag key attached to the resource. Consumers can use key/value tags for filtering, ownership context, and policy checks.
+		Key string `json:"key"`
+
+		// Value Tag value attached to the resource for this key. Tsuga returns the value exactly as stored.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+}
+
+// DashboardFolder Folder used to organize dashboards into a two-level hierarchy
+//
+// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+type DashboardFolder struct {
+	// Id Tsuga-generated dashboard folder ID assigned when the folder is created. Use it as dashboard `folderId` or child-folder `parentFolderId`.
+	Id string `json:"id"`
+
+	// Name Display name of the dashboard folder. Set by the caller on create or update.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the dashboard folder. Set by the caller on create or update and used for folder access control.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level parent folder when this folder is nested. Set by the caller on create or update. Returned only for child folders; omitted for top-level folders.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+	// Tags Key/value tags applied to the resource. Use them to organize resources and to satisfy tag policies.
+	Tags *[]struct {
+		// Key Tag key attached to the resource. Consumers can use key/value tags for filtering, ownership context, and policy checks.
+		Key string `json:"key"`
+
+		// Value Tag value attached to the resource for this key. Tsuga returns the value exactly as stored.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+}
+
+// DashboardFolderWithDashboardCount Folder used to organize dashboards into a two-level hierarchy, including the number of readable dashboards in it and its readable subfolders.
+//
+// Examples: {"dashboardCount":10,"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+type DashboardFolderWithDashboardCount struct {
+	// DashboardCount Number of dashboards in this folder and its readable subfolders that the caller can read. Returned only by folder list responses; callers without dashboard read access see 0.
+	DashboardCount float32 `json:"dashboardCount"`
+
+	// Id Tsuga-generated dashboard folder ID assigned when the folder is created. Use it as dashboard `folderId` or child-folder `parentFolderId`.
+	Id string `json:"id"`
+
+	// Name Display name of the dashboard folder. Set by the caller on create or update.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the dashboard folder. Set by the caller on create or update and used for folder access control.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level parent folder when this folder is nested. Set by the caller on create or update. Returned only for child folders; omitted for top-level folders.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
 
 	// Tags Key/value tags applied to the resource. Use them to organize resources and to satisfy tag policies.
 	Tags *[]struct {
@@ -960,8 +1127,26 @@ type DashboardSummary struct {
 // DashboardSummaryTimePreset Relative time preset used when opening the dashboard.
 type DashboardSummaryTimePreset string
 
+// DeleteDashboardFolderResponse defines model for DeleteDashboardFolderResponse.
+type DeleteDashboardFolderResponse struct {
+	// Data Confirmation that the targeted resource was deleted.
+	Data DeleteResponse `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
 // DeleteDashboardResponse defines model for DeleteDashboardResponse.
 type DeleteDashboardResponse struct {
+	// Data Confirmation that the targeted resource was deleted.
+	Data DeleteResponse `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
+// DeleteMonitorFolderResponse defines model for DeleteMonitorFolderResponse.
+type DeleteMonitorFolderResponse struct {
 	// Data Confirmation that the targeted resource was deleted.
 	Data DeleteResponse `json:"data"`
 
@@ -996,9 +1181,31 @@ type DeleteSloResponse struct {
 	RequestId string `json:"requestId"`
 }
 
+// GetDashboardFolderResponse defines model for GetDashboardFolderResponse.
+type GetDashboardFolderResponse struct {
+	// Data Folder used to organize dashboards into a two-level hierarchy
+	//
+	// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+	Data DashboardFolder `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
 // GetDashboardResponse defines model for GetDashboardResponse.
 type GetDashboardResponse struct {
 	Data Dashboard `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
+// GetMonitorFolderResponse defines model for GetMonitorFolderResponse.
+type GetMonitorFolderResponse struct {
+	// Data Folder used to organize monitors into a two-level hierarchy
+	//
+	// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+	Data MonitorFolder `json:"data"`
 
 	// RequestId Identifier used to trace the lifecycle of this API request
 	RequestId string `json:"requestId"`
@@ -1045,9 +1252,86 @@ type Monitor struct {
 	} `json:"tags,omitempty"`
 }
 
+// MonitorFolder Folder used to organize monitors into a two-level hierarchy
+//
+// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+type MonitorFolder struct {
+	// Id Tsuga-generated monitor folder ID assigned when the folder is created. Use it as monitor `folderId` or child-folder `parentFolderId`.
+	Id string `json:"id"`
+
+	// Name Display name of the monitor folder. Set by the caller on create or update.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the monitor folder. Set by the caller on create or update and used for folder access control.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level parent folder when this folder is nested. Set by the caller on create or update. Returned only for child folders; omitted for top-level folders.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+	// Tags Key/value tags applied to the resource. Use them to organize resources and to satisfy tag policies.
+	Tags *[]struct {
+		// Key Tag key attached to the resource. Consumers can use key/value tags for filtering, ownership context, and policy checks.
+		Key string `json:"key"`
+
+		// Value Tag value attached to the resource for this key. Tsuga returns the value exactly as stored.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+}
+
+// MonitorFolderWithMonitorCount Folder used to organize monitors into a two-level hierarchy, including the number of readable monitors in it and its readable subfolders.
+//
+// Examples: {"id":"123-456-abc","monitorCount":10,"name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+type MonitorFolderWithMonitorCount struct {
+	// Id Tsuga-generated monitor folder ID assigned when the folder is created. Use it as monitor `folderId` or child-folder `parentFolderId`.
+	Id string `json:"id"`
+
+	// MonitorCount Number of monitors in this folder and its readable subfolders that the caller can read. Returned only by folder list responses; callers without monitor read access see 0.
+	MonitorCount float32 `json:"monitorCount"`
+
+	// Name Display name of the monitor folder. Set by the caller on create or update.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the monitor folder. Set by the caller on create or update and used for folder access control.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level parent folder when this folder is nested. Set by the caller on create or update. Returned only for child folders; omitted for top-level folders.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+	// Tags Key/value tags applied to the resource. Use them to organize resources and to satisfy tag policies.
+	Tags *[]struct {
+		// Key Tag key attached to the resource. Consumers can use key/value tags for filtering, ownership context, and policy checks.
+		Key string `json:"key"`
+
+		// Value Tag value attached to the resource for this key. Tsuga returns the value exactly as stored.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+}
+
+// QueryDashboardFoldersResponse defines model for QueryDashboardFoldersResponse.
+type QueryDashboardFoldersResponse struct {
+	Data []DashboardFolderWithDashboardCount `json:"data"`
+
+	// Metadata Metadata accompanying `data` on paginated operations, describing the full result set the page was taken from.
+	Metadata *ResponseMetadata `json:"metadata,omitempty"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
 // QueryDashboardsResponse defines model for QueryDashboardsResponse.
 type QueryDashboardsResponse struct {
 	Data []DashboardSummary `json:"data"`
+
+	// Metadata Metadata accompanying `data` on paginated operations, describing the full result set the page was taken from.
+	Metadata *ResponseMetadata `json:"metadata,omitempty"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
+// QueryMonitorFoldersResponse defines model for QueryMonitorFoldersResponse.
+type QueryMonitorFoldersResponse struct {
+	Data []MonitorFolderWithMonitorCount `json:"data"`
 
 	// Metadata Metadata accompanying `data` on paginated operations, describing the full result set the page was taken from.
 	Metadata *ResponseMetadata `json:"metadata,omitempty"`
@@ -1136,9 +1420,31 @@ type Team struct {
 // TeamVisibility `public` makes team-owned resources discoverable according to access controls. `private` restricts discovery to team members and authorized users.
 type TeamVisibility string
 
+// UpdateDashboardFolderResponse defines model for UpdateDashboardFolderResponse.
+type UpdateDashboardFolderResponse struct {
+	// Data Folder used to organize dashboards into a two-level hierarchy
+	//
+	// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+	Data DashboardFolder `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
 // UpdateDashboardResponse defines model for UpdateDashboardResponse.
 type UpdateDashboardResponse struct {
 	Data Dashboard `json:"data"`
+
+	// RequestId Identifier used to trace the lifecycle of this API request
+	RequestId string `json:"requestId"`
+}
+
+// UpdateMonitorFolderResponse defines model for UpdateMonitorFolderResponse.
+type UpdateMonitorFolderResponse struct {
+	// Data Folder used to organize monitors into a two-level hierarchy
+	//
+	// Examples: {"id":"123-456-abc","name":"Platform","owner":"team-123-abc","tags":[{"key":"team","value":"platform"}]}
+	Data MonitorFolder `json:"data"`
 
 	// RequestId Identifier used to trace the lifecycle of this API request
 	RequestId string `json:"requestId"`
@@ -1158,6 +1464,110 @@ type UpdateSloResponse struct {
 
 	// RequestId Identifier used to trace the lifecycle of this API request
 	RequestId string `json:"requestId"`
+}
+
+// CreateDashboardFolderJSONBody defines parameters for CreateDashboardFolder.
+type CreateDashboardFolderJSONBody struct {
+	// Name Display name of the dashboard folder. Required and non-empty.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the dashboard folder. Required and used for folder access control.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level folder to nest this folder under. Omit on create or pass null to create a top-level folder; omit on update to keep the current parent; pass null on update to move the folder to top level. Non-null values must name a readable top-level folder. Folders can be nested at most two levels deep.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
+	Tags *[]struct {
+		// Key Tag key to attach to the resource.
+		Key string `json:"key"`
+
+		// Value Tag value to attach to the resource. Leading or trailing whitespace is rejected.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+}
+
+// QueryDashboardFoldersJSONBody defines parameters for QueryDashboardFolders.
+type QueryDashboardFoldersJSONBody struct {
+	Filters *struct {
+		// Owners Restrict results to dashboard folders owned by any of these team IDs
+		Owners *struct {
+			// Exclude If true, exclude rows matching these values instead of including them
+			Exclude *bool `json:"exclude,omitempty"`
+
+			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
+			Values []string `json:"values"`
+		} `json:"owners,omitempty"`
+
+		// ParentFolderId Parent folder filter for dashboard folder query results. Optional; pass a folder ID to return the child folders nested directly under it, or null to return only top-level folders. Omit to return all folders.
+		ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+		// SearchQuery Text filter for dashboard folder names or IDs. Optional; `exclude: true` returns folders whose name and ID do not match the substring.
+		SearchQuery *struct {
+			// Exclude If true, exclude dashboard folders matching this value instead of including them
+			Exclude *bool `json:"exclude,omitempty"`
+
+			// Value Substring matched case-insensitively against dashboard folder names or folder IDs. Omit the whole `searchQuery` filter to skip text filtering.
+			Value string `json:"value"`
+		} `json:"searchQuery,omitempty"`
+
+		// Tags Restrict results to dashboard folders that have at least one of the listed key/value tags
+		Tags *struct {
+			// Exclude If true, exclude rows matching these values instead of including them
+			Exclude *bool `json:"exclude,omitempty"`
+
+			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
+			Values []struct {
+				// Key Tag key to attach to the resource.
+				Key string `json:"key"`
+
+				// Value Tag value to attach to the resource. Leading or trailing whitespace is rejected.
+				Value string `json:"value"`
+			} `json:"values"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+
+	// Limit Maximum number of items to return in this page. Omit to use the public API default of 100.
+	Limit *int `json:"limit,omitempty"`
+
+	// Offset Zero-based index of the first matching item to return. Increase it with `limit` to request later pages. If `limit` is provided without `offset`, the offset defaults to 0.
+	Offset *int `json:"offset,omitempty"`
+
+	// Sort Optional sorting applied to the returned dashboard folders
+	Sort *struct {
+		// By Field to sort the returned dashboard folders by: `owner` sorts by owning team name, `tags` sorts by tag key/value pairs, `dashboardCount` sorts by the number of readable dashboards in the folder and its readable subfolders, `updatedAt` sorts by last-updated timestamp, and `name` sorts alphabetically by folder name.
+		By QueryDashboardFoldersJSONBodySortBy `json:"by"`
+
+		// Direction Sort direction: ascending or descending.
+		Direction QueryDashboardFoldersJSONBodySortDirection `json:"direction"`
+	} `json:"sort,omitempty"`
+}
+
+// QueryDashboardFoldersJSONBodySortBy defines parameters for QueryDashboardFolders.
+type QueryDashboardFoldersJSONBodySortBy string
+
+// QueryDashboardFoldersJSONBodySortDirection defines parameters for QueryDashboardFolders.
+type QueryDashboardFoldersJSONBodySortDirection string
+
+// UpdateDashboardFolderJSONBody defines parameters for UpdateDashboardFolder.
+type UpdateDashboardFolderJSONBody struct {
+	// Name Display name of the dashboard folder. Required and non-empty.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the dashboard folder. Required and used for folder access control.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level folder to nest this folder under. Omit on create or pass null to create a top-level folder; omit on update to keep the current parent; pass null on update to move the folder to top level. Non-null values must name a readable top-level folder. Folders can be nested at most two levels deep.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
+	Tags *[]struct {
+		// Key Tag key to attach to the resource.
+		Key string `json:"key"`
+
+		// Value Tag value to attach to the resource. Leading or trailing whitespace is rejected.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
 }
 
 // CreateDashboardJSONBody defines parameters for CreateDashboard.
@@ -1401,6 +1811,110 @@ type UpdateDashboardJSONBodyGraphsDescriptionJustifyContent string
 
 // UpdateDashboardJSONBodyTimePreset defines parameters for UpdateDashboard.
 type UpdateDashboardJSONBodyTimePreset string
+
+// CreateMonitorFolderJSONBody defines parameters for CreateMonitorFolder.
+type CreateMonitorFolderJSONBody struct {
+	// Name Display name of the monitor folder.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the monitor folder and controls folder access.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level folder to nest this folder under. Omit on create or pass null to create a top-level folder; omit on update to keep the current parent; pass null on update to move the folder to top level. Non-null values must name a readable top-level folder. Folders can be nested at most two levels deep.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
+	Tags *[]struct {
+		// Key Tag key to attach to the resource.
+		Key string `json:"key"`
+
+		// Value Tag value to attach to the resource. Leading or trailing whitespace is rejected.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+}
+
+// QueryMonitorFoldersJSONBody defines parameters for QueryMonitorFolders.
+type QueryMonitorFoldersJSONBody struct {
+	Filters *struct {
+		// Owners Restrict results to monitor folders owned by any of these team IDs
+		Owners *struct {
+			// Exclude If true, exclude rows matching these values instead of including them
+			Exclude *bool `json:"exclude,omitempty"`
+
+			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
+			Values []string `json:"values"`
+		} `json:"owners,omitempty"`
+
+		// ParentFolderId Parent folder filter for monitor folder query results. Optional; pass a folder ID to return the child folders nested directly under it, or null to return only top-level folders. Omit to return all folders.
+		ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+		// SearchQuery Text filter for monitor folder names or IDs. Optional; `exclude: true` returns folders whose name and ID do not match the substring.
+		SearchQuery *struct {
+			// Exclude If true, exclude monitor folders matching this value instead of including them
+			Exclude *bool `json:"exclude,omitempty"`
+
+			// Value Substring matched case-insensitively against monitor folder names or folder IDs. Omit the whole `searchQuery` filter to skip text filtering.
+			Value string `json:"value"`
+		} `json:"searchQuery,omitempty"`
+
+		// Tags Restrict results to monitor folders that have at least one of the listed key/value tags
+		Tags *struct {
+			// Exclude If true, exclude rows matching these values instead of including them
+			Exclude *bool `json:"exclude,omitempty"`
+
+			// Values Values compared by this filter. When `exclude` is omitted or false, rows matching any value are kept; when `exclude` is true, matching rows are removed.
+			Values []struct {
+				// Key Tag key to attach to the resource.
+				Key string `json:"key"`
+
+				// Value Tag value to attach to the resource. Leading or trailing whitespace is rejected.
+				Value string `json:"value"`
+			} `json:"values"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+
+	// Limit Maximum number of items to return in this page. Omit to use the public API default of 100.
+	Limit *int `json:"limit,omitempty"`
+
+	// Offset Zero-based index of the first matching item to return. Increase it with `limit` to request later pages. If `limit` is provided without `offset`, the offset defaults to 0.
+	Offset *int `json:"offset,omitempty"`
+
+	// Sort Optional sorting applied to the returned monitor folders
+	Sort *struct {
+		// By Field to sort the returned monitor folders by: `owner` sorts by owning team name, `tags` sorts by tag key/value pairs, `monitorCount` sorts by the number of readable monitors in the folder and its readable subfolders, `updatedAt` sorts by last-updated timestamp, and `name` sorts alphabetically by folder name.
+		By QueryMonitorFoldersJSONBodySortBy `json:"by"`
+
+		// Direction Sort direction: ascending or descending.
+		Direction QueryMonitorFoldersJSONBodySortDirection `json:"direction"`
+	} `json:"sort,omitempty"`
+}
+
+// QueryMonitorFoldersJSONBodySortBy defines parameters for QueryMonitorFolders.
+type QueryMonitorFoldersJSONBodySortBy string
+
+// QueryMonitorFoldersJSONBodySortDirection defines parameters for QueryMonitorFolders.
+type QueryMonitorFoldersJSONBodySortDirection string
+
+// UpdateMonitorFolderJSONBody defines parameters for UpdateMonitorFolder.
+type UpdateMonitorFolderJSONBody struct {
+	// Name Display name of the monitor folder.
+	Name string `json:"name"`
+
+	// Owner ID of the team that owns the monitor folder and controls folder access.
+	Owner string `json:"owner"`
+
+	// ParentFolderId ID of the top-level folder to nest this folder under. Omit on create or pass null to create a top-level folder; omit on update to keep the current parent; pass null on update to move the folder to top level. Non-null values must name a readable top-level folder. Folders can be nested at most two levels deep.
+	ParentFolderId *string `json:"parentFolderId,omitempty"`
+
+	// Tags Key/value tags to apply to the resource. Tag policies may require specific keys or values.
+	Tags *[]struct {
+		// Key Tag key to attach to the resource.
+		Key string `json:"key"`
+
+		// Value Tag value to attach to the resource. Leading or trailing whitespace is rejected.
+		Value string `json:"value"`
+	} `json:"tags,omitempty"`
+}
 
 // CreateMonitorJSONBody defines parameters for CreateMonitor.
 type CreateMonitorJSONBody struct {
@@ -1803,6 +2317,15 @@ type ListTeamsParams struct {
 	Name *string `form:"name,omitempty" json:"name,omitempty"`
 }
 
+// CreateDashboardFolderJSONRequestBody defines body for CreateDashboardFolder for application/json ContentType.
+type CreateDashboardFolderJSONRequestBody CreateDashboardFolderJSONBody
+
+// QueryDashboardFoldersJSONRequestBody defines body for QueryDashboardFolders for application/json ContentType.
+type QueryDashboardFoldersJSONRequestBody QueryDashboardFoldersJSONBody
+
+// UpdateDashboardFolderJSONRequestBody defines body for UpdateDashboardFolder for application/json ContentType.
+type UpdateDashboardFolderJSONRequestBody UpdateDashboardFolderJSONBody
+
 // CreateDashboardJSONRequestBody defines body for CreateDashboard for application/json ContentType.
 type CreateDashboardJSONRequestBody CreateDashboardJSONBody
 
@@ -1811,6 +2334,15 @@ type QueryDashboardsJSONRequestBody QueryDashboardsJSONBody
 
 // UpdateDashboardJSONRequestBody defines body for UpdateDashboard for application/json ContentType.
 type UpdateDashboardJSONRequestBody UpdateDashboardJSONBody
+
+// CreateMonitorFolderJSONRequestBody defines body for CreateMonitorFolder for application/json ContentType.
+type CreateMonitorFolderJSONRequestBody CreateMonitorFolderJSONBody
+
+// QueryMonitorFoldersJSONRequestBody defines body for QueryMonitorFolders for application/json ContentType.
+type QueryMonitorFoldersJSONRequestBody QueryMonitorFoldersJSONBody
+
+// UpdateMonitorFolderJSONRequestBody defines body for UpdateMonitorFolder for application/json ContentType.
+type UpdateMonitorFolderJSONRequestBody UpdateMonitorFolderJSONBody
 
 // CreateMonitorJSONRequestBody defines body for CreateMonitor for application/json ContentType.
 type CreateMonitorJSONRequestBody CreateMonitorJSONBody
@@ -1904,6 +2436,52 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
+	// CreateDashboardFolderWithBody performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	CreateDashboardFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDashboardFolder performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	CreateDashboardFolder(ctx context.Context, body CreateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryDashboardFoldersWithBody performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	QueryDashboardFoldersWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryDashboardFolders performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	QueryDashboardFolders(ctx context.Context, body QueryDashboardFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDashboardFolder performs a DELETE /v1/dashboard-folders/{id} (the `DeleteDashboardFolder` operationId) request.
+	//
+	// Deletes an empty dashboard folder by ID. The request fails if the folder still contains dashboards or child folders; dashboards and child folders are not moved or deleted automatically.
+	DeleteDashboardFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDashboardFolder performs a GET /v1/dashboard-folders/{id} (the `GetDashboardFolder` operationId) request.
+	//
+	// Retrieves one dashboard folder by ID.
+	GetDashboardFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDashboardFolderWithBody performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	UpdateDashboardFolderWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDashboardFolder performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	UpdateDashboardFolder(ctx context.Context, id string, body UpdateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateDashboardWithBody performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -1949,6 +2527,52 @@ type ClientInterface interface {
 	//
 	// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 	UpdateDashboard(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateMonitorFolderWithBody performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	CreateMonitorFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateMonitorFolder performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	CreateMonitorFolder(ctx context.Context, body CreateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryMonitorFoldersWithBody performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	QueryMonitorFoldersWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryMonitorFolders performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	QueryMonitorFolders(ctx context.Context, body QueryMonitorFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteMonitorFolder performs a DELETE /v1/monitor-folders/{id} (the `DeleteMonitorFolder` operationId) request.
+	//
+	// Deletes an empty monitor folder by ID. The request fails if the folder still contains monitors or child folders; monitors and child folders are not moved or deleted automatically.
+	DeleteMonitorFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMonitorFolder performs a GET /v1/monitor-folders/{id} (the `GetMonitorFolder` operationId) request.
+	//
+	// Retrieves one monitor folder by ID.
+	GetMonitorFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateMonitorFolderWithBody performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	UpdateMonitorFolderWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateMonitorFolder performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	UpdateMonitorFolder(ctx context.Context, id string, body UpdateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateMonitorWithBody performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
@@ -2046,6 +2670,132 @@ type ClientInterface interface {
 	//
 	// Lists teams, the groups of users that own services, dashboards, monitors, routes, keys and policies.
 	ListTeams(ctx context.Context, params *ListTeamsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// CreateDashboardFolderWithBody performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+func (c *Client) CreateDashboardFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDashboardFolderRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateDashboardFolder performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+func (c *Client) CreateDashboardFolder(ctx context.Context, body CreateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDashboardFolderRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// QueryDashboardFoldersWithBody performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request,
+// with any type of body and a specified content type.
+//
+// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+func (c *Client) QueryDashboardFoldersWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDashboardFoldersRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// QueryDashboardFolders performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+func (c *Client) QueryDashboardFolders(ctx context.Context, body QueryDashboardFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDashboardFoldersRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteDashboardFolder performs a DELETE /v1/dashboard-folders/{id} (the `DeleteDashboardFolder` operationId) request.
+//
+// Deletes an empty dashboard folder by ID. The request fails if the folder still contains dashboards or child folders; dashboards and child folders are not moved or deleted automatically.
+func (c *Client) DeleteDashboardFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDashboardFolderRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetDashboardFolder performs a GET /v1/dashboard-folders/{id} (the `GetDashboardFolder` operationId) request.
+//
+// Retrieves one dashboard folder by ID.
+func (c *Client) GetDashboardFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDashboardFolderRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateDashboardFolderWithBody performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+func (c *Client) UpdateDashboardFolderWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDashboardFolderRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateDashboardFolder performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+func (c *Client) UpdateDashboardFolder(ctx context.Context, id string, body UpdateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDashboardFolderRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // CreateDashboardWithBody performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
@@ -2164,6 +2914,132 @@ func (c *Client) UpdateDashboardWithBody(ctx context.Context, id string, content
 // Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 func (c *Client) UpdateDashboard(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDashboardRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateMonitorFolderWithBody performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+func (c *Client) CreateMonitorFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMonitorFolderRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateMonitorFolder performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+func (c *Client) CreateMonitorFolder(ctx context.Context, body CreateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMonitorFolderRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// QueryMonitorFoldersWithBody performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request,
+// with any type of body and a specified content type.
+//
+// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+func (c *Client) QueryMonitorFoldersWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryMonitorFoldersRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// QueryMonitorFolders performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+func (c *Client) QueryMonitorFolders(ctx context.Context, body QueryMonitorFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryMonitorFoldersRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteMonitorFolder performs a DELETE /v1/monitor-folders/{id} (the `DeleteMonitorFolder` operationId) request.
+//
+// Deletes an empty monitor folder by ID. The request fails if the folder still contains monitors or child folders; monitors and child folders are not moved or deleted automatically.
+func (c *Client) DeleteMonitorFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMonitorFolderRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMonitorFolder performs a GET /v1/monitor-folders/{id} (the `GetMonitorFolder` operationId) request.
+//
+// Retrieves one monitor folder by ID.
+func (c *Client) GetMonitorFolder(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMonitorFolderRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateMonitorFolderWithBody performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+func (c *Client) UpdateMonitorFolderWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateMonitorFolderRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateMonitorFolder performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+func (c *Client) UpdateMonitorFolder(ctx context.Context, id string, body UpdateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateMonitorFolderRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2441,6 +3317,201 @@ func (c *Client) ListTeams(ctx context.Context, params *ListTeamsParams, reqEdit
 	return c.Client.Do(req)
 }
 
+// NewCreateDashboardFolderRequest calls the generic CreateDashboardFolder builder with application/json body
+func NewCreateDashboardFolderRequest(server string, body CreateDashboardFolderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDashboardFolderRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateDashboardFolderRequestWithBody constructs an http.Request for the CreateDashboardFolder method, with any body, and a specified content type
+func NewCreateDashboardFolderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/dashboard-folders")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewQueryDashboardFoldersRequest calls the generic QueryDashboardFolders builder with application/json body
+func NewQueryDashboardFoldersRequest(server string, body QueryDashboardFoldersJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryDashboardFoldersRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryDashboardFoldersRequestWithBody constructs an http.Request for the QueryDashboardFolders method, with any body, and a specified content type
+func NewQueryDashboardFoldersRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/dashboard-folders/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDashboardFolderRequest constructs an http.Request for the DeleteDashboardFolder method
+func NewDeleteDashboardFolderRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/dashboard-folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDashboardFolderRequest constructs an http.Request for the GetDashboardFolder method
+func NewGetDashboardFolderRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/dashboard-folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateDashboardFolderRequest calls the generic UpdateDashboardFolder builder with application/json body
+func NewUpdateDashboardFolderRequest(server string, id string, body UpdateDashboardFolderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDashboardFolderRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateDashboardFolderRequestWithBody constructs an http.Request for the UpdateDashboardFolder method, with any body, and a specified content type
+func NewUpdateDashboardFolderRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/dashboard-folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewCreateDashboardRequest calls the generic CreateDashboard builder with application/json body
 func NewCreateDashboardRequest(server string, body CreateDashboardJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -2617,6 +3688,201 @@ func NewUpdateDashboardRequestWithBody(server string, id string, contentType str
 	}
 
 	operationPath := fmt.Sprintf("/v1/dashboards/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateMonitorFolderRequest calls the generic CreateMonitorFolder builder with application/json body
+func NewCreateMonitorFolderRequest(server string, body CreateMonitorFolderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateMonitorFolderRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateMonitorFolderRequestWithBody constructs an http.Request for the CreateMonitorFolder method, with any body, and a specified content type
+func NewCreateMonitorFolderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/monitor-folders")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewQueryMonitorFoldersRequest calls the generic QueryMonitorFolders builder with application/json body
+func NewQueryMonitorFoldersRequest(server string, body QueryMonitorFoldersJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryMonitorFoldersRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryMonitorFoldersRequestWithBody constructs an http.Request for the QueryMonitorFolders method, with any body, and a specified content type
+func NewQueryMonitorFoldersRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/monitor-folders/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteMonitorFolderRequest constructs an http.Request for the DeleteMonitorFolder method
+func NewDeleteMonitorFolderRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/monitor-folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMonitorFolderRequest constructs an http.Request for the GetMonitorFolder method
+func NewGetMonitorFolderRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/monitor-folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateMonitorFolderRequest calls the generic UpdateMonitorFolder builder with application/json body
+func NewUpdateMonitorFolderRequest(server string, id string, body UpdateMonitorFolderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateMonitorFolderRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateMonitorFolderRequestWithBody constructs an http.Request for the UpdateMonitorFolder method, with any body, and a specified content type
+func NewUpdateMonitorFolderRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/monitor-folders/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3148,6 +4414,62 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// CreateDashboardFolderWithBodyWithResponse performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreateDashboardFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDashboardFolderHTTPResponse, error)
+
+	// CreateDashboardFolderWithResponse performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	CreateDashboardFolderWithResponse(ctx context.Context, body CreateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDashboardFolderHTTPResponse, error)
+
+	// QueryDashboardFoldersWithBodyWithResponse performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	QueryDashboardFoldersWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardFoldersHTTPResponse, error)
+
+	// QueryDashboardFoldersWithResponse performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	QueryDashboardFoldersWithResponse(ctx context.Context, body QueryDashboardFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardFoldersHTTPResponse, error)
+
+	// DeleteDashboardFolderWithResponse performs a DELETE /v1/dashboard-folders/{id} (the `DeleteDashboardFolder` operationId) request.
+	//
+	// Deletes an empty dashboard folder by ID. The request fails if the folder still contains dashboards or child folders; dashboards and child folders are not moved or deleted automatically.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DeleteDashboardFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteDashboardFolderHTTPResponse, error)
+
+	// GetDashboardFolderWithResponse performs a GET /v1/dashboard-folders/{id} (the `GetDashboardFolder` operationId) request.
+	//
+	// Retrieves one dashboard folder by ID.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetDashboardFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDashboardFolderHTTPResponse, error)
+
+	// UpdateDashboardFolderWithBodyWithResponse performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	UpdateDashboardFolderWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDashboardFolderHTTPResponse, error)
+
+	// UpdateDashboardFolderWithResponse performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	UpdateDashboardFolderWithResponse(ctx context.Context, id string, body UpdateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDashboardFolderHTTPResponse, error)
+
 	// CreateDashboardWithBodyWithResponse performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -3203,6 +4525,62 @@ type ClientWithResponsesInterface interface {
 	//
 	// Updates a dashboard by ID, such as its widgets (graphs, charts), filters or folder. Top-level fields are patched and omitted ones keep their values, but a sent array replaces the stored one whole: a `graphs` array missing a widget deletes that widget. Read the dashboard first and send back every widget you keep, or change one widget with the dashboard graph update.
 	UpdateDashboardWithResponse(ctx context.Context, id string, body UpdateDashboardJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDashboardHTTPResponse, error)
+
+	// CreateMonitorFolderWithBodyWithResponse performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreateMonitorFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorFolderHTTPResponse, error)
+
+	// CreateMonitorFolderWithResponse performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+	CreateMonitorFolderWithResponse(ctx context.Context, body CreateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorFolderHTTPResponse, error)
+
+	// QueryMonitorFoldersWithBodyWithResponse performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	QueryMonitorFoldersWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryMonitorFoldersHTTPResponse, error)
+
+	// QueryMonitorFoldersWithResponse performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+	QueryMonitorFoldersWithResponse(ctx context.Context, body QueryMonitorFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMonitorFoldersHTTPResponse, error)
+
+	// DeleteMonitorFolderWithResponse performs a DELETE /v1/monitor-folders/{id} (the `DeleteMonitorFolder` operationId) request.
+	//
+	// Deletes an empty monitor folder by ID. The request fails if the folder still contains monitors or child folders; monitors and child folders are not moved or deleted automatically.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DeleteMonitorFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMonitorFolderHTTPResponse, error)
+
+	// GetMonitorFolderWithResponse performs a GET /v1/monitor-folders/{id} (the `GetMonitorFolder` operationId) request.
+	//
+	// Retrieves one monitor folder by ID.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetMonitorFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMonitorFolderHTTPResponse, error)
+
+	// UpdateMonitorFolderWithBodyWithResponse performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	UpdateMonitorFolderWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorFolderHTTPResponse, error)
+
+	// UpdateMonitorFolderWithResponse performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+	UpdateMonitorFolderWithResponse(ctx context.Context, id string, body UpdateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorFolderHTTPResponse, error)
 
 	// CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
 	// with any type of body and a specified content type.
@@ -3322,6 +4700,386 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListTeamsWithResponse(ctx context.Context, params *ListTeamsParams, reqEditors ...RequestEditorFn) (*ListTeamsHTTPResponse, error)
+}
+
+// CreateDashboardFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for CreateDashboardFolder
+type CreateDashboardFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// CreateDashboardFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for CreateDashboardFolder
+type CreateDashboardFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// CreateDashboardFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for CreateDashboardFolder
+type CreateDashboardFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type CreateDashboardFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CreateDashboardFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *CreateDashboardFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *CreateDashboardFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *CreateDashboardFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateDashboardFolderHTTPResponse) GetJSON200() *CreateDashboardFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r CreateDashboardFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r CreateDashboardFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateDashboardFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDashboardFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDashboardFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDashboardFolderHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// QueryDashboardFoldersHTTPResponse200Headers the declared response headers of an HTTP 200 response for QueryDashboardFolders
+type QueryDashboardFoldersHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// QueryDashboardFoldersHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for QueryDashboardFolders
+type QueryDashboardFoldersHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// QueryDashboardFoldersHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for QueryDashboardFolders
+type QueryDashboardFoldersHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type QueryDashboardFoldersHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *QueryDashboardFoldersResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *QueryDashboardFoldersHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *QueryDashboardFoldersHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *QueryDashboardFoldersHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r QueryDashboardFoldersHTTPResponse) GetJSON200() *QueryDashboardFoldersResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r QueryDashboardFoldersHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r QueryDashboardFoldersHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r QueryDashboardFoldersHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryDashboardFoldersHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryDashboardFoldersHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r QueryDashboardFoldersHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DeleteDashboardFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for DeleteDashboardFolder
+type DeleteDashboardFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// DeleteDashboardFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for DeleteDashboardFolder
+type DeleteDashboardFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// DeleteDashboardFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for DeleteDashboardFolder
+type DeleteDashboardFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type DeleteDashboardFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeleteDashboardFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DeleteDashboardFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *DeleteDashboardFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *DeleteDashboardFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteDashboardFolderHTTPResponse) GetJSON200() *DeleteDashboardFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r DeleteDashboardFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r DeleteDashboardFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteDashboardFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDashboardFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDashboardFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteDashboardFolderHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetDashboardFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for GetDashboardFolder
+type GetDashboardFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// GetDashboardFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for GetDashboardFolder
+type GetDashboardFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// GetDashboardFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for GetDashboardFolder
+type GetDashboardFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type GetDashboardFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GetDashboardFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetDashboardFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *GetDashboardFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *GetDashboardFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetDashboardFolderHTTPResponse) GetJSON200() *GetDashboardFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r GetDashboardFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r GetDashboardFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r GetDashboardFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDashboardFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDashboardFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDashboardFolderHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// UpdateDashboardFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for UpdateDashboardFolder
+type UpdateDashboardFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// UpdateDashboardFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for UpdateDashboardFolder
+type UpdateDashboardFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// UpdateDashboardFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for UpdateDashboardFolder
+type UpdateDashboardFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type UpdateDashboardFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UpdateDashboardFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *UpdateDashboardFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *UpdateDashboardFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *UpdateDashboardFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateDashboardFolderHTTPResponse) GetJSON200() *UpdateDashboardFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r UpdateDashboardFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r UpdateDashboardFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateDashboardFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDashboardFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDashboardFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateDashboardFolderHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 // CreateDashboardHTTPResponse200Headers the declared response headers of an HTTP 200 response for CreateDashboard
@@ -3698,6 +5456,386 @@ func (r UpdateDashboardHTTPResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateDashboardHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateMonitorFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for CreateMonitorFolder
+type CreateMonitorFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// CreateMonitorFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for CreateMonitorFolder
+type CreateMonitorFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// CreateMonitorFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for CreateMonitorFolder
+type CreateMonitorFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type CreateMonitorFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CreateMonitorFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *CreateMonitorFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *CreateMonitorFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *CreateMonitorFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateMonitorFolderHTTPResponse) GetJSON200() *CreateMonitorFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r CreateMonitorFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r CreateMonitorFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateMonitorFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateMonitorFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateMonitorFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateMonitorFolderHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// QueryMonitorFoldersHTTPResponse200Headers the declared response headers of an HTTP 200 response for QueryMonitorFolders
+type QueryMonitorFoldersHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// QueryMonitorFoldersHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for QueryMonitorFolders
+type QueryMonitorFoldersHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// QueryMonitorFoldersHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for QueryMonitorFolders
+type QueryMonitorFoldersHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type QueryMonitorFoldersHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *QueryMonitorFoldersResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *QueryMonitorFoldersHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *QueryMonitorFoldersHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *QueryMonitorFoldersHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r QueryMonitorFoldersHTTPResponse) GetJSON200() *QueryMonitorFoldersResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r QueryMonitorFoldersHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r QueryMonitorFoldersHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r QueryMonitorFoldersHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryMonitorFoldersHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryMonitorFoldersHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r QueryMonitorFoldersHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DeleteMonitorFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for DeleteMonitorFolder
+type DeleteMonitorFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// DeleteMonitorFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for DeleteMonitorFolder
+type DeleteMonitorFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// DeleteMonitorFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for DeleteMonitorFolder
+type DeleteMonitorFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type DeleteMonitorFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeleteMonitorFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *DeleteMonitorFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *DeleteMonitorFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *DeleteMonitorFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteMonitorFolderHTTPResponse) GetJSON200() *DeleteMonitorFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r DeleteMonitorFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r DeleteMonitorFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteMonitorFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteMonitorFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteMonitorFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteMonitorFolderHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetMonitorFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for GetMonitorFolder
+type GetMonitorFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// GetMonitorFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for GetMonitorFolder
+type GetMonitorFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// GetMonitorFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for GetMonitorFolder
+type GetMonitorFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type GetMonitorFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GetMonitorFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetMonitorFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *GetMonitorFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *GetMonitorFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMonitorFolderHTTPResponse) GetJSON200() *GetMonitorFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r GetMonitorFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r GetMonitorFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMonitorFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMonitorFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMonitorFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMonitorFolderHTTPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// UpdateMonitorFolderHTTPResponse200Headers the declared response headers of an HTTP 200 response for UpdateMonitorFolder
+type UpdateMonitorFolderHTTPResponse200Headers struct {
+	XRequestId *string
+}
+
+// UpdateMonitorFolderHTTPResponse4XXHeaders the declared response headers of an HTTP 4XX response for UpdateMonitorFolder
+type UpdateMonitorFolderHTTPResponse4XXHeaders struct {
+	XRequestId *string
+}
+
+// UpdateMonitorFolderHTTPResponse5XXHeaders the declared response headers of an HTTP 5XX response for UpdateMonitorFolder
+type UpdateMonitorFolderHTTPResponse5XXHeaders struct {
+	XRequestId *string
+}
+
+type UpdateMonitorFolderHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *UpdateMonitorFolderResponse
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ClientErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ServerErrorEnvelope
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *UpdateMonitorFolderHTTPResponse200Headers
+	// Headers4XX the parsed response headers for an HTTP 4XX response
+	Headers4XX *UpdateMonitorFolderHTTPResponse4XXHeaders
+	// Headers5XX the parsed response headers for an HTTP 5XX response
+	Headers5XX *UpdateMonitorFolderHTTPResponse5XXHeaders
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateMonitorFolderHTTPResponse) GetJSON200() *UpdateMonitorFolderResponse {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r UpdateMonitorFolderHTTPResponse) GetJSON4XX() *ClientErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r UpdateMonitorFolderHTTPResponse) GetJSON5XX() *ServerErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateMonitorFolderHTTPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateMonitorFolderHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateMonitorFolderHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateMonitorFolderHTTPResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4540,6 +6678,110 @@ func (r ListTeamsHTTPResponse) ContentType() string {
 	return ""
 }
 
+// CreateDashboardFolderWithBodyWithResponse performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreateDashboardFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDashboardFolderHTTPResponse, error) {
+	rsp, err := c.CreateDashboardFolderWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDashboardFolderHTTPResponse(rsp)
+}
+
+// CreateDashboardFolderWithResponse performs a POST /v1/dashboard-folders (the `CreateDashboardFolder` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Creates a dashboard folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+func (c *ClientWithResponses) CreateDashboardFolderWithResponse(ctx context.Context, body CreateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDashboardFolderHTTPResponse, error) {
+	rsp, err := c.CreateDashboardFolder(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDashboardFolderHTTPResponse(rsp)
+}
+
+// QueryDashboardFoldersWithBodyWithResponse performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request,
+// with any type of body and a specified content type.
+//
+// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) QueryDashboardFoldersWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDashboardFoldersHTTPResponse, error) {
+	rsp, err := c.QueryDashboardFoldersWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDashboardFoldersHTTPResponse(rsp)
+}
+
+// QueryDashboardFoldersWithResponse performs a POST /v1/dashboard-folders/query (the `QueryDashboardFolders` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Lists or searches dashboard folders by owning team, name or ID substring, tags or parent folder, with the number of readable dashboards in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+func (c *ClientWithResponses) QueryDashboardFoldersWithResponse(ctx context.Context, body QueryDashboardFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDashboardFoldersHTTPResponse, error) {
+	rsp, err := c.QueryDashboardFolders(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDashboardFoldersHTTPResponse(rsp)
+}
+
+// DeleteDashboardFolderWithResponse performs a DELETE /v1/dashboard-folders/{id} (the `DeleteDashboardFolder` operationId) request.
+//
+// Deletes an empty dashboard folder by ID. The request fails if the folder still contains dashboards or child folders; dashboards and child folders are not moved or deleted automatically.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DeleteDashboardFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteDashboardFolderHTTPResponse, error) {
+	rsp, err := c.DeleteDashboardFolder(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDashboardFolderHTTPResponse(rsp)
+}
+
+// GetDashboardFolderWithResponse performs a GET /v1/dashboard-folders/{id} (the `GetDashboardFolder` operationId) request.
+//
+// Retrieves one dashboard folder by ID.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetDashboardFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetDashboardFolderHTTPResponse, error) {
+	rsp, err := c.GetDashboardFolder(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDashboardFolderHTTPResponse(rsp)
+}
+
+// UpdateDashboardFolderWithBodyWithResponse performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) UpdateDashboardFolderWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDashboardFolderHTTPResponse, error) {
+	rsp, err := c.UpdateDashboardFolderWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDashboardFolderHTTPResponse(rsp)
+}
+
+// UpdateDashboardFolderWithResponse performs a PUT /v1/dashboard-folders/{id} (the `UpdateDashboardFolder` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Updates an existing dashboard folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+func (c *ClientWithResponses) UpdateDashboardFolderWithResponse(ctx context.Context, id string, body UpdateDashboardFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDashboardFolderHTTPResponse, error) {
+	rsp, err := c.UpdateDashboardFolder(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDashboardFolderHTTPResponse(rsp)
+}
+
 // CreateDashboardWithBodyWithResponse performs a POST /v1/dashboards (the `CreateDashboard` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -4642,6 +6884,110 @@ func (c *ClientWithResponses) UpdateDashboardWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseUpdateDashboardHTTPResponse(rsp)
+}
+
+// CreateMonitorFolderWithBodyWithResponse performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreateMonitorFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMonitorFolderHTTPResponse, error) {
+	rsp, err := c.CreateMonitorFolderWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMonitorFolderHTTPResponse(rsp)
+}
+
+// CreateMonitorFolderWithResponse performs a POST /v1/monitor-folders (the `CreateMonitorFolder` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Creates a monitor folder owned by the specified team. To create a child folder, set `parentFolderId` to a readable top-level folder.
+func (c *ClientWithResponses) CreateMonitorFolderWithResponse(ctx context.Context, body CreateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMonitorFolderHTTPResponse, error) {
+	rsp, err := c.CreateMonitorFolder(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMonitorFolderHTTPResponse(rsp)
+}
+
+// QueryMonitorFoldersWithBodyWithResponse performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request,
+// with any type of body and a specified content type.
+//
+// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) QueryMonitorFoldersWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryMonitorFoldersHTTPResponse, error) {
+	rsp, err := c.QueryMonitorFoldersWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryMonitorFoldersHTTPResponse(rsp)
+}
+
+// QueryMonitorFoldersWithResponse performs a POST /v1/monitor-folders/query (the `QueryMonitorFolders` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Lists or searches monitor folders by owning team, name or ID substring, tags or parent folder, with the number of readable monitors in each folder and its readable subfolders. Returns every folder unless `parentFolderId` is set: a folder ID selects its children, null only top-level folders. Most recently updated first unless `sort` is set.
+func (c *ClientWithResponses) QueryMonitorFoldersWithResponse(ctx context.Context, body QueryMonitorFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMonitorFoldersHTTPResponse, error) {
+	rsp, err := c.QueryMonitorFolders(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryMonitorFoldersHTTPResponse(rsp)
+}
+
+// DeleteMonitorFolderWithResponse performs a DELETE /v1/monitor-folders/{id} (the `DeleteMonitorFolder` operationId) request.
+//
+// Deletes an empty monitor folder by ID. The request fails if the folder still contains monitors or child folders; monitors and child folders are not moved or deleted automatically.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DeleteMonitorFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteMonitorFolderHTTPResponse, error) {
+	rsp, err := c.DeleteMonitorFolder(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteMonitorFolderHTTPResponse(rsp)
+}
+
+// GetMonitorFolderWithResponse performs a GET /v1/monitor-folders/{id} (the `GetMonitorFolder` operationId) request.
+//
+// Retrieves one monitor folder by ID.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetMonitorFolderWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetMonitorFolderHTTPResponse, error) {
+	rsp, err := c.GetMonitorFolder(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMonitorFolderHTTPResponse(rsp)
+}
+
+// UpdateMonitorFolderWithBodyWithResponse performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request,
+// with any type of body and a specified content type.
+//
+// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) UpdateMonitorFolderWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorFolderHTTPResponse, error) {
+	rsp, err := c.UpdateMonitorFolderWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateMonitorFolderHTTPResponse(rsp)
+}
+
+// UpdateMonitorFolderWithResponse performs a PUT /v1/monitor-folders/{id} (the `UpdateMonitorFolder` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Updates an existing monitor folder by ID. Send the folder name, owner, tags, and parent relationship; omit `parentFolderId` to keep the current parent or send null to move the folder to top level.
+func (c *ClientWithResponses) UpdateMonitorFolderWithResponse(ctx context.Context, id string, body UpdateMonitorFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorFolderHTTPResponse, error) {
+	rsp, err := c.UpdateMonitorFolder(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateMonitorFolderHTTPResponse(rsp)
 }
 
 // CreateMonitorWithBodyWithResponse performs a POST /v1/monitors (the `CreateMonitor` operationId) request,
@@ -4863,6 +7209,371 @@ func (c *ClientWithResponses) ListTeamsWithResponse(ctx context.Context, params 
 		return nil, err
 	}
 	return ParseListTeamsHTTPResponse(rsp)
+}
+
+// ParseCreateDashboardFolderHTTPResponse parses an HTTP response from a CreateDashboardFolderWithResponse call
+func ParseCreateDashboardFolderHTTPResponse(rsp *http.Response) (*CreateDashboardFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDashboardFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CreateDashboardFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers CreateDashboardFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers CreateDashboardFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers CreateDashboardFolderHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseQueryDashboardFoldersHTTPResponse parses an HTTP response from a QueryDashboardFoldersWithResponse call
+func ParseQueryDashboardFoldersHTTPResponse(rsp *http.Response) (*QueryDashboardFoldersHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryDashboardFoldersHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest QueryDashboardFoldersResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers QueryDashboardFoldersHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers QueryDashboardFoldersHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers QueryDashboardFoldersHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDashboardFolderHTTPResponse parses an HTTP response from a DeleteDashboardFolderWithResponse call
+func ParseDeleteDashboardFolderHTTPResponse(rsp *http.Response) (*DeleteDashboardFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDashboardFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeleteDashboardFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DeleteDashboardFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers DeleteDashboardFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers DeleteDashboardFolderHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetDashboardFolderHTTPResponse parses an HTTP response from a GetDashboardFolderWithResponse call
+func ParseGetDashboardFolderHTTPResponse(rsp *http.Response) (*GetDashboardFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDashboardFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GetDashboardFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetDashboardFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers GetDashboardFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers GetDashboardFolderHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDashboardFolderHTTPResponse parses an HTTP response from a UpdateDashboardFolderWithResponse call
+func ParseUpdateDashboardFolderHTTPResponse(rsp *http.Response) (*UpdateDashboardFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDashboardFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UpdateDashboardFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers UpdateDashboardFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers UpdateDashboardFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers UpdateDashboardFolderHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
 }
 
 // ParseCreateDashboardHTTPResponse parses an HTTP response from a CreateDashboardWithResponse call
@@ -5217,6 +7928,371 @@ func ParseUpdateDashboardHTTPResponse(rsp *http.Response) (*UpdateDashboardHTTPR
 		response.Headers4XX = &headers
 	case rsp.StatusCode/100 == 5:
 		var headers UpdateDashboardHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCreateMonitorFolderHTTPResponse parses an HTTP response from a CreateMonitorFolderWithResponse call
+func ParseCreateMonitorFolderHTTPResponse(rsp *http.Response) (*CreateMonitorFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateMonitorFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CreateMonitorFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers CreateMonitorFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers CreateMonitorFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers CreateMonitorFolderHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseQueryMonitorFoldersHTTPResponse parses an HTTP response from a QueryMonitorFoldersWithResponse call
+func ParseQueryMonitorFoldersHTTPResponse(rsp *http.Response) (*QueryMonitorFoldersHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryMonitorFoldersHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest QueryMonitorFoldersResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers QueryMonitorFoldersHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers QueryMonitorFoldersHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers QueryMonitorFoldersHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseDeleteMonitorFolderHTTPResponse parses an HTTP response from a DeleteMonitorFolderWithResponse call
+func ParseDeleteMonitorFolderHTTPResponse(rsp *http.Response) (*DeleteMonitorFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteMonitorFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeleteMonitorFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers DeleteMonitorFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers DeleteMonitorFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers DeleteMonitorFolderHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetMonitorFolderHTTPResponse parses an HTTP response from a GetMonitorFolderWithResponse call
+func ParseGetMonitorFolderHTTPResponse(rsp *http.Response) (*GetMonitorFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMonitorFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GetMonitorFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetMonitorFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers GetMonitorFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers GetMonitorFolderHTTPResponse5XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers5XX = &headers
+	}
+
+	return response, nil
+}
+
+// ParseUpdateMonitorFolderHTTPResponse parses an HTTP response from a UpdateMonitorFolderWithResponse call
+func ParseUpdateMonitorFolderHTTPResponse(rsp *http.Response) (*UpdateMonitorFolderHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateMonitorFolderHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UpdateMonitorFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ClientErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ServerErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers UpdateMonitorFolderHTTPResponse200Headers
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode/100 == 4:
+		var headers UpdateMonitorFolderHTTPResponse4XXHeaders
+		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.XRequestId = &value
+		}
+		response.Headers4XX = &headers
+	case rsp.StatusCode/100 == 5:
+		var headers UpdateMonitorFolderHTTPResponse5XXHeaders
 		if values := rsp.Header.Values("x-request-id"); len(values) > 0 {
 			var value string
 			if err := runtime.BindStyledParameterWithOptions("simple", "x-request-id", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {

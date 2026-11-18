@@ -7,7 +7,7 @@ hide:
 
 **API:** `observability.tsuga.com/v1alpha1` · **Scope:** Namespaced · **Short name:** `tmon`
 
-Use `dashboardRef: {name: example-dashboard}` for a Dashboard in the same namespace. If both fields are supplied, `dashboardId` takes precedence. Configuration objects pass through to the Tsuga API.
+Use `dashboardRef: {name: example-dashboard}` for a Dashboard in the same namespace. If both fields are supplied, `dashboardId` takes precedence. Likewise `folderRef` names a MonitorFolder in the same namespace and `folderId` takes precedence; with neither, the monitor keeps its current folder. Configuration objects pass through to the Tsuga API.
 
 ## Fields
 
@@ -22,6 +22,8 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.dashboardRef.name` | string | Yes | — | — minLength: `1` |
 | `spec.driftPolicy` | string | No | `"Overwrite"` | How the operator reacts to changes made in Tsuga outside Kubernetes: Overwrite reverts them to match the spec, Warn keeps them and reports the drift until the annotation observability.tsuga.com/accept-remote is set. enum: `["Overwrite", "Warn"]` |
 | `spec.folderId` | string | No | — | Optional monitor folder ID in Tsuga. When unset, the monitor keeps its current folder.  |
+| `spec.folderRef` | object | No | — | Optional reference to a MonitorFolder custom resource in the same namespace. folderId takes precedence when both are set. When neither is set, the monitor keeps its current folder.  |
+| `spec.folderRef.name` | string | Yes | — | — minLength: `1` |
 | `spec.message` | string | No | — | —  |
 | `spec.name` | string | Yes | — | — minLength: `1` |
 | `spec.owner` | string | No | — | Team ID that owns and manages the monitor. Exactly one of owner and ownerName is required. minLength: `1` |
@@ -34,6 +36,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec` validation | CEL | — | — | exactly one of owner or ownerName is required |
 | `status` | object | No | — | MonitorStatus is the observed state of a Tsuga monitor.  |
 | `status.dashboardId` | string | No | — | Tsuga dashboard ID last sent to Tsuga, resolved from dashboardId or dashboardRef  |
+| `status.folderId` | string | No | — | Monitor folder ID last sent to Tsuga from folderRef  |
 | `status.id` | string | No | — | Tsuga resource ID  |
 | `status.lastDriftCheckAt` | string | No | — | Last time the remote resource was compared against the recorded hashes  |
 | `status.lastSyncedAt` | string | No | — | Last successful sync time  |

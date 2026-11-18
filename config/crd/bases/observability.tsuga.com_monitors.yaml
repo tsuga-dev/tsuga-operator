@@ -92,6 +92,17 @@ spec:
                 description: Optional monitor folder ID in Tsuga. When unset, the
                   monitor keeps its current folder.
                 type: string
+              folderRef:
+                description: |-
+                  Optional reference to a MonitorFolder custom resource in the same namespace.
+                  folderId takes precedence when both are set. When neither is set, the monitor keeps its current folder.
+                properties:
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               message:
                 type: string
               name:
@@ -150,6 +161,9 @@ spec:
               dashboardId:
                 description: Tsuga dashboard ID last sent to Tsuga, resolved from
                   dashboardId or dashboardRef
+                type: string
+              folderId:
+                description: Monitor folder ID last sent to Tsuga from folderRef
                 type: string
               id:
                 description: Tsuga resource ID

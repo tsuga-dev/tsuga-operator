@@ -60,6 +60,10 @@ type MonitorSpec struct {
 	// Optional monitor folder ID in Tsuga. When unset, the monitor keeps its current folder.
 	FolderID *string `json:"folderId,omitempty"`
 
+	// Optional reference to a MonitorFolder custom resource in the same namespace.
+	// folderId takes precedence when both are set. When neither is set, the monitor keeps its current folder.
+	FolderRef *LocalObjectReference `json:"folderRef,omitempty"`
+
 	// This controls which data the resource can see.
 	// +kubebuilder:validation:Enum=all;owning-team-and-public;owning-team-only
 	Permissions string `json:"permissions"`
@@ -71,6 +75,9 @@ type MonitorStatus struct {
 
 	// Tsuga dashboard ID last sent to Tsuga, resolved from dashboardId or dashboardRef
 	DashboardID string `json:"dashboardId,omitempty"`
+
+	// Monitor folder ID last sent to Tsuga from folderRef
+	FolderID string `json:"folderId,omitempty"`
 }
 
 // +kubebuilder:object:root=true

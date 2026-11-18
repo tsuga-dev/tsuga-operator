@@ -11,8 +11,10 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -930,5 +932,128 @@ func TestTsugaDashboardReconciler_PermanentResyncErrorSettles(t *testing.T) {
 
 	if updates != 2 {
 		t.Fatalf("expected the error write to settle after 2 updates, got %d", updates)
+	}
+}
+
+func newTestDashboardFolder(name, id string) *tsugav1alpha1.DashboardFolder {
+	return &tsugav1alpha1.DashboardFolder{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+		Spec:       tsugav1alpha1.DashboardFolderSpec{Name: "Checkout", Owner: testOwner},
+		Status:     tsugav1alpha1.DashboardFolderStatus{SyncStatus: tsugav1alpha1.SyncStatus{ID: id}},
+	}
+}
+
+// syncedFolderDashboard is a Ready dashboard whose spec generation was pushed.
+func syncedFolderDashboard() *tsugav1alpha1.Dashboard {
+	dashboard := newTestDashboard("test-dashboard", testNamespace)
+	dashboard.Finalizers = []string{dashboardFinalizer}
+	dashboard.Generation = 1
+	dashboard.Status.ID = "dash-existing"
+	dashboard.Status.ObservedGeneration = 1
+	dashboard.Status.Phase = phaseReady
+	dashboard.Status.LastSyncedAt = &metav1.Time{Time: time.Now()}
+	return dashboard
+}
+
+func dashboardReconcile(t *testing.T, scheme *runtime.Scheme, objs []client.Object, tsuga TsugaResourceClient) (*tsugav1alpha1.Dashboard, error) {
+	t.Helper()
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(objs...).
+		WithStatusSubresource(objs...).
+		Build()
+	reconciler := &TsugaDashboardReconciler{Client: fakeClient, TsugaClient: tsuga}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-dashboard", Namespace: testNamespace}}
+	_, err := reconciler.Reconcile(context.Background(), req)
+	updated := &tsugav1alpha1.Dashboard{}
+	if getErr := fakeClient.Get(context.Background(), req.NamespacedName, updated); getErr != nil {
+		t.Fatalf("get dashboard: %v", getErr)
+	}
+	return updated, err
+}
+
+func TestTsugaDashboardReconciler_UsesFolderRef(t *testing.T) {
+	dashboard := syncedFolderDashboard()
+	dashboard.Generation = 2
+	dashboard.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	var bodies []map[string]any
+
+	updated, err := dashboardReconcile(t, testScheme(t), []client.Object{dashboard, newTestDashboardFolder("checkout", "f1")}, capturePayloads(t, &bodies))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 1 || bodies[0]["folderId"] != "f1" {
+		t.Fatalf("payloads = %v, want folderId f1", bodies)
+	}
+	if updated.Status.FolderID != "f1" {
+		t.Errorf("status folderId = %q, want f1", updated.Status.FolderID)
+	}
+}
+
+func TestTsugaDashboardReconciler_UpdatesWhenReferencedFolderRecreated(t *testing.T) {
+	dashboard := syncedFolderDashboard()
+	dashboard.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	dashboard.Status.FolderID = "f-old"
+	var bodies []map[string]any
+
+	updated, err := dashboardReconcile(t, testScheme(t), []client.Object{dashboard, newTestDashboardFolder("checkout", "f-new")}, capturePayloads(t, &bodies))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 1 || bodies[0]["folderId"] != "f-new" {
+		t.Fatalf("payloads = %v, want one update with folderId f-new", bodies)
+	}
+	if updated.Status.FolderID != "f-new" {
+		t.Errorf("status folderId = %q, want f-new", updated.Status.FolderID)
+	}
+}
+
+func TestTsugaDashboardReconciler_FolderIDTakesPrecedenceOverRef(t *testing.T) {
+	dashboard := syncedFolderDashboard()
+	dashboard.Generation = 2
+	dashboard.Spec.FolderID = ptr.To("f-raw")
+	dashboard.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	var bodies []map[string]any
+
+	updated, err := dashboardReconcile(t, testScheme(t), []client.Object{dashboard, newTestDashboardFolder("checkout", "f1")}, capturePayloads(t, &bodies))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 1 || bodies[0]["folderId"] != "f-raw" {
+		t.Fatalf("payloads = %v, want folderId f-raw", bodies)
+	}
+	if updated.Status.FolderID != "" {
+		t.Errorf("status folderId = %q, want empty for a raw ID", updated.Status.FolderID)
+	}
+}
+
+// Without the DashboardFolder CRD (a chart older than the image) a folderRef
+// cannot resolve and must surface as Error instead of Ready.
+func TestTsugaDashboardReconciler_FolderRefWithoutCRD_ReportsError(t *testing.T) {
+	dashboard := syncedFolderDashboard()
+	dashboard.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypes(tsugav1alpha1.GroupVersion, &tsugav1alpha1.Dashboard{}, &tsugav1alpha1.DashboardList{})
+	metav1.AddToGroupVersion(scheme, tsugav1alpha1.GroupVersion)
+
+	updated, err := dashboardReconcile(t, scheme, []client.Object{dashboard}, &mockMonitorClient{})
+	if err == nil {
+		t.Fatal("expected an unresolvable folderRef to return an error")
+	}
+	if updated.Status.Phase != phaseError || !strings.Contains(updated.Status.Message, "checkout") {
+		t.Fatalf("phase=%q message=%q, want Error naming the folder", updated.Status.Phase, updated.Status.Message)
+	}
+}
+
+func TestDashboardFolderMapFunc_EnqueuesReferrers(t *testing.T) {
+	folder := newTestDashboardFolder("checkout", "f1")
+	filed := newTestDashboard("filed", testNamespace)
+	filed.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	unfiled := newTestDashboard("unfiled", testNamespace)
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme(t)).WithObjects(folder, filed, unfiled).Build()
+
+	reqs := (&TsugaDashboardReconciler{Client: fakeClient}).folderToDashboards(context.Background(), folder)
+	if len(reqs) != 1 || reqs[0].Name != "filed" {
+		t.Errorf("folderToDashboards = %v, want only filed", reqs)
 	}
 }

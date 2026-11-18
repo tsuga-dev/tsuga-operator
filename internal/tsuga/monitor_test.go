@@ -60,3 +60,13 @@ func TestMonitorSpecToPayload_OmitsDriftPolicy(t *testing.T) {
 		t.Fatal("driftPolicy must not be sent to the API")
 	}
 }
+
+func TestMonitorSpecToPayload_DropsFolderRef(t *testing.T) {
+	spec := minimalMonitorSpec()
+	spec.FolderRef = &v1alpha1.LocalObjectReference{Name: "checkout"}
+
+	body := monitorPayloadBody(t, spec)
+	if value, present := body["folderRef"]; present {
+		t.Errorf("folderRef is Kubernetes-only, got %v", value)
+	}
+}

@@ -83,6 +83,23 @@ spec:
                   - values
                   type: object
                 type: array
+              folderId:
+                description: Optional dashboard folder ID in Tsuga. When unset (and
+                  no folderRef), the dashboard keeps its current folder.
+                maxLength: 250
+                minLength: 1
+                type: string
+              folderRef:
+                description: |-
+                  Optional reference to a DashboardFolder custom resource in the same namespace.
+                  folderId takes precedence when both are set.
+                properties:
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               graphs:
                 description: Ordered widgets that compose the dashboard.
                 items:
@@ -178,9 +195,11 @@ spec:
             - message: exactly one of owner or ownerName is required
               rule: has(self.owner) != has(self.ownerName)
           status:
-            description: SyncStatus is the observed state of a resource synced to
-              the Tsuga API.
+            description: DashboardStatus is the observed state of a Tsuga dashboard.
             properties:
+              folderId:
+                description: Dashboard folder ID last sent to Tsuga from folderRef
+                type: string
               id:
                 description: Tsuga resource ID
                 type: string

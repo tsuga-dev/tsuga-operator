@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -26,10 +27,12 @@ import (
 )
 
 const (
-	dashboardFinalizer    = "observability.tsuga.com/dashboard-finalizer"
-	monitorFinalizer      = "observability.tsuga.com/monitor-finalizer"
-	sloFinalizer          = "observability.tsuga.com/slo-finalizer"
-	rateLimitRequeueAfter = 30 * time.Second
+	dashboardFinalizer       = "observability.tsuga.com/dashboard-finalizer"
+	monitorFinalizer         = "observability.tsuga.com/monitor-finalizer"
+	sloFinalizer             = "observability.tsuga.com/slo-finalizer"
+	monitorFolderFinalizer   = "observability.tsuga.com/monitorfolder-finalizer"
+	dashboardFolderFinalizer = "observability.tsuga.com/dashboardfolder-finalizer"
+	rateLimitRequeueAfter    = 30 * time.Second
 
 	// defaultDriftCheckInterval is how often a synced resource is compared
 	// with Tsuga when the reconciler sets no checkInterval.
@@ -447,18 +450,6 @@ func (r *genericTsugaReconciler[T]) handleDelete(ctx context.Context, obj T) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.updateStatus(ctx, obj, func(latest T) {
-		status := r.adapter.Status(latest)
-		// Rewriting Deleting on every retry would bump LastSyncedAt, emit a
-		// watch event and bypass the workqueue backoff.
-		if status.Phase == phaseDeleting {
-			return
-		}
-		setPhase(status, phaseDeleting, "Deleting remote resource")
-	}); err != nil {
-		logf.FromContext(ctx).Error(err, "failed to record Deleting phase; continuing with delete")
-	}
-
 	remoteID := r.adapter.Status(obj).ID
 	if remoteID == "" {
 		// A create whose ID never reached status is still tagged with the UID.
@@ -473,12 +464,34 @@ func (r *genericTsugaReconciler[T]) handleDelete(ctx context.Context, obj T) (ct
 			logf.FromContext(ctx).Error(err, "tag lookup rejected; removing finalizer without a remote delete",
 				"uid", obj.GetUID())
 		default:
-			return ctrl.Result{}, err
+			return r.deleteFailed(ctx, obj, deleteMessage(err), err)
 		}
 	}
 	if remoteID != "" {
 		if err := r.tsuga.Delete(ctx, remoteID); err != nil && !isNotFound(err) {
-			return ctrl.Result{}, err
+			blocker, orphanable := any(r.adapter).(orphanBlocker[T])
+			if !orphanable || obj.GetAnnotations()[orphanIfNotEmptyAnnotation] != annotationTrue || !isFolderNotEmpty(err) {
+				return r.deleteFailed(ctx, obj, deleteMessage(err), err)
+			}
+			blockers, listErr := blocker.OrphanBlockers(ctx, obj)
+			if listErr != nil {
+				return ctrl.Result{}, listErr
+			}
+			if len(blockers) > 0 {
+				message := fmt.Sprintf("waiting for %s to be deleted before orphaning: %s", strings.Join(blockers, ", "), deleteMessage(err))
+				return r.deleteFailed(ctx, obj, message, err)
+			}
+			// The last referrer may have been deleted in Tsuga while the first
+			// call was in flight, leaving the folder empty: confirm before
+			// orphaning so a teardown still deletes it.
+			switch retryErr := r.tsuga.Delete(ctx, remoteID); {
+			case retryErr == nil || isNotFound(retryErr):
+			case isFolderNotEmpty(retryErr):
+				logf.FromContext(ctx).Info("leaving the folder in Tsuga: it is not empty and no resource in the namespace references it",
+					"name", obj.GetName(), "namespace", obj.GetNamespace(), "tsugaID", remoteID)
+			default:
+				return r.deleteFailed(ctx, obj, deleteMessage(retryErr), retryErr)
+			}
 		}
 	}
 
@@ -487,6 +500,61 @@ func (r *genericTsugaReconciler[T]) handleDelete(ctx context.Context, obj T) (ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// deleteMessage is err's text for status, except for transport errors, whose
+// text changes on every attempt (local port): a changing message would write
+// status, emit a watch event and bypass the workqueue backoff each retry.
+func deleteMessage(err error) string {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return fmt.Sprintf("%s %s: request to Tsuga failed", urlErr.Op, urlErr.URL)
+	}
+	return err.Error()
+}
+
+// orphanIfNotEmptyAnnotation, set to "true" on a folder, removes the
+// finalizer without deleting the Tsuga folder when Tsuga refuses the delete
+// because the folder is not empty and nothing in the namespace references it.
+const (
+	orphanIfNotEmptyAnnotation = "observability.tsuga.com/orphan-if-not-empty"
+	annotationTrue             = "true"
+)
+
+// orphanBlocker is implemented by adapters whose remote object may be left in
+// Tsuga under orphanIfNotEmptyAnnotation.
+type orphanBlocker[T client.Object] interface {
+	// OrphanBlockers lists, as sorted Kind/name, the resources in obj's
+	// namespace that still point at it.
+	OrphanBlockers(ctx context.Context, obj T) ([]string, error)
+}
+
+// pointsAt reports whether a raw-ID-or-reference field targets the folder
+// named name with Tsuga ID id.
+func pointsAt(ref *v1alpha1.LocalObjectReference, rawID *string, name, id string) bool {
+	return (ref != nil && ref.Name == name) || (id != "" && ptr.Deref(rawID, "") == id)
+}
+
+// deleteFailed records phase Deleting and why the remote delete failed while
+// keeping the finalizer. A permanent client error (such as a folder that is not empty) is
+// retried on a steady interval instead of the growing workqueue backoff, so
+// the delete completes soon after the cause is cleared in Tsuga.
+func (r *genericTsugaReconciler[T]) deleteFailed(ctx context.Context, obj T, message string, err error) (ctrl.Result, error) {
+	if statusErr := r.updateStatus(ctx, obj, func(latest T) {
+		status := r.adapter.Status(latest)
+		// Rewriting the same message on every retry would bump LastSyncedAt,
+		// emit a watch event and bypass the workqueue backoff.
+		if status.Phase == phaseDeleting && status.Message == message {
+			return
+		}
+		setPhase(status, phaseDeleting, message)
+	}); statusErr != nil {
+		return ctrl.Result{}, statusErr
+	}
+	if isClientError(err) {
+		return ctrl.Result{RequeueAfter: rateLimitRequeueAfter}, nil
+	}
+	return ctrl.Result{}, err
 }
 
 func (r *genericTsugaReconciler[T]) handleRemoteError(ctx context.Context, obj T, err error) (ctrl.Result, error) {
@@ -580,17 +648,26 @@ func (r *genericTsugaReconciler[T]) updateStatus(ctx context.Context, obj T, mut
 }
 
 type dashboardAdapter struct {
-	teams TeamResolver
+	KubeClient client.Client
+	Teams      TeamResolver
 }
 
 func (dashboardAdapter) NewObject() *v1alpha1.Dashboard { return &v1alpha1.Dashboard{} }
 
 func (dashboardAdapter) Finalizer() string { return dashboardFinalizer }
 
-func (dashboardAdapter) Status(obj *v1alpha1.Dashboard) *v1alpha1.SyncStatus { return &obj.Status }
+func (dashboardAdapter) Status(obj *v1alpha1.Dashboard) *v1alpha1.SyncStatus {
+	return &obj.Status.SyncStatus
+}
 
-func (dashboardAdapter) InSync(_ context.Context, obj *v1alpha1.Dashboard) bool {
-	return obj.Status.ObservedGeneration == obj.Generation
+// InSync also compares the folder ID resolved from folderRef so a recreated
+// referenced folder is pushed even though the generation did not change.
+func (a dashboardAdapter) InSync(ctx context.Context, obj *v1alpha1.Dashboard) bool {
+	if obj.Status.ObservedGeneration != obj.Generation {
+		return false
+	}
+	_, folderFromRef, err := a.resolvedSpec(ctx, obj)
+	return err == nil && folderFromRef == obj.Status.FolderID
 }
 
 func (dashboardAdapter) Policy(obj *v1alpha1.Dashboard) v1alpha1.DriftPolicy {
@@ -599,19 +676,38 @@ func (dashboardAdapter) Policy(obj *v1alpha1.Dashboard) v1alpha1.DriftPolicy {
 
 func (dashboardAdapter) MarkSynced(latest, synced *v1alpha1.Dashboard) {
 	latest.Status.ObservedGeneration = synced.Generation
+	latest.Status.FolderID = synced.Status.FolderID
 }
 
+// Payload also records the folder ID resolved from folderRef on obj so
+// MarkSynced can persist what was pushed.
 func (a dashboardAdapter) Payload(ctx context.Context, obj *v1alpha1.Dashboard) ([]byte, error) {
-	spec := obj.Spec
-	tags, err := withOwnerTag(obj, spec.Tags)
+	spec, folderFromRef, err := a.resolvedSpec(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
-	spec.Tags = tags
-	if spec.Owner, err = resolveOwner(ctx, a.teams, &obj.Status, obj.Generation, spec.Owner, spec.OwnerName); err != nil {
+	if spec.Tags, err = withOwnerTag(obj, spec.Tags); err != nil {
 		return nil, err
 	}
-	return invalidSpec(tsugamapper.DashboardSpecToPayload(spec))
+	if spec.Owner, err = resolveOwner(ctx, a.Teams, &obj.Status.SyncStatus, obj.Generation, spec.Owner, spec.OwnerName); err != nil {
+		return nil, err
+	}
+	payload, err := invalidSpec(tsugamapper.DashboardSpecToPayload(spec))
+	if err != nil {
+		return nil, err
+	}
+	obj.Status.FolderID = folderFromRef
+	return payload, nil
+}
+
+func (a dashboardAdapter) resolvedSpec(ctx context.Context, obj *v1alpha1.Dashboard) (v1alpha1.DashboardSpec, string, error) {
+	spec := obj.Spec
+	var folderFromRef string
+	var err error
+	spec.FolderID, folderFromRef, err = resolveRef(ctx, a.KubeClient, obj, "folderRef",
+		spec.FolderID, spec.FolderRef, &v1alpha1.DashboardFolder{},
+		func(f *v1alpha1.DashboardFolder) string { return f.Status.ID })
+	return spec, folderFromRef, err
 }
 
 type monitorAdapter struct {
@@ -633,13 +729,14 @@ func (a *monitorAdapter) InSync(ctx context.Context, obj *v1alpha1.Monitor) bool
 	if obj.Status.ObservedGeneration != obj.Generation {
 		return false
 	}
-	spec, err := a.resolvedSpec(ctx, obj)
+	spec, folderFromRef, err := a.resolvedSpec(ctx, obj)
 	if err != nil {
-		// An unresolvable ref (Dashboard deleted or not synced yet) goes through
-		// Payload so its error reaches status instead of reporting Ready.
+		// An unresolvable ref (Dashboard or folder deleted or not synced yet)
+		// goes through Payload so its error reaches status instead of
+		// reporting Ready.
 		return false
 	}
-	return ptr.Deref(spec.DashboardID, "") == obj.Status.DashboardID
+	return ptr.Deref(spec.DashboardID, "") == obj.Status.DashboardID && folderFromRef == obj.Status.FolderID
 }
 
 func (a *monitorAdapter) Policy(obj *v1alpha1.Monitor) v1alpha1.DriftPolicy {
@@ -649,12 +746,13 @@ func (a *monitorAdapter) Policy(obj *v1alpha1.Monitor) v1alpha1.DriftPolicy {
 func (a *monitorAdapter) MarkSynced(latest, synced *v1alpha1.Monitor) {
 	latest.Status.ObservedGeneration = synced.Generation
 	latest.Status.DashboardID = synced.Status.DashboardID
+	latest.Status.FolderID = synced.Status.FolderID
 }
 
 // Payload also records the resolved dashboard ID on obj so MarkSynced can
 // persist what was pushed.
 func (a *monitorAdapter) Payload(ctx context.Context, obj *v1alpha1.Monitor) ([]byte, error) {
-	spec, err := a.resolvedSpec(ctx, obj)
+	spec, folderFromRef, err := a.resolvedSpec(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -671,10 +769,28 @@ func (a *monitorAdapter) Payload(ctx context.Context, obj *v1alpha1.Monitor) ([]
 	}
 
 	obj.Status.DashboardID = ptr.Deref(spec.DashboardID, "")
+	obj.Status.FolderID = folderFromRef
 	return payload, nil
 }
 
-func (a *monitorAdapter) resolvedSpec(ctx context.Context, obj *v1alpha1.Monitor) (v1alpha1.MonitorSpec, error) {
+// resolvedSpec also returns the folder ID resolved from folderRef ("" when
+// folderId or neither is set).
+func (a *monitorAdapter) resolvedSpec(ctx context.Context, obj *v1alpha1.Monitor) (v1alpha1.MonitorSpec, string, error) {
+	spec, err := a.resolvedDashboard(ctx, obj)
+	if err != nil {
+		return v1alpha1.MonitorSpec{}, "", err
+	}
+	var folderFromRef string
+	spec.FolderID, folderFromRef, err = resolveRef(ctx, a.KubeClient, obj, "folderRef",
+		spec.FolderID, spec.FolderRef, &v1alpha1.MonitorFolder{},
+		func(f *v1alpha1.MonitorFolder) string { return f.Status.ID })
+	if err != nil {
+		return v1alpha1.MonitorSpec{}, "", err
+	}
+	return spec, folderFromRef, nil
+}
+
+func (a *monitorAdapter) resolvedDashboard(ctx context.Context, obj *v1alpha1.Monitor) (v1alpha1.MonitorSpec, error) {
 	spec := obj.Spec
 	if spec.DashboardID != nil {
 		if spec.DashboardRef != nil {
@@ -752,6 +868,32 @@ func (a sloAdapter) Payload(ctx context.Context, obj *v1alpha1.SLO) ([]byte, err
 // errInvalidSpec marks a spec the mapper rejects: retrying cannot fix it,
 // only a spec change can.
 var errInvalidSpec = errors.New("invalid spec")
+
+// resolveRef returns the Tsuga ID to push for a field that takes either a raw
+// ID or a same-namespace reference, and the ID resolved from the reference
+// ("" when the raw ID or neither is set). The raw ID takes precedence.
+func resolveRef[T client.Object](ctx context.Context, reader client.Reader, obj client.Object, field string,
+	rawID *string, ref *v1alpha1.LocalObjectReference, target T, syncedID func(T) string,
+) (pushID *string, fromRef string, err error) {
+	if rawID != nil {
+		if ref != nil {
+			logf.FromContext(ctx).Info("both an ID and "+field+" are set; the ID takes precedence and "+field+" is ignored",
+				"name", obj.GetName(), "namespace", obj.GetNamespace())
+		}
+		return rawID, "", nil
+	}
+	if ref == nil {
+		return nil, "", nil
+	}
+	if err := reader.Get(ctx, client.ObjectKey{Namespace: obj.GetNamespace(), Name: ref.Name}, target); err != nil {
+		return nil, "", fmt.Errorf("resolve %s %q: %w", field, ref.Name, err)
+	}
+	id := syncedID(target)
+	if id == "" {
+		return nil, "", fmt.Errorf("%s %q has not been synced to Tsuga yet", field, ref.Name)
+	}
+	return &id, id, nil
+}
 
 func invalidSpec(payload []byte, err error) ([]byte, error) {
 	if err != nil {

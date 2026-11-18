@@ -343,7 +343,7 @@ func TestPayload_ResolvesOwnerName(t *testing.T) {
 		Configuration: apiextensionsv1.JSON{Raw: []byte(`{}`)},
 	}}
 	payloads := map[string]func() ([]byte, error){
-		"dashboard": func() ([]byte, error) { return dashboardAdapter{teams: teams}.Payload(context.Background(), dashboard) },
+		"dashboard": func() ([]byte, error) { return dashboardAdapter{Teams: teams}.Payload(context.Background(), dashboard) },
 		"monitor":   func() ([]byte, error) { return (&monitorAdapter{Teams: teams}).Payload(context.Background(), monitor) },
 		"slo":       func() ([]byte, error) { return sloAdapter{teams: teams}.Payload(context.Background(), slo) },
 	}
@@ -429,5 +429,65 @@ func TestTsugaClient_GetMissingDataIsError(t *testing.T) {
 	_, _, slos := NewTsugaClients(srv.URL, "token")
 	if _, err := slos.Get(context.Background(), "x"); err == nil {
 		t.Fatal("expected error for absent data")
+	}
+}
+
+func TestNewTsugaFolderClients_UsesFolderPaths(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.Method+" "+r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/query") {
+			fmt.Fprint(w, `{"requestId":"r","data":[]}`) //nolint:errcheck
+			return
+		}
+		fmt.Fprint(w, `{"requestId":"r","data":{"id":"f1"}}`) //nolint:errcheck
+	}))
+	defer srv.Close()
+
+	monitorFolders, dashboardFolders := NewTsugaFolderClients(srv.URL, "token")
+	ctx := context.Background()
+	for _, c := range []TsugaResourceClient{monitorFolders, dashboardFolders} {
+		if _, err := c.Create(ctx, []byte(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.Update(ctx, "f1", []byte(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.Delete(ctx, "f1"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.FindByTag(ctx, "k", "v"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	expected := []string{
+		"POST /v1/monitor-folders", "PUT /v1/monitor-folders/f1", "DELETE /v1/monitor-folders/f1", "POST /v1/monitor-folders/query",
+		"POST /v1/dashboard-folders", "PUT /v1/dashboard-folders/f1", "DELETE /v1/dashboard-folders/f1", "POST /v1/dashboard-folders/query",
+	}
+	if strings.Join(paths, ",") != strings.Join(expected, ",") {
+		t.Errorf("paths = %v, expected %v", paths, expected)
+	}
+}
+
+func TestIsFolderNotEmpty(t *testing.T) {
+	body := []byte(`{"requestId":"r","error":{"message":"Dashboard folder (ID: f1) is not empty. Remove its dashboards and subfolders before deleting it.","statusCode":400,"code":"BAD_REQUEST"}}`)
+	cases := map[string]struct {
+		err  error
+		want bool
+	}{
+		"verified not-empty 400": {&tsugaHTTPError{statusCode: 400, body: body}, true},
+		"same body on 409":       {&tsugaHTTPError{statusCode: 409, body: body}, false},
+		"other 400":              {&tsugaHTTPError{statusCode: 400, body: []byte(`{"error":{"message":"owner is required"}}`)}, false},
+		"server error":           {&tsugaHTTPError{statusCode: 503}, false},
+		"not an API error":       {fmt.Errorf("dial tcp: timeout"), false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := isFolderNotEmpty(tc.err); got != tc.want {
+				t.Errorf("isFolderNotEmpty = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

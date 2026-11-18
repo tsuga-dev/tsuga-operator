@@ -82,9 +82,11 @@ nav:
   - Dashboards:
       - Getting started: dashboards/index.md
       - API reference: reference/dashboard.md
+      - Folder API reference: reference/dashboardfolder.md
   - Monitors:
       - Getting started: monitors/index.md
       - API reference: reference/monitor.md
+      - Folder API reference: reference/monitorfolder.md
   - SLOs:
       - Getting started: slos/index.md
       - API reference: reference/slo.md

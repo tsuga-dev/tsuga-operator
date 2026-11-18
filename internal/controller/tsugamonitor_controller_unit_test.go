@@ -19,7 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -183,7 +185,7 @@ func TestTsugaMonitorReconciler_UsesDashboardRef(t *testing.T) {
 	monitor.Spec.DashboardRef = &tsugav1alpha1.LocalObjectReference{Name: "linked-dashboard"}
 	dashboard := &tsugav1alpha1.Dashboard{
 		ObjectMeta: metav1.ObjectMeta{Name: "linked-dashboard", Namespace: testNamespace},
-		Status:     tsugav1alpha1.SyncStatus{ID: "dash-remote"},
+		Status:     tsugav1alpha1.DashboardStatus{SyncStatus: tsugav1alpha1.SyncStatus{ID: "dash-remote"}},
 	}
 	scheme := testScheme(t)
 
@@ -374,7 +376,7 @@ func TestMonitorAdapter_ResolvedSpec_DashboardIDTakesPrecedence(t *testing.T) {
 	}
 
 	adapter := &monitorAdapter{}
-	resolved, err := adapter.resolvedSpec(context.Background(), obj)
+	resolved, err := adapter.resolvedDashboard(context.Background(), obj)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -398,7 +400,7 @@ func TestMonitorAdapter_ResolvedSpec_BothSet_LogsWarning(t *testing.T) {
 	}
 
 	adapter := &monitorAdapter{}
-	if _, err := adapter.resolvedSpec(ctx, obj); err != nil {
+	if _, err := adapter.resolvedDashboard(ctx, obj); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -467,7 +469,7 @@ func TestTsugaMonitorReconciler_UpdatesWhenReferencedDashboardRecreated(t *testi
 	monitor.Status.DashboardID = "dash-old"
 	dashboard := &tsugav1alpha1.Dashboard{
 		ObjectMeta: metav1.ObjectMeta{Name: "linked-dashboard", Namespace: testNamespace},
-		Status:     tsugav1alpha1.SyncStatus{ID: "dash-new"},
+		Status:     tsugav1alpha1.DashboardStatus{SyncStatus: tsugav1alpha1.SyncStatus{ID: "dash-new"}},
 	}
 	scheme := testScheme(t)
 
@@ -577,5 +579,122 @@ func TestTsugaMonitorReconciler_NoDriftIsNotRepushed(t *testing.T) {
 	result, err := reconciler.Reconcile(context.Background(), req)
 	if err != nil || result.RequeueAfter != defaultDriftCheckInterval {
 		t.Fatalf("result=%+v err=%v, want no update and the next check scheduled", result, err)
+	}
+}
+
+// syncedFolderMonitor is a Ready monitor whose spec generation was pushed.
+func syncedFolderMonitor() *tsugav1alpha1.Monitor {
+	monitor := newTestMonitor("test-monitor", testNamespace)
+	monitor.Finalizers = []string{monitorFinalizer}
+	monitor.Generation = 1
+	monitor.Status.ID = "mon-existing"
+	monitor.Status.ObservedGeneration = 1
+	monitor.Status.Phase = phaseReady
+	monitor.Status.LastSyncedAt = &metav1.Time{Time: time.Now()}
+	return monitor
+}
+
+func monitorReconcile(t *testing.T, scheme *runtime.Scheme, objs []client.Object, tsuga TsugaResourceClient) (*tsugav1alpha1.Monitor, error) {
+	t.Helper()
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(objs...).
+		WithStatusSubresource(objs...).
+		Build()
+	reconciler := &TsugaMonitorReconciler{Client: fakeClient, TsugaClient: tsuga}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-monitor", Namespace: testNamespace}}
+	_, err := reconciler.Reconcile(context.Background(), req)
+	updated := &tsugav1alpha1.Monitor{}
+	if getErr := fakeClient.Get(context.Background(), req.NamespacedName, updated); getErr != nil {
+		t.Fatalf("get monitor: %v", getErr)
+	}
+	return updated, err
+}
+
+func TestTsugaMonitorReconciler_UsesFolderRef(t *testing.T) {
+	monitor := syncedFolderMonitor()
+	monitor.Generation = 2
+	monitor.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	folder := syncedMonitorFolder("checkout", "f1")
+	var bodies []map[string]any
+
+	updated, err := monitorReconcile(t, testScheme(t), []client.Object{monitor, folder}, capturePayloads(t, &bodies))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 1 || bodies[0]["folderId"] != "f1" {
+		t.Fatalf("payloads = %v, want folderId f1", bodies)
+	}
+	if updated.Status.FolderID != "f1" {
+		t.Errorf("status folderId = %q, want f1", updated.Status.FolderID)
+	}
+}
+
+func TestTsugaMonitorReconciler_UpdatesWhenReferencedFolderRecreated(t *testing.T) {
+	monitor := syncedFolderMonitor()
+	monitor.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	monitor.Status.FolderID = "f-old"
+	folder := syncedMonitorFolder("checkout", "f-new")
+	var bodies []map[string]any
+
+	updated, err := monitorReconcile(t, testScheme(t), []client.Object{monitor, folder}, capturePayloads(t, &bodies))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 1 || bodies[0]["folderId"] != "f-new" {
+		t.Fatalf("payloads = %v, want one update with folderId f-new", bodies)
+	}
+	if updated.Status.FolderID != "f-new" {
+		t.Errorf("status folderId = %q, want f-new", updated.Status.FolderID)
+	}
+}
+
+// Monitors created before status.folderId existed must not be re-pushed on
+// upgrade: a monitor update clears its snooze.
+func TestTsugaMonitorReconciler_RawFolderIDWithEmptyStatusIsInSync(t *testing.T) {
+	monitor := syncedFolderMonitor()
+	monitor.Spec.FolderID = ptr.To("f1")
+
+	// No updateFn: an Update call fails the reconcile.
+	if _, err := monitorReconcile(t, testScheme(t), []client.Object{monitor}, &mockMonitorClient{}); err != nil {
+		t.Fatalf("expected no update, got %v", err)
+	}
+}
+
+func TestTsugaMonitorReconciler_FolderIDTakesPrecedenceOverRef(t *testing.T) {
+	monitor := syncedFolderMonitor()
+	monitor.Generation = 2
+	monitor.Spec.FolderID = ptr.To("f-raw")
+	monitor.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	folder := syncedMonitorFolder("checkout", "f1")
+	var bodies []map[string]any
+
+	updated, err := monitorReconcile(t, testScheme(t), []client.Object{monitor, folder}, capturePayloads(t, &bodies))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 1 || bodies[0]["folderId"] != "f-raw" {
+		t.Fatalf("payloads = %v, want folderId f-raw", bodies)
+	}
+	if updated.Status.FolderID != "" {
+		t.Errorf("status folderId = %q, want empty for a raw ID", updated.Status.FolderID)
+	}
+}
+
+// Without the MonitorFolder CRD (a chart older than the image) a folderRef
+// cannot resolve and must surface as Error instead of Ready.
+func TestTsugaMonitorReconciler_FolderRefWithoutCRD_ReportsError(t *testing.T) {
+	monitor := syncedFolderMonitor()
+	monitor.Spec.FolderRef = &tsugav1alpha1.LocalObjectReference{Name: "checkout"}
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypes(tsugav1alpha1.GroupVersion, &tsugav1alpha1.Monitor{}, &tsugav1alpha1.MonitorList{})
+	metav1.AddToGroupVersion(scheme, tsugav1alpha1.GroupVersion)
+
+	updated, err := monitorReconcile(t, scheme, []client.Object{monitor}, &mockMonitorClient{})
+	if err == nil {
+		t.Fatal("expected an unresolvable folderRef to return an error")
+	}
+	if updated.Status.Phase != phaseError || !strings.Contains(updated.Status.Message, "checkout") {
+		t.Fatalf("phase=%q message=%q, want Error naming the folder", updated.Status.Phase, updated.Status.Message)
 	}
 }

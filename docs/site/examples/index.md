@@ -1,11 +1,13 @@
 # Example manifests
 
-Download an example, replace placeholders, and follow its guide before applying it. Dashboard, Monitor, and SLO examples use `<YOUR_TEAM_ID>`; collection examples reference a Secret that you must create separately.
+Download an example, replace placeholders, and follow its guide before applying it. Dashboard, Monitor, folder, and SLO examples use `<YOUR_TEAM_ID>`; collection examples reference a Secret that you must create separately.
 
 | Manifest | Use it with |
 | --- | --- |
 | [dashboard.yaml](dashboard.yaml) | [Your first dashboard](../dashboards/index.md) |
 | [monitor.yaml](monitor.yaml) | [Create a monitor](../monitors/index.md) |
+| [monitor-folders.yaml](monitor-folders.yaml) | [File monitors in folders](../monitors/index.md#file-the-monitor-in-a-folder) |
+| [dashboard-folders.yaml](dashboard-folders.yaml) | [File dashboards in folders](../dashboards/index.md#file-the-dashboard-in-a-folder) |
 | [slo-event.yaml](slo-event.yaml) | [Event-based SLO](../slos/index.md#create-an-event-based-slo) |
 | [slo-time.yaml](slo-time.yaml) | [Time-based SLO](../slos/index.md#create-a-time-based-slo) |
 | [collector.yaml](collector.yaml) | [Collect cluster telemetry](../kubernetes-monitoring/getting-started.md) |

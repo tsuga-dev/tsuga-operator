@@ -57,6 +57,14 @@ func NewTsugaClients(baseURL, token string) (monitors, dashboards, slos TsugaRes
 		&tsugaResourceAPI{api.QuerySlosWithBody, api.CreateSloWithBody, api.UpdateSloWithBody, api.DeleteSlo, api.GetSlo}
 }
 
+// NewTsugaFolderClients constructs the monitor-folder and dashboard-folder
+// API clients from the Tsuga API base URL and a bearer token.
+func NewTsugaFolderClients(baseURL, token string) (monitorFolders, dashboardFolders TsugaResourceClient) {
+	api := newAPIClient(baseURL, token)
+	return &tsugaResourceAPI{api.QueryMonitorFoldersWithBody, api.CreateMonitorFolderWithBody, api.UpdateMonitorFolderWithBody, api.DeleteMonitorFolder, api.GetMonitorFolder},
+		&tsugaResourceAPI{api.QueryDashboardFoldersWithBody, api.CreateDashboardFolderWithBody, api.UpdateDashboardFolderWithBody, api.DeleteDashboardFolder, api.GetDashboardFolder}
+}
+
 // NewTeamResolver constructs the real team resolver from the Tsuga API base
 // URL and a bearer token.
 func NewTeamResolver(baseURL, token string) TeamResolver {
@@ -311,6 +319,18 @@ var retryableClientStatus = []int{
 func isRetryableClientError(err error) bool {
 	var e *tsugaHTTPError
 	return errors.As(err, &e) && slices.Contains(retryableClientStatus, e.statusCode)
+}
+
+// isFolderNotEmpty reports whether err is the Tsuga API refusing to delete a
+// folder that still holds monitors, dashboards or subfolders. The API answers
+// with a generic 400, so the message is the only signal.
+func isFolderNotEmpty(err error) bool {
+	var e *tsugaHTTPError
+	if !errors.As(err, &e) || e.statusCode != 400 {
+		return false
+	}
+	parsed, ok := e.parsedBody()
+	return ok && strings.Contains(parsed.Error.Message, "is not empty")
 }
 
 func isClientError(err error) bool {

@@ -7,7 +7,7 @@ hide:
 
 **API:** `observability.tsuga.com/v1alpha1` · **Scope:** Namespaced · **Short name:** `tdb`
 
-Widget IDs (`spec.graphs[].id`) are required by the Kubernetes schema. Visualization objects pass through to the Tsuga API; Kubernetes does not validate their internal contract.
+Widget IDs (`spec.graphs[].id`) are required by the Kubernetes schema. Visualization objects pass through to the Tsuga API; Kubernetes does not validate their internal contract. `folderRef` names a DashboardFolder in the same namespace and `folderId` takes precedence; with neither, the dashboard keeps its current folder.
 
 ## Fields
 
@@ -20,6 +20,9 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.filters` | array of object | No | — | Filters applied to every widget on the dashboard.  |
 | `spec.filters[].key` | string | Yes | — | — minLength: `1` |
 | `spec.filters[].values` | array of string | Yes | — | — minItems: `1` |
+| `spec.folderId` | string | No | — | Optional dashboard folder ID in Tsuga. When unset (and no folderRef), the dashboard keeps its current folder. minLength: `1`; maxLength: `250` |
+| `spec.folderRef` | object | No | — | Optional reference to a DashboardFolder custom resource in the same namespace. folderId takes precedence when both are set.  |
+| `spec.folderRef.name` | string | Yes | — | — minLength: `1` |
 | `spec.graphs` | array of object | Yes | — | Ordered widgets that compose the dashboard. minItems: `1` |
 | `spec.graphs[].description` | string | No | — | —  |
 | `spec.graphs[].groupId` | string | No | — | ID of the group widget this widget belongs to. The group must be in the same tab and cannot itself belong to a group.  |
@@ -40,7 +43,8 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.tags[].value` | string | Yes | — | — maxLength: `256` |
 | `spec.timePreset` | string | No | — | Example: "last_1h"  |
 | `spec` validation | CEL | — | — | exactly one of owner or ownerName is required |
-| `status` | object | No | — | SyncStatus is the observed state of a resource synced to the Tsuga API.  |
+| `status` | object | No | — | DashboardStatus is the observed state of a Tsuga dashboard.  |
+| `status.folderId` | string | No | — | Dashboard folder ID last sent to Tsuga from folderRef  |
 | `status.id` | string | No | — | Tsuga resource ID  |
 | `status.lastDriftCheckAt` | string | No | — | Last time the remote resource was compared against the recorded hashes  |
 | `status.lastSyncedAt` | string | No | — | Last successful sync time  |

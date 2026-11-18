@@ -642,7 +642,7 @@ func TestAcceptRemote_RemoteDeletedKeepsAnnotation(t *testing.T) {
 
 func TestAcceptRemote_IgnoredWithoutID(t *testing.T) {
 	dashboard := newAcceptRemoteDashboard(t)
-	dashboard.Status = tsugav1alpha1.SyncStatus{}
+	dashboard.Status = tsugav1alpha1.DashboardStatus{}
 	created := false
 	reconciler, req, _ := newDriftDashboardReconciler(t, dashboard, &mockDashboardClient{
 		createFn: func(context.Context, []byte) (string, error) {

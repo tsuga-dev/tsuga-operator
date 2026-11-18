@@ -255,7 +255,7 @@ func createCredentialSecrets(cfg tsugacli.Config) error {
 	return nil
 }
 
-// sweepTsugaResources deletes every dashboard, monitor and SLO tagged with
+// sweepTsugaResources deletes every resource of tsugacli.SweptKinds tagged with
 // this run id, across every page of each listing. Ingested telemetry cannot
 // be deleted and ages out with retention.
 func sweepTsugaResources(id string) {

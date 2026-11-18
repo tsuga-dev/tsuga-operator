@@ -9,9 +9,10 @@ import (
 // MonitorSpecToPayload marshals a MonitorSpec into the Tsuga API request body.
 // Create and update send the same body.
 func MonitorSpecToPayload(spec v1alpha1.MonitorSpec) ([]byte, error) {
-	// dashboardRef, ownerName and driftPolicy are Kubernetes-only; callers resolve them
-	// into dashboardId and owner.
+	// dashboardRef, folderRef, ownerName and driftPolicy are Kubernetes-only;
+	// callers resolve them into dashboardId, folderId and owner.
 	spec.DashboardRef = nil
+	spec.FolderRef = nil
 	spec.OwnerName = ""
 	spec.DriftPolicy = ""
 	return json.Marshal(spec)

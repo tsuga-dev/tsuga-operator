@@ -8,7 +8,9 @@ import json
 from pathlib import Path
 
 
-RESOURCES = ("dashboards", "monitors", "slos")
+RESOURCES = ("dashboards", "monitors", "slos", "monitor-folders", "dashboard-folders")
+# Resources whose request bodies carry opaque pass-through configuration.
+OPAQUE_RESOURCES = ("dashboards", "monitors", "slos")
 PATHS = {
     f"/v1/{resource}{suffix}"
     for resource in RESOURCES
@@ -22,7 +24,7 @@ OPAQUE = {
 
 
 def flatten_opaque_fields(spec):
-    for resource in RESOURCES:
+    for resource in OPAQUE_RESOURCES:
         for suffix, method in (("", "post"), ("/{id}", "put")):
             properties = spec["paths"][f"/v1/{resource}{suffix}"][method][
                 "requestBody"

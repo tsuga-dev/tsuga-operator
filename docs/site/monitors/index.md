@@ -28,9 +28,23 @@ The referenced Dashboard must have a remote ID before the Monitor can sync. Afte
 
 ## File the monitor in a folder
 
-Add `folderId: "<YOUR_MONITOR_FOLDER_ID>"` to the manifest to file the monitor in an existing Tsuga monitor folder. The folder must already exist and be readable by the operator's token; there is no folder custom resource. Filing a monitor does not change its ownership, data access, or evaluation.
+Declare folders as `MonitorFolder` resources. A folder can sit inside one top-level folder through `parentFolderRef` (or `parentFolderId` for a folder created in Tsuga); Tsuga allows two levels at most and rejects a third with an `Error` phase.
 
-Without `folderId`, the operator leaves the monitor's folder unchanged, so a folder chosen in the Tsuga UI is kept. Removing `folderId` from the manifest therefore does not unfile the monitor: move it out of the folder in Tsuga instead.
+```yaml
+--8<-- "examples/monitor-folders.yaml"
+```
+
+Then add `folderRef: {name: example-monitor-subfolder}` to the Monitor, or `folderId: "<YOUR_MONITOR_FOLDER_ID>"` for a folder created in Tsuga. If both are present, `folderId` takes precedence. A referenced folder must have a remote ID before the Monitor can sync, and the Monitor is pushed again when that folder is recreated with a new ID. Filing a monitor does not change its ownership, data access, or evaluation.
+
+Without `folderId` or `folderRef`, the operator leaves the monitor's folder unchanged, so a folder chosen in the Tsuga UI is kept. Removing either field from the manifest therefore does not unfile the monitor: move it out of the folder in Tsuga instead. The same holds for a folder's parent.
+
+Deleting a `MonitorFolder` deletes the Tsuga folder only once it is empty. Until its monitors and child folders are gone, the resource stays in `Deleting`, `status.message` shows the reason Tsuga gave, and the operator retries every 30 seconds. Deleting a folder never deletes or moves the monitors in it.
+
+If the folder holds monitors filed outside Kubernetes (in the Tsuga UI, or from another namespace or cluster), it never empties. Either empty it in Tsuga, or annotate the folder with `observability.tsuga.com/orphan-if-not-empty: "true"` before deleting it: when Tsuga refuses the delete because the folder is not empty, the operator removes the resource and leaves the folder in Tsuga. It does so only once no Monitor, and no child `MonitorFolder`, in the namespace still references the folder by name or ID, whether or not those are being deleted, so a namespace teardown still cleans up the folder. The orphaned folder is not adopted again if you recreate the resource.
+
+As a last resort, `kubectl -n <namespace> patch monitorfolder <name> --type=merge -p '{"metadata":{"finalizers":null}}'` removes the resource without touching Tsuga.
+
+Install this release's CRDs and ClusterRole before using folders. An older chart's `Monitor` CRD has no `folderRef`: `kubectl apply` rejects the field, and tools that skip validation have it pruned, so the monitor syncs without being filed. Without the `MonitorFolder` CRD the operator still starts and keeps syncing Monitors. See [MonitorFolder reference](../reference/monitorfolder.md).
 
 ## Update or remove
 

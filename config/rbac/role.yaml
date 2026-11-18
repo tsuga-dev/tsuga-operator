@@ -152,7 +152,9 @@ rules:
 - apiGroups:
   - observability.tsuga.com
   resources:
+  - dashboardfolders
   - dashboards
+  - monitorfolders
   - monitors
   - slos
   - tsugamonitorings
@@ -164,7 +166,9 @@ rules:
 - apiGroups:
   - observability.tsuga.com
   resources:
+  - dashboardfolders/status
   - dashboards/status
+  - monitorfolders/status
   - monitors/status
   - slos/status
   - tsugacollectorconfigs/finalizers

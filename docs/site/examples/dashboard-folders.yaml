@@ -1,0 +1,19 @@
+apiVersion: observability.tsuga.com/v1alpha1
+kind: DashboardFolder
+metadata:
+  name: example-dashboard-folder
+  namespace: default
+spec:
+  name: "Checkout"
+  owner: "<YOUR_TEAM_ID>"
+---
+apiVersion: observability.tsuga.com/v1alpha1
+kind: DashboardFolder
+metadata:
+  name: example-dashboard-subfolder
+  namespace: default
+spec:
+  name: "Checkout API"
+  owner: "<YOUR_TEAM_ID>"
+  parentFolderRef:
+    name: example-dashboard-folder

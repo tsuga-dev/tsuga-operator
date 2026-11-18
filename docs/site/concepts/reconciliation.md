@@ -19,6 +19,8 @@ Set `spec.driftPolicy` on a Dashboard, Monitor or SLO to choose what happens:
 | `Overwrite` (default) | Pushes only if the CR spec changed | Pushes the CR (recreates a deleted resource) and emits a `Warning` event `DriftReverted` |
 | `Warn` | Pushes only if the CR spec changed | Pushes nothing, even a pending CR change. Sets phase `Drifted` and emits a `Warning` event `DriftDetected` |
 
+`MonitorFolder` and `DashboardFolder` have no `driftPolicy` and always behave as `Overwrite`: a folder renamed or moved in the UI is put back.
+
 The event and the operator log name the drifted top-level fields, for example `drifted fields: graphs, tags`, or `deleted in Tsuga`. The status message of a `Drifted` resource carries the same text. While the same drift persists, the `DriftDetected` event repeats on later reconciles and `lastDriftCheckAt` is not refreshed.
 
 `Drifted` clears when a later check finds no drift (the UI edit was undone), when you set `driftPolicy: Overwrite` (the next check reverts it), or when you accept the Tsuga version.

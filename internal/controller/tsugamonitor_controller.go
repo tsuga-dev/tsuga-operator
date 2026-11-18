@@ -30,6 +30,7 @@ type TsugaMonitorReconciler struct {
 
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=monitors,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=monitors/status,verbs=update
+//+kubebuilder:rbac:groups=observability.tsuga.com,resources=monitorfolders,verbs=get;list;watch
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=dashboards,verbs=get;list;watch
 
 func (r *TsugaMonitorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -43,15 +44,41 @@ func (r *TsugaMonitorReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return reconciler.Reconcile(ctx, req)
 }
 
+// SetupWithManager watches MonitorFolders only when their CRD is served: a
+// chart that lags the image lacks it, and watching it would fail cache sync.
 func (r *TsugaMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Monitor{}).
 		Watches(
 			&v1alpha1.Dashboard{},
 			handler.EnqueueRequestsFromMapFunc(r.dashboardToMonitors),
-		).
-		Named("monitor").
-		Complete(r)
+		)
+	foldersServed, err := crdServed(mgr.GetRESTMapper(), v1alpha1.GroupVersion.WithKind("MonitorFolder"))
+	if err != nil {
+		return err
+	}
+	if foldersServed {
+		builder = builder.Watches(&v1alpha1.MonitorFolder{}, handler.EnqueueRequestsFromMapFunc(r.folderToMonitors))
+	} else {
+		mgr.GetLogger().Info("MonitorFolder CRD not found; Monitors are not re-synced when a referenced folder changes. Install this release's CRDs to enable it.")
+	}
+	return builder.Named("monitor").Complete(r)
+}
+
+func (r *TsugaMonitorReconciler) folderToMonitors(ctx context.Context, obj client.Object) []reconcile.Request {
+	var monitorList v1alpha1.MonitorList
+	if err := r.List(ctx, &monitorList, client.InNamespace(obj.GetNamespace())); err != nil {
+		logf.FromContext(ctx).Error(err, "folderToMonitors: failed to list Monitors",
+			"namespace", obj.GetNamespace(), "folder", obj.GetName())
+		return nil
+	}
+	var reqs []reconcile.Request
+	for _, m := range monitorList.Items {
+		if m.Spec.FolderRef != nil && m.Spec.FolderRef.Name == obj.GetName() {
+			reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&m)})
+		}
+	}
+	return reqs
 }
 
 func (r *TsugaMonitorReconciler) dashboardToMonitors(ctx context.Context, obj client.Object) []reconcile.Request {

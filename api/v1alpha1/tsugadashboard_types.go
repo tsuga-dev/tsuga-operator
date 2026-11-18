@@ -42,6 +42,25 @@ type DashboardSpec struct {
 
 	// Example: "last_1h"
 	TimePreset *string `json:"timePreset,omitempty"`
+
+	// Optional dashboard folder ID in Tsuga. When unset (and no folderRef), the dashboard keeps its current folder.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=250
+	FolderID *string `json:"folderId,omitempty"`
+
+	// Optional reference to a DashboardFolder custom resource in the same namespace.
+	// folderId takes precedence when both are set.
+	// +optional
+	FolderRef *LocalObjectReference `json:"folderRef,omitempty"`
+}
+
+// DashboardStatus is the observed state of a Tsuga dashboard.
+type DashboardStatus struct {
+	SyncStatus `json:",inline"`
+
+	// Dashboard folder ID last sent to Tsuga from folderRef
+	FolderID string `json:"folderId,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -56,8 +75,8 @@ type Dashboard struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DashboardSpec `json:"spec,omitempty"`
-	Status SyncStatus    `json:"status,omitempty"`
+	Spec   DashboardSpec   `json:"spec,omitempty"`
+	Status DashboardStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

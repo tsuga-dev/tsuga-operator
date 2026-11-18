@@ -162,8 +162,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Collection needs no operation key. Without one the Dashboard, Monitor
-	// and SLO controllers are not started, so those resources keep their
+	// Collection needs no operation key. Without one the Dashboard, Monitor,
+	// SLO and folder controllers are not started, so those resources keep their
 	// status and finalizers until the operator restarts with a key.
 	if apiToken := os.Getenv("TSUGA_API_TOKEN"); apiToken != "" {
 		monitorClient, dashboardClient, sloClient := controller.NewTsugaClients(baseURL, apiToken)
@@ -200,8 +200,29 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "TsugaSLO")
 			os.Exit(1)
 		}
+		monitorFolderClient, dashboardFolderClient := controller.NewTsugaFolderClients(baseURL, apiToken)
+		if err := (&controller.TsugaMonitorFolderReconciler{
+			Client:             mgr.GetClient(),
+			TsugaClient:        monitorFolderClient,
+			Teams:              teams,
+			Recorder:           recorder,
+			DriftCheckInterval: driftCheckInterval,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "TsugaMonitorFolder")
+			os.Exit(1)
+		}
+		if err := (&controller.TsugaDashboardFolderReconciler{
+			Client:             mgr.GetClient(),
+			TsugaClient:        dashboardFolderClient,
+			Teams:              teams,
+			Recorder:           recorder,
+			DriftCheckInterval: driftCheckInterval,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "TsugaDashboardFolder")
+			os.Exit(1)
+		}
 	} else {
-		setupLog.Info("TSUGA_API_TOKEN is not set; Dashboard, Monitor and SLO controllers are disabled")
+		setupLog.Info("TSUGA_API_TOKEN is not set; Dashboard, Monitor, SLO and folder controllers are disabled")
 	}
 	// Collection controllers depend on the OpenTelemetry Operator's CRDs; they
 	// are skipped (with a warning) when those CRDs are absent so the operator

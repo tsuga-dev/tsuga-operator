@@ -31,7 +31,8 @@ func TestPayloadsMatchGeneratedRequestModels(t *testing.T) {
 			payload: func() ([]byte, error) {
 				return DashboardSpecToPayload(v1alpha1.DashboardSpec{
 					Name: "Example", Owner: "team-1", OwnerName: "checkout",
-					Graphs: []v1alpha1.DashboardGraph{{ID: "graph-1", Visualization: visualization}},
+					Graphs:   []v1alpha1.DashboardGraph{{ID: "graph-1", Visualization: visualization}},
+					FolderID: ptr.To("folder-1"),
 				})
 			},
 			create: &tsugaapi.CreateDashboardJSONBody{},
@@ -58,6 +59,28 @@ func TestPayloadsMatchGeneratedRequestModels(t *testing.T) {
 			},
 			create: &tsugaapi.CreateSloJSONBody{},
 			update: &tsugaapi.UpdateSloJSONBody{},
+		},
+		{
+			name: "monitor folder",
+			payload: func() ([]byte, error) {
+				return MonitorFolderSpecToPayload(v1alpha1.MonitorFolderSpec{
+					Name: "Example", Owner: "team-1", OwnerName: "checkout", ParentFolderID: ptr.To("folder-1"),
+					Tags: []v1alpha1.ResourceTag{{Key: "env", Value: "prod"}},
+				})
+			},
+			create: &tsugaapi.CreateMonitorFolderJSONBody{},
+			update: &tsugaapi.UpdateMonitorFolderJSONBody{},
+		},
+		{
+			name: "dashboard folder",
+			payload: func() ([]byte, error) {
+				return DashboardFolderSpecToPayload(v1alpha1.DashboardFolderSpec{
+					Name: "Example", Owner: "team-1", OwnerName: "checkout", ParentFolderID: ptr.To("folder-1"),
+					Tags: []v1alpha1.ResourceTag{{Key: "env", Value: "prod"}},
+				})
+			},
+			create: &tsugaapi.CreateDashboardFolderJSONBody{},
+			update: &tsugaapi.UpdateDashboardFolderJSONBody{},
 		},
 	}
 
@@ -87,12 +110,16 @@ func TestGeneratedRequestFieldGapsAreReviewed(t *testing.T) {
 		crd      any
 		expected []string
 	}{
-		{"dashboard create", tsugaapi.CreateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"clusterIds", "filters[].exclude", "folderId", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent"}},
-		{"dashboard update", tsugaapi.UpdateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"clusterIds", "filters[].exclude", "folderId", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent"}},
+		{"dashboard create", tsugaapi.CreateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"clusterIds", "filters[].exclude", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent"}},
+		{"dashboard update", tsugaapi.UpdateDashboardJSONBody{}, v1alpha1.DashboardSpec{}, []string{"clusterIds", "filters[].exclude", "graphs[].descriptionAlign", "graphs[].descriptionJustifyContent"}},
 		{"monitor create", tsugaapi.CreateMonitorJSONBody{}, v1alpha1.MonitorSpec{}, []string{"clusterIds"}},
 		{"monitor update", tsugaapi.UpdateMonitorJSONBody{}, v1alpha1.MonitorSpec{}, []string{"clusterIds"}},
 		{"slo create", tsugaapi.CreateSloJSONBody{}, v1alpha1.SLOSpec{}, nil},
 		{"slo update", tsugaapi.UpdateSloJSONBody{}, v1alpha1.SLOSpec{}, []string{"alerts[].id"}},
+		{"monitor folder create", tsugaapi.CreateMonitorFolderJSONBody{}, v1alpha1.MonitorFolderSpec{}, nil},
+		{"monitor folder update", tsugaapi.UpdateMonitorFolderJSONBody{}, v1alpha1.MonitorFolderSpec{}, nil},
+		{"dashboard folder create", tsugaapi.CreateDashboardFolderJSONBody{}, v1alpha1.DashboardFolderSpec{}, nil},
+		{"dashboard folder update", tsugaapi.UpdateDashboardFolderJSONBody{}, v1alpha1.DashboardFolderSpec{}, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

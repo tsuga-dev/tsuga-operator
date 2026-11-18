@@ -134,6 +134,7 @@ var _ = AfterSuite(func() {
 var _ = Describe("tsuga-operator", Ordered, ContinueOnFailure, func() {
 	tierCDashboardSpecs()
 	tierCMonitorSpecs()
+	tierCFolderSpecs()
 	tierCCollectorMonitorSpecs()
 	tierSLOSpecs()
 	tierASpecs()

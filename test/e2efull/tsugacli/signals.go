@@ -359,8 +359,15 @@ type TaggedResource struct {
 }
 
 // SweptKinds lists the Tsuga resource kinds the suite creates and the sweeps
-// delete. It lives here because sweep/main.go cannot import package e2efull.
-var SweptKinds = []string{"dashboards", "monitors", "slos"}
+// delete, in order. It lives here because sweep/main.go cannot import package
+// e2efull. Tsuga refuses to delete a non-empty folder, so folders come after
+// their contents and twice: the first pass removes subfolders, the second
+// their now-empty parents (folders nest one level deep).
+var SweptKinds = []string{
+	"dashboards", "monitors", "slos",
+	"monitor-folders", "dashboard-folders",
+	"monitor-folders", "dashboard-folders",
+}
 
 // listPageSize is the largest page `tsuga <kind> list --limit` accepts.
 const listPageSize = 1000

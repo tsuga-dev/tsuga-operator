@@ -21,7 +21,9 @@ func DashboardSpecToPayload(spec v1alpha1.DashboardSpec) ([]byte, error) {
 			return nil, fmt.Errorf("graphs[%d]: id is required", idx)
 		}
 	}
-	// ownerName and driftPolicy are Kubernetes-only; callers resolve it into owner.
+	// folderRef, ownerName and driftPolicy are Kubernetes-only; callers resolve
+	// them into folderId and owner.
+	spec.FolderRef = nil
 	spec.OwnerName = ""
 	spec.DriftPolicy = ""
 	if spec.TimePreset == nil {
