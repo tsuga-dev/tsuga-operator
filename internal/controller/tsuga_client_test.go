@@ -71,12 +71,13 @@ func TestIsNotFound_Matches404(t *testing.T) {
 }
 
 func TestTsugaSLOAdapter_CreatePostsToSLOsPathAndReturnsID(t *testing.T) {
-	var gotMethod, gotPath, gotAuth, gotBody string
+	var gotMethod, gotPath, gotAuth, gotSource, gotBody string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		gotAuth = r.Header.Get("Authorization")
+		gotSource = r.Header.Get("x-tsuga-source")
 		body, _ := io.ReadAll(r.Body)
 		gotBody = string(body)
 		w.Header().Set("Content-Type", "application/json")
@@ -101,6 +102,9 @@ func TestTsugaSLOAdapter_CreatePostsToSLOsPathAndReturnsID(t *testing.T) {
 	}
 	if gotAuth != "Bearer test-token" {
 		t.Errorf("expected a bearer token header, got %q", gotAuth)
+	}
+	if gotSource != "kubernetes-operator" {
+		t.Errorf("expected x-tsuga-source kubernetes-operator, got %q", gotSource)
 	}
 	if gotBody != `{"name":"x"}` {
 		t.Errorf("expected the payload to be forwarded verbatim, got %q", gotBody)

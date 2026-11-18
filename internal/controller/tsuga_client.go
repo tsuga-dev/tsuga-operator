@@ -76,6 +76,7 @@ func newAPIClient(baseURL, token string) *tsugaapi.Client {
 		tsugaapi.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
 		tsugaapi.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("x-tsuga-source", "kubernetes-operator")
 			return nil
 		}),
 	)
