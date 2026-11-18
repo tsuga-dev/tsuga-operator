@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-18
+
 ### Added
 
 - `driftPolicy` (`Overwrite` or `Warn`, default `Overwrite`) on `Dashboard`, `Monitor` and `SLO`. The operator checks each resource for edits made in Tsuga. `Overwrite` reverts them and emits `DriftReverted`; `Warn` pushes nothing, sets phase `Drifted` and emits `DriftDetected`. Annotate a CR with `observability.tsuga.com/accept-remote=true` to take the Tsuga version as the new baseline. `--drift-check-interval` sets the check interval (default `10m`, minimum `1m`). `status` gains `remoteFieldHashes` and `lastDriftCheckAt`. See [Drift detection](docs/site/concepts/reconciliation.md#drift-detection).
