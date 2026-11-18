@@ -54,6 +54,7 @@ func (n *noopMonitorClient) Create(ctx context.Context, payload []byte) (string,
 func (n *noopMonitorClient) Update(ctx context.Context, id string, payload []byte) error {
 	return nil
 }
+func (n *noopMonitorClient) Get(context.Context, string) ([]byte, error) { return []byte(`{}`), nil }
 func (n *noopMonitorClient) Delete(ctx context.Context, id string) error { return nil }
 
 var _ = Describe("Monitor Controller", func() {

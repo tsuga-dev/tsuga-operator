@@ -17,7 +17,6 @@ rules:
   - ""
   resources:
   - endpoints
-  - events
   - nodes
   - persistentvolumeclaims
   - persistentvolumes
@@ -28,6 +27,16 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
   - watch
 - apiGroups:
   - ""

@@ -35,11 +35,11 @@ func inlineJSON(body map[string]any) (string, error) {
 // own example ("last_1h") is not one of them, and the API rejects it.
 const dashboardTimePreset = "past-1-hour"
 
-// Each graph is 6x4 on Tsuga's 12-column grid, so two sit side by side per
-// row. The API's minimum widget size is 2x2. The layout keys are quoted in
+// Each graph spans Tsuga's full 12-column grid, one per row: the group
+// widget's minimum size is 12x1, and the others' is 2x2. The layout keys are quoted in
 // the manifest because YAML 1.1 reads a bare y as the boolean true.
 const (
-	dashboardGraphWidth  = 6
+	dashboardGraphWidth  = 12
 	dashboardGraphHeight = 4
 )
 
@@ -74,7 +74,7 @@ func renderDashboardWithGraphs(name, namespace, owner string, visualizations []s
       layout: {"x": %d, "y": %d, "w": %d, "h": %d}
       visualization: %s
 `, name, i, visualization,
-			(i%2)*dashboardGraphWidth, (i/2)*dashboardGraphHeight,
+			0, i*dashboardGraphHeight,
 			dashboardGraphWidth, dashboardGraphHeight, encoded)
 	}
 	return fmt.Sprintf(`apiVersion: observability.tsuga.com/v1alpha1

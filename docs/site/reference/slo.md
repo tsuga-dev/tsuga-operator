@@ -22,6 +22,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.clusterIds` | array of string | No | — | Cluster IDs this SLO is evaluated on. Omit to evaluate on all clusters.  |
 | `spec.configuration` | JSON | Yes | — | Configuration is the SLI configuration. It is kept schemaless because the Tsuga API models it as a discriminator-based union (event or time). The operator passes it through as opaque JSON; drift against the OpenAPI contract is gated by oasdiff in CI (see the openapi-drift-check make target) rather than encoding the full union in Go types. Opaque JSON; validated by Tsuga |
 | `spec.description` | string | No | — | — maxLength: `50000` |
+| `spec.driftPolicy` | string | No | `"Overwrite"` | How the operator reacts to changes made in Tsuga outside Kubernetes: Overwrite reverts them to match the spec, Warn keeps them and reports the drift until the annotation observability.tsuga.com/accept-remote is set. enum: `["Overwrite", "Warn"]` |
 | `spec.name` | string | Yes | — | — minLength: `1`; maxLength: `250` |
 | `spec.owner` | string | No | — | Team ID that owns and manages the SLO. Exactly one of owner and ownerName is required. minLength: `1`; maxLength: `250` |
 | `spec.ownerName` | string | No | — | Name of the team that owns and manages the SLO. The operator resolves it to the team ID on every push to Tsuga. minLength: `1`; maxLength: `250` |
@@ -34,11 +35,13 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec` validation | CEL | — | — | exactly one of owner or ownerName is required |
 | `status` | object | No | — | SyncStatus is the observed state of a resource synced to the Tsuga API.  |
 | `status.id` | string | No | — | Tsuga resource ID  |
+| `status.lastDriftCheckAt` | string | No | — | Last time the remote resource was compared against the recorded hashes  |
 | `status.lastSyncedAt` | string | No | — | Last successful sync time  |
 | `status.message` | string | No | — | Last error or status message  |
 | `status.observedGeneration` | integer | No | — | Last generation successfully reconciled  |
 | `status.ownerId` | string | No | — | Team ID resolved from spec.ownerName at the last successful push, reused until the spec changes.  |
-| `status.phase` | string | No | — | Human-readable phase: Ready, Error, Deleting  |
+| `status.phase` | string | No | — | Human-readable phase: Ready, Error, Deleting, Drifted  |
+| `status.remoteFieldHashes` | object | No | — | Hashes of the remote fields the operator manages, taken from the last GET and used to detect changes made outside Kubernetes.  |
 
 ## Source
 

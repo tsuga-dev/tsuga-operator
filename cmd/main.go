@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -63,6 +64,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var driftCheckInterval time.Duration
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -78,6 +80,8 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics server")
+	flag.DurationVar(&driftCheckInterval, "drift-check-interval", 10*time.Minute,
+		"How often Dashboard, Monitor and SLO resources are compared with Tsuga to detect UI edits. Minimum 1m.")
 	opts := zap.Options{
 		Development: false,
 	}
@@ -85,6 +89,11 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	if driftCheckInterval < time.Minute {
+		setupLog.Error(fmt.Errorf("got %s", driftCheckInterval), "drift-check-interval must be at least 1m")
+		os.Exit(1)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -159,26 +168,34 @@ func main() {
 	if apiToken := os.Getenv("TSUGA_API_TOKEN"); apiToken != "" {
 		monitorClient, dashboardClient, sloClient := controller.NewTsugaClients(baseURL, apiToken)
 		teams := controller.NewTeamResolver(baseURL, apiToken)
+		// The reconcilers take the legacy record.EventRecorder.
+		recorder := mgr.GetEventRecorderFor("tsuga-operator") //nolint:staticcheck // SA1019
 		if err := (&controller.TsugaMonitorReconciler{
-			Client:      mgr.GetClient(),
-			TsugaClient: monitorClient,
-			Teams:       teams,
+			Client:             mgr.GetClient(),
+			TsugaClient:        monitorClient,
+			Teams:              teams,
+			Recorder:           recorder,
+			DriftCheckInterval: driftCheckInterval,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TsugaMonitor")
 			os.Exit(1)
 		}
 		if err := (&controller.TsugaDashboardReconciler{
-			Client:      mgr.GetClient(),
-			TsugaClient: dashboardClient,
-			Teams:       teams,
+			Client:             mgr.GetClient(),
+			TsugaClient:        dashboardClient,
+			Teams:              teams,
+			Recorder:           recorder,
+			DriftCheckInterval: driftCheckInterval,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TsugaDashboard")
 			os.Exit(1)
 		}
 		if err := (&controller.TsugaSLOReconciler{
-			Client:      mgr.GetClient(),
-			TsugaClient: sloClient,
-			Teams:       teams,
+			Client:             mgr.GetClient(),
+			TsugaClient:        sloClient,
+			Teams:              teams,
+			Recorder:           recorder,
+			DriftCheckInterval: driftCheckInterval,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TsugaSLO")
 			os.Exit(1)

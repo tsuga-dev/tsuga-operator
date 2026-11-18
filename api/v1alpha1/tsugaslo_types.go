@@ -67,6 +67,14 @@ type SLOSpec struct {
 	// +kubebuilder:validation:MaxLength=250
 	OwnerName string `json:"ownerName,omitempty"`
 
+	// How the operator reacts to changes made in Tsuga outside Kubernetes:
+	// Overwrite reverts them to match the spec, Warn keeps them and reports
+	// the drift until the annotation observability.tsuga.com/accept-remote is set.
+	// +optional
+	// +kubebuilder:default=Overwrite
+	// +kubebuilder:validation:Enum=Overwrite;Warn
+	DriftPolicy DriftPolicy `json:"driftPolicy,omitempty"`
+
 	// This controls which data the resource can see.
 	// +kubebuilder:validation:Enum=all;owning-team-and-public;owning-team-only
 	Permissions string `json:"permissions"`

@@ -17,7 +17,7 @@ type SyncStatus struct {
 	// until the spec changes.
 	OwnerID string `json:"ownerId,omitempty"`
 
-	// Human-readable phase: Ready, Error, Deleting
+	// Human-readable phase: Ready, Error, Deleting, Drifted
 	Phase string `json:"phase,omitempty"`
 
 	// Last error or status message
@@ -25,7 +25,25 @@ type SyncStatus struct {
 
 	// Last successful sync time
 	LastSyncedAt *metav1.Time `json:"lastSyncedAt,omitempty"`
+
+	// Hashes of the remote fields the operator manages, taken from the last GET
+	// and used to detect changes made outside Kubernetes.
+	RemoteFieldHashes map[string]string `json:"remoteFieldHashes,omitempty"`
+
+	// Last time the remote resource was compared against the recorded hashes
+	LastDriftCheckAt *metav1.Time `json:"lastDriftCheckAt,omitempty"`
 }
+
+// DriftPolicy controls what the operator does when a resource is changed in Tsuga
+// outside Kubernetes.
+type DriftPolicy string
+
+const (
+	// DriftPolicyOverwrite reverts remote changes to match the spec.
+	DriftPolicyOverwrite DriftPolicy = "Overwrite"
+	// DriftPolicyWarn leaves remote changes in place and reports them.
+	DriftPolicyWarn DriftPolicy = "Warn"
+)
 
 type ResourceTag struct {
 	// +kubebuilder:validation:MaxLength=128

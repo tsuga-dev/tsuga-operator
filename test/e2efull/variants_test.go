@@ -18,7 +18,8 @@ func TestMonitorConfigurationVariants(t *testing.T) {
 	want := []string{
 		"metric", "log", "trace", "anomaly-log", "anomaly-metric",
 		"anomaly-trace", "log-error-pattern", "certificate-expiry",
-		"log-error-pattern-increase",
+		"log-error-pattern-increase", "anomaly-rum", "rum", "faulty-deployment",
+		"k8s-faulty-deployment",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("want %d monitor configurations, got %d: %v", len(want), len(got), got)
@@ -40,19 +41,19 @@ func TestVisualizationVariantsNonEmptyAndIncludesNewTypes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Minimum set: all 26 known visualization variants must be present.
+	// Minimum set: all 25 known visualization variants must be present.
 	// This allows legitimate additions to the API while catching wrong or missing strings.
 	requiredVariants := []string{
 		"bar", "bar-connection", "bar-promql", "distribution", "gauge", "heatmap",
 		"list", "list-connection", "list-log-patterns", "list-spans", "note", "pie",
 		"pie-connection", "pie-promql", "query-value", "query-value-connection",
-		"query-value-promql", "slo-over-time", "slo-uptime", "table", "timeseries",
+		"query-value-promql", "slo", "table", "timeseries",
 		"timeseries-connection", "timeseries-promql", "top-list", "top-list-connection",
 		"top-list-promql",
 	}
 
-	if len(got) < 26 {
-		t.Fatalf("want at least 26 visualization variants, got %d: %v", len(got), got)
+	if len(got) < 25 {
+		t.Fatalf("want at least 25 visualization variants, got %d: %v", len(got), got)
 	}
 
 	index := make(map[string]bool)

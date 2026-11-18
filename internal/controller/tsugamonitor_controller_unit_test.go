@@ -41,6 +41,8 @@ type mockMonitorClient struct {
 	createFn func(context.Context, []byte) (string, error)
 	updateFn func(context.Context, string, []byte) error
 	deleteFn func(context.Context, string) error
+	getFn    func(context.Context, string) ([]byte, error)
+	last     []byte
 }
 
 func (m *mockMonitorClient) FindByTag(ctx context.Context, key, value string) (string, error) {
@@ -51,6 +53,7 @@ func (m *mockMonitorClient) FindByTag(ctx context.Context, key, value string) (s
 }
 
 func (m *mockMonitorClient) Create(ctx context.Context, payload []byte) (string, error) {
+	m.last = payload
 	if m.createFn == nil {
 		return "", fmt.Errorf("unexpected create")
 	}
@@ -58,10 +61,21 @@ func (m *mockMonitorClient) Create(ctx context.Context, payload []byte) (string,
 }
 
 func (m *mockMonitorClient) Update(ctx context.Context, id string, payload []byte) error {
+	m.last = payload
 	if m.updateFn == nil {
 		return fmt.Errorf("unexpected update")
 	}
 	return m.updateFn(ctx, id, payload)
+}
+
+func (m *mockMonitorClient) Get(ctx context.Context, id string) ([]byte, error) {
+	if m.getFn != nil {
+		return m.getFn(ctx, id)
+	}
+	if m.last == nil {
+		return []byte(`{}`), nil
+	}
+	return m.last, nil
 }
 
 func (m *mockMonitorClient) Delete(ctx context.Context, id string) error {
@@ -216,6 +230,7 @@ func TestTsugaMonitorReconciler_UpdateOnGenerationChange(t *testing.T) {
 	monitor.Generation = 2
 	monitor.Status.ID = "mon-existing"
 	monitor.Status.ObservedGeneration = 1
+	monitor.Status.RemoteFieldHashes = noDriftBaseline(t)
 	scheme := testScheme(t)
 
 	updateCalled := false
@@ -254,6 +269,7 @@ func TestTsugaMonitorReconciler_RecreatesAfter404(t *testing.T) {
 	monitor.Generation = 2
 	monitor.Status.ID = "mon-missing"
 	monitor.Status.ObservedGeneration = 1
+	monitor.Status.RemoteFieldHashes = noDriftBaseline(t)
 	scheme := testScheme(t)
 
 	createCalled := false
@@ -447,6 +463,7 @@ func TestTsugaMonitorReconciler_UpdatesWhenReferencedDashboardRecreated(t *testi
 	monitor.Spec.DashboardRef = &tsugav1alpha1.LocalObjectReference{Name: "linked-dashboard"}
 	monitor.Status.ID = "mon-existing"
 	monitor.Status.ObservedGeneration = 1
+	monitor.Status.RemoteFieldHashes = noDriftBaseline(t)
 	monitor.Status.DashboardID = "dash-old"
 	dashboard := &tsugav1alpha1.Dashboard{
 		ObjectMeta: metav1.ObjectMeta{Name: "linked-dashboard", Namespace: testNamespace},
@@ -510,6 +527,7 @@ func TestTsugaMonitorReconciler_DeletedReferencedDashboardReportsError(t *testin
 	monitor.Spec.DashboardRef = &tsugav1alpha1.LocalObjectReference{Name: "deleted-dashboard"}
 	monitor.Status.ID = "mon-existing"
 	monitor.Status.ObservedGeneration = 1
+	monitor.Status.RemoteFieldHashes = noDriftBaseline(t)
 	monitor.Status.DashboardID = "dash-gone"
 	monitor.Status.Phase = phaseReady
 	monitor.Status.LastSyncedAt = &metav1.Time{Time: time.Now()}
@@ -534,7 +552,7 @@ func TestTsugaMonitorReconciler_DeletedReferencedDashboardReportsError(t *testin
 	}
 }
 
-func TestTsugaMonitorReconciler_DoesNotResync(t *testing.T) {
+func TestTsugaMonitorReconciler_NoDriftIsNotRepushed(t *testing.T) {
 	// A monitor update clears its snooze, so a synced monitor is never
 	// re-pushed on a timer.
 	monitor := newTestMonitor("test-monitor", testNamespace)
@@ -542,8 +560,10 @@ func TestTsugaMonitorReconciler_DoesNotResync(t *testing.T) {
 	monitor.Generation = 1
 	monitor.Status.ID = "mon-existing"
 	monitor.Status.ObservedGeneration = 1
+	monitor.Status.RemoteFieldHashes = noDriftBaseline(t)
 	monitor.Status.Phase = phaseReady
-	monitor.Status.LastSyncedAt = &metav1.Time{Time: time.Now().Add(-driftResyncInterval - time.Hour)}
+	monitor.Status.LastSyncedAt = &metav1.Time{Time: time.Now().Add(-defaultDriftCheckInterval - time.Hour)}
+	monitor.Status.LastDriftCheckAt = monitor.Status.LastSyncedAt
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(testScheme(t)).
@@ -555,7 +575,7 @@ func TestTsugaMonitorReconciler_DoesNotResync(t *testing.T) {
 
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: monitor.Name, Namespace: monitor.Namespace}}
 	result, err := reconciler.Reconcile(context.Background(), req)
-	if err != nil || result.RequeueAfter != 0 {
-		t.Fatalf("result=%+v err=%v, want no update and no requeue", result, err)
+	if err != nil || result.RequeueAfter != defaultDriftCheckInterval {
+		t.Fatalf("result=%+v err=%v, want no update and the next check scheduled", result, err)
 	}
 }

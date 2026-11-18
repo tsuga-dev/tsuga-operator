@@ -24,6 +24,8 @@ type mockSLOClient struct {
 	createFn func(context.Context, []byte) (string, error)
 	updateFn func(context.Context, string, []byte) error
 	deleteFn func(context.Context, string) error
+	getFn    func(context.Context, string) ([]byte, error)
+	last     []byte
 }
 
 func (m *mockSLOClient) FindByTag(ctx context.Context, key, value string) (string, error) {
@@ -34,6 +36,7 @@ func (m *mockSLOClient) FindByTag(ctx context.Context, key, value string) (strin
 }
 
 func (m *mockSLOClient) Create(ctx context.Context, payload []byte) (string, error) {
+	m.last = payload
 	if m.createFn == nil {
 		return "", fmt.Errorf("unexpected create")
 	}
@@ -41,10 +44,21 @@ func (m *mockSLOClient) Create(ctx context.Context, payload []byte) (string, err
 }
 
 func (m *mockSLOClient) Update(ctx context.Context, id string, payload []byte) error {
+	m.last = payload
 	if m.updateFn == nil {
 		return fmt.Errorf("unexpected update")
 	}
 	return m.updateFn(ctx, id, payload)
+}
+
+func (m *mockSLOClient) Get(ctx context.Context, id string) ([]byte, error) {
+	if m.getFn != nil {
+		return m.getFn(ctx, id)
+	}
+	if m.last == nil {
+		return []byte(`{}`), nil
+	}
+	return m.last, nil
 }
 
 func (m *mockSLOClient) Delete(ctx context.Context, id string) error {
@@ -155,6 +169,7 @@ func TestTsugaSLOReconciler_RecreatesOnNotFound(t *testing.T) {
 	slo.Generation = 2
 	slo.Status.ID = "stale-id"
 	slo.Status.ObservedGeneration = 1
+	slo.Status.RemoteFieldHashes = noDriftBaseline(t)
 	slo.Finalizers = []string{sloFinalizer}
 	scheme := testScheme(t)
 

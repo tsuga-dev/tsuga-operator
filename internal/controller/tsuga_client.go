@@ -24,6 +24,8 @@ type TsugaResourceClient interface {
 	Create(ctx context.Context, payload []byte) (string, error)
 	Update(ctx context.Context, id string, payload []byte) error
 	Delete(ctx context.Context, id string) error
+	// Get returns the raw JSON of the resource's data field.
+	Get(ctx context.Context, id string) ([]byte, error)
 }
 
 // TeamResolver looks up Tsuga team IDs by team name.
@@ -35,6 +37,7 @@ type (
 	bodyCall   func(context.Context, string, io.Reader, ...tsugaapi.RequestEditorFn) (*http.Response, error)
 	updateCall func(context.Context, string, string, io.Reader, ...tsugaapi.RequestEditorFn) (*http.Response, error)
 	deleteCall func(context.Context, string, ...tsugaapi.RequestEditorFn) (*http.Response, error)
+	getCall    func(context.Context, string, ...tsugaapi.RequestEditorFn) (*http.Response, error)
 )
 
 // tsugaResourceAPI binds TsugaResourceClient to one resource's generated endpoints.
@@ -42,15 +45,16 @@ type tsugaResourceAPI struct {
 	query, create bodyCall
 	update        updateCall
 	delete        deleteCall
+	get           getCall
 }
 
 // NewTsugaClients constructs the real monitor, dashboard and SLO clients from
 // the Tsuga API base URL and a bearer token.
 func NewTsugaClients(baseURL, token string) (monitors, dashboards, slos TsugaResourceClient) {
 	api := newAPIClient(baseURL, token)
-	return &tsugaResourceAPI{api.QueryMonitorsWithBody, api.CreateMonitorWithBody, api.UpdateMonitorWithBody, api.DeleteMonitor},
-		&tsugaResourceAPI{api.QueryDashboardsWithBody, api.CreateDashboardWithBody, api.UpdateDashboardWithBody, api.DeleteDashboard},
-		&tsugaResourceAPI{api.QuerySlosWithBody, api.CreateSloWithBody, api.UpdateSloWithBody, api.DeleteSlo}
+	return &tsugaResourceAPI{api.QueryMonitorsWithBody, api.CreateMonitorWithBody, api.UpdateMonitorWithBody, api.DeleteMonitor, api.GetMonitor},
+		&tsugaResourceAPI{api.QueryDashboardsWithBody, api.CreateDashboardWithBody, api.UpdateDashboardWithBody, api.DeleteDashboard, api.GetDashboard},
+		&tsugaResourceAPI{api.QuerySlosWithBody, api.CreateSloWithBody, api.UpdateSloWithBody, api.DeleteSlo, api.GetSlo}
 }
 
 // NewTeamResolver constructs the real team resolver from the Tsuga API base
@@ -126,6 +130,24 @@ func (a *tsugaResourceAPI) Delete(ctx context.Context, id string) error {
 	resp, err := a.delete(ctx, id)
 	_, err = readAPIResponse(ctx, resp, err, true)
 	return err
+}
+
+func (a *tsugaResourceAPI) Get(ctx context.Context, id string) ([]byte, error) {
+	resp, err := a.get(ctx, id)
+	respBody, err := readAPIBody(ctx, resp, err)
+	if err != nil {
+		return nil, err
+	}
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &envelope); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	if len(envelope.Data) == 0 {
+		return nil, errors.New("tsuga API returned success but data was absent")
+	}
+	return envelope.Data, nil
 }
 
 func tagQueryBody(key, value string) io.Reader {

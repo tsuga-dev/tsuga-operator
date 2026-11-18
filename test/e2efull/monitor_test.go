@@ -29,6 +29,11 @@ func tierCMonitorSpecs() {
 			for i, config := range configurations {
 				priority := 1 + i%5
 				permissions := levels[i%len(levels)]
+				// The API rejects owning-team-only here: detections are
+				// ingested under Tsuga's internal team, which that scope hides.
+				if config == "faulty-deployment" && permissions == "owning-team-only" {
+					permissions = "owning-team-and-public"
+				}
 				name := fmt.Sprintf("%s-mon-%02d", runID, i)
 				label := fmt.Sprintf("config=%s priority=%d permissions=%s",
 					config, priority, permissions)

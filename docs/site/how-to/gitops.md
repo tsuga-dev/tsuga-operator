@@ -24,4 +24,4 @@ For selective application instrumentation, set `injection: Manual` and manage po
 
 GitOps pruning a Dashboard, Monitor, or SLO deletes the remote Tsuga object. Pruning a cluster config removes the collectors it owns. Review removals and namespace deletion with the same care as other changes to observability coverage.
 
-Kubernetes is the desired-state source. The operator re-pushes each `Ready` dashboard every 10 minutes, so a dashboard change made in the Tsuga UI is reverted within that interval. Monitors and SLOs are not re-pushed on a timer; UI changes to them persist until the next spec change. See [reconciliation semantics](../concepts/reconciliation.md).
+Kubernetes is the desired-state source. By default the operator reverts changes made in the Tsuga UI to a Dashboard, Monitor or SLO, or you can set `driftPolicy: Warn` to keep them and be told; see [drift detection](../concepts/reconciliation.md#drift-detection).

@@ -44,6 +44,7 @@ func (n *noopDashboardClient) Create(ctx context.Context, payload []byte) (strin
 func (n *noopDashboardClient) Update(ctx context.Context, id string, payload []byte) error {
 	return nil
 }
+func (n *noopDashboardClient) Get(context.Context, string) ([]byte, error) { return []byte(`{}`), nil }
 func (n *noopDashboardClient) Delete(ctx context.Context, id string) error { return nil }
 
 var _ = Describe("Dashboard Controller", func() {

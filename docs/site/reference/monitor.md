@@ -20,6 +20,7 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `spec.dashboardId` | string | No | — | Optional related dashboard ID in Tsuga.  |
 | `spec.dashboardRef` | object | No | — | Optional reference to a Dashboard custom resource in the same namespace.  |
 | `spec.dashboardRef.name` | string | Yes | — | — minLength: `1` |
+| `spec.driftPolicy` | string | No | `"Overwrite"` | How the operator reacts to changes made in Tsuga outside Kubernetes: Overwrite reverts them to match the spec, Warn keeps them and reports the drift until the annotation observability.tsuga.com/accept-remote is set. enum: `["Overwrite", "Warn"]` |
 | `spec.folderId` | string | No | — | Optional monitor folder ID in Tsuga. When unset, the monitor keeps its current folder.  |
 | `spec.message` | string | No | — | —  |
 | `spec.name` | string | Yes | — | — minLength: `1` |
@@ -34,11 +35,13 @@ Required is relative to the containing object. Defaults inside optional objects 
 | `status` | object | No | — | MonitorStatus is the observed state of a Tsuga monitor.  |
 | `status.dashboardId` | string | No | — | Tsuga dashboard ID last sent to Tsuga, resolved from dashboardId or dashboardRef  |
 | `status.id` | string | No | — | Tsuga resource ID  |
+| `status.lastDriftCheckAt` | string | No | — | Last time the remote resource was compared against the recorded hashes  |
 | `status.lastSyncedAt` | string | No | — | Last successful sync time  |
 | `status.message` | string | No | — | Last error or status message  |
 | `status.observedGeneration` | integer | No | — | Last generation successfully reconciled  |
 | `status.ownerId` | string | No | — | Team ID resolved from spec.ownerName at the last successful push, reused until the spec changes.  |
-| `status.phase` | string | No | — | Human-readable phase: Ready, Error, Deleting  |
+| `status.phase` | string | No | — | Human-readable phase: Ready, Error, Deleting, Drifted  |
+| `status.remoteFieldHashes` | object | No | — | Hashes of the remote fields the operator manages, taken from the last GET and used to detect changes made outside Kubernetes.  |
 
 ## Source
 

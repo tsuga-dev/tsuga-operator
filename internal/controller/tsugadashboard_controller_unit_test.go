@@ -35,6 +35,8 @@ type mockDashboardClient struct {
 	createFn func(context.Context, []byte) (string, error)
 	updateFn func(context.Context, string, []byte) error
 	deleteFn func(context.Context, string) error
+	getFn    func(context.Context, string) ([]byte, error)
+	last     []byte
 }
 
 func (m *mockDashboardClient) FindByTag(ctx context.Context, key, value string) (string, error) {
@@ -45,6 +47,7 @@ func (m *mockDashboardClient) FindByTag(ctx context.Context, key, value string) 
 }
 
 func (m *mockDashboardClient) Create(ctx context.Context, payload []byte) (string, error) {
+	m.last = payload
 	if m.createFn == nil {
 		return "", fmt.Errorf("unexpected create")
 	}
@@ -52,10 +55,21 @@ func (m *mockDashboardClient) Create(ctx context.Context, payload []byte) (strin
 }
 
 func (m *mockDashboardClient) Update(ctx context.Context, id string, payload []byte) error {
+	m.last = payload
 	if m.updateFn == nil {
 		return fmt.Errorf("unexpected update")
 	}
 	return m.updateFn(ctx, id, payload)
+}
+
+func (m *mockDashboardClient) Get(ctx context.Context, id string) ([]byte, error) {
+	if m.getFn != nil {
+		return m.getFn(ctx, id)
+	}
+	if m.last == nil {
+		return []byte(`{}`), nil
+	}
+	return m.last, nil
 }
 
 func (m *mockDashboardClient) Delete(ctx context.Context, id string) error {
@@ -286,6 +300,7 @@ func TestTsugaDashboardReconciler_UpdateOnGenerationChange(t *testing.T) {
 	dashboard.Generation = 2
 	dashboard.Status.ID = "dash-existing"
 	dashboard.Status.ObservedGeneration = 1
+	dashboard.Status.RemoteFieldHashes = noDriftBaseline(t)
 	scheme := testScheme(t)
 
 	updateCalled := false
@@ -331,6 +346,7 @@ func TestTsugaDashboardReconciler_RecreatesAfter404(t *testing.T) {
 	dashboard.Generation = 2
 	dashboard.Status.ID = "dash-missing"
 	dashboard.Status.ObservedGeneration = 1
+	dashboard.Status.RemoteFieldHashes = noDriftBaseline(t)
 	scheme := testScheme(t)
 
 	createCalled := false
@@ -713,61 +729,13 @@ func newSyncedDashboard(lastSynced time.Time) *tsugav1alpha1.Dashboard {
 	return dashboard
 }
 
-func TestTsugaDashboardReconciler_ResyncsAfterDriftInterval(t *testing.T) {
-	dashboard := newSyncedDashboard(time.Now().Add(-driftResyncInterval - time.Minute))
-	updated := false
-	mockClient := &mockDashboardClient{
-		updateFn: func(_ context.Context, id string, _ []byte) error {
-			updated = id == testDashboardID
-			return nil
-		},
-	}
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(testScheme(t)).
-		WithObjects(dashboard).
-		WithStatusSubresource(dashboard).
-		Build()
-	reconciler := &TsugaDashboardReconciler{Client: fakeClient, TsugaClient: mockClient}
-
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: dashboard.Name, Namespace: dashboard.Namespace}}
-	result, err := reconciler.Reconcile(context.Background(), req)
-	if err != nil {
-		t.Fatalf("reconcile: %v", err)
-	}
-	if !updated {
-		t.Fatal("expected a stale Ready dashboard to be re-pushed")
-	}
-	if result.RequeueAfter != driftResyncInterval {
-		t.Fatalf("RequeueAfter=%v, want %v", result.RequeueAfter, driftResyncInterval)
-	}
-}
-
-func TestTsugaDashboardReconciler_FreshSyncOnlySchedulesResync(t *testing.T) {
-	dashboard := newSyncedDashboard(time.Now().Add(-time.Minute))
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(testScheme(t)).
-		WithObjects(dashboard).
-		WithStatusSubresource(dashboard).
-		Build()
-	// No updateFn: any call to Update fails the reconcile.
-	reconciler := &TsugaDashboardReconciler{Client: fakeClient, TsugaClient: &mockDashboardClient{}}
-
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: dashboard.Name, Namespace: dashboard.Namespace}}
-	result, err := reconciler.Reconcile(context.Background(), req)
-	if err != nil {
-		t.Fatalf("reconcile: %v", err)
-	}
-	if result.RequeueAfter <= 0 || result.RequeueAfter > driftResyncInterval {
-		t.Fatalf("RequeueAfter=%v, want within (0, %v]", result.RequeueAfter, driftResyncInterval)
-	}
-}
-
 func TestTsugaDashboardReconciler_ConcurrentSpecEditIsNotMarkedSynced(t *testing.T) {
 	dashboard := newTestDashboard("test-dashboard", testNamespace)
 	dashboard.Finalizers = []string{dashboardFinalizer}
 	dashboard.Generation = 2
 	dashboard.Status.ID = "dash-existing"
 	dashboard.Status.ObservedGeneration = 1
+	dashboard.Status.RemoteFieldHashes = noDriftBaseline(t)
 	scheme := testScheme(t)
 
 	fakeClient := fake.NewClientBuilder().
@@ -847,9 +815,15 @@ func TestTsugaDashboardReconciler_DeleteFindsUnrecordedRemoteByTag(t *testing.T)
 	}
 }
 
+// newStaleDashboardReconciler returns a reconciler for a dashboard edited in
+// the Tsuga UI and due for a drift check, so its next pass reverts the edit.
 func newStaleDashboardReconciler(t *testing.T, mockClient *mockDashboardClient) (*TsugaDashboardReconciler, ctrl.Request) {
 	t.Helper()
-	dashboard := newSyncedDashboard(time.Now().Add(-driftResyncInterval - time.Minute))
+	dashboard := newBaselinedDashboard(tsugav1alpha1.DriftPolicyOverwrite,
+		time.Now().Add(-defaultDriftCheckInterval-time.Minute), driftBaseline(t, driftRemote, "name", "owner"))
+	if mockClient.getFn == nil {
+		mockClient.getFn = remoteBody(driftEdited)
+	}
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(testScheme(t)).
 		WithObjects(dashboard).
@@ -896,8 +870,8 @@ func TestTsugaDashboardReconciler_RetriesFailedResync(t *testing.T) {
 		if phase := getDashboard(t, reconciler, req).Status.Phase; phase != phaseReady {
 			t.Fatalf("%d: phase after retry=%q, want Ready", code, phase)
 		}
-		if result.RequeueAfter != driftResyncInterval {
-			t.Fatalf("%d: RequeueAfter=%v, want %v", code, result.RequeueAfter, driftResyncInterval)
+		if result.RequeueAfter != defaultDriftCheckInterval {
+			t.Fatalf("%d: RequeueAfter=%v, want %v", code, result.RequeueAfter, defaultDriftCheckInterval)
 		}
 	}
 }

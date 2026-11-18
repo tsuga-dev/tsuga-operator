@@ -48,3 +48,24 @@ func TestMarshalDashboardPayload_KeepsGraphIDAndDefaultsTimePreset(t *testing.T)
 		t.Fatalf("want timePreset %q when unset, got %q", defaultTimePreset, body.TimePreset)
 	}
 }
+
+func TestDashboardSpecToPayload_OmitsDriftPolicy(t *testing.T) {
+	vis := apiextensionsv1.JSON{Raw: []byte(`{"type":"timeseries"}`)}
+	spec := v1alpha1.DashboardSpec{
+		Name:        "x",
+		Owner:       "o",
+		DriftPolicy: v1alpha1.DriftPolicyWarn,
+		Graphs:      []v1alpha1.DashboardGraph{{ID: "g1", Visualization: vis}},
+	}
+	payload, err := DashboardSpecToPayload(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(payload, &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m["driftPolicy"]; ok {
+		t.Fatalf("driftPolicy must not be sent to the API: %v", m)
+	}
+}

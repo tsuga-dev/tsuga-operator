@@ -381,3 +381,53 @@ func TestPayload_ResolvesOwnerName(t *testing.T) {
 		t.Error("expected an error for an unknown team name")
 	}
 }
+
+func TestTsugaClient_GetReturnsData(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		_, _ = w.Write([]byte(`{"requestId":"r","data":{"id":"x","name":"n"}}`))
+	}))
+	defer srv.Close()
+
+	monitors, dashboards, slos := NewTsugaClients(srv.URL, "token")
+	for name, c := range map[string]TsugaResourceClient{"monitor": monitors, "dashboard": dashboards, "slo": slos} {
+		got, err := c.Get(context.Background(), "x")
+		if err != nil {
+			t.Fatalf("%s: Get: %v", name, err)
+		}
+		var data map[string]string
+		if err := json.Unmarshal(got, &data); err != nil {
+			t.Fatalf("%s: unmarshal: %v", name, err)
+		}
+		if data["id"] != "x" || data["name"] != "n" || len(data) != 2 {
+			t.Errorf("%s: data = %v", name, data)
+		}
+	}
+}
+
+func TestTsugaClient_GetNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"message":"nope"}}`))
+	}))
+	defer srv.Close()
+
+	_, _, slos := NewTsugaClients(srv.URL, "token")
+	if _, err := slos.Get(context.Background(), "x"); !isNotFound(err) {
+		t.Fatalf("expected not found, got %v", err)
+	}
+}
+
+func TestTsugaClient_GetMissingDataIsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"requestId":"r"}`))
+	}))
+	defer srv.Close()
+
+	_, _, slos := NewTsugaClients(srv.URL, "token")
+	if _, err := slos.Get(context.Background(), "x"); err == nil {
+		t.Fatal("expected error for absent data")
+	}
+}

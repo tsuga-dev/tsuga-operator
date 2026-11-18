@@ -52,3 +52,11 @@ func TestMonitorSpecToPayload_OmitsUnsetFolderID(t *testing.T) {
 		t.Errorf("folderId should be omitted when unset, got %v", value)
 	}
 }
+
+func TestMonitorSpecToPayload_OmitsDriftPolicy(t *testing.T) {
+	spec := minimalMonitorSpec()
+	spec.DriftPolicy = v1alpha1.DriftPolicyWarn
+	if _, ok := monitorPayloadBody(t, spec)["driftPolicy"]; ok {
+		t.Fatal("driftPolicy must not be sent to the API")
+	}
+}

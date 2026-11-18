@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `driftPolicy` (`Overwrite` or `Warn`, default `Overwrite`) on `Dashboard`, `Monitor` and `SLO`. The operator checks each resource for edits made in Tsuga. `Overwrite` reverts them and emits `DriftReverted`; `Warn` pushes nothing, sets phase `Drifted` and emits `DriftDetected`. Annotate a CR with `observability.tsuga.com/accept-remote=true` to take the Tsuga version as the new baseline. `--drift-check-interval` sets the check interval (default `10m`, minimum `1m`). `status` gains `remoteFieldHashes` and `lastDriftCheckAt`. See [Drift detection](docs/site/concepts/reconciliation.md#drift-detection).
+
+### Changed
+
+- Monitors and SLOs now revert UI edits by default. Before, they kept them until the next spec change. Set `driftPolicy: Warn` to keep them.
+- Dashboards are re-pushed only when they have drifted, no longer every 10 minutes.
+- The first check after upgrade records a baseline and reverts nothing, so UI edits made before the upgrade are not detected.
+- The manager needs `create` and `patch` on `events`, and the Tsuga API key needs read access to dashboards, monitors and SLOs. If the API key lacks read access, the check fails with 401/403: the resource stays in `Error` and nothing is pushed. The operator retries every 30 seconds, so it recovers on its own once read access is granted. A permanent client error such as 400 or 422 on the check leaves `Error` until the CR changes.
+
 ## [0.7.0] - 2026-11-13
 
 ### Added

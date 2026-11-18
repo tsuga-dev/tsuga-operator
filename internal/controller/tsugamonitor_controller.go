@@ -2,7 +2,9 @@ package controller
 
 import (
 	"context"
+	"time"
 
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -19,6 +21,11 @@ type TsugaMonitorReconciler struct {
 	TsugaClient TsugaResourceClient
 	// Teams resolves spec.ownerName to a team ID.
 	Teams TeamResolver
+	// Recorder emits drift events; nil skips them.
+	Recorder record.EventRecorder
+	// DriftCheckInterval is how often the remote resource is checked for
+	// drift; 0 means defaultDriftCheckInterval.
+	DriftCheckInterval time.Duration
 }
 
 //+kubebuilder:rbac:groups=observability.tsuga.com,resources=monitors,verbs=get;list;watch;patch
@@ -27,9 +34,11 @@ type TsugaMonitorReconciler struct {
 
 func (r *TsugaMonitorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconciler := genericTsugaReconciler[*v1alpha1.Monitor]{
-		Client:  r.Client,
-		adapter: &monitorAdapter{KubeClient: r.Client, Teams: r.Teams},
-		tsuga:   r.TsugaClient,
+		Client:        r.Client,
+		adapter:       &monitorAdapter{KubeClient: r.Client, Teams: r.Teams},
+		tsuga:         r.TsugaClient,
+		recorder:      r.Recorder,
+		checkInterval: r.DriftCheckInterval,
 	}
 	return reconciler.Reconcile(ctx, req)
 }

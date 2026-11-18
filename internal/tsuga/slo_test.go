@@ -163,3 +163,19 @@ func TestSLOSpecToPayload_EmitsEmptyClusterIDsArray(t *testing.T) {
 		t.Fatalf("expected an empty clusterIds array, got %v", list)
 	}
 }
+
+func TestSLOSpecToPayload_OmitsDriftPolicy(t *testing.T) {
+	spec := minimalSLOSpec()
+	spec.DriftPolicy = v1alpha1.DriftPolicyWarn
+	raw, err := SLOSpecToPayload(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m["driftPolicy"]; ok {
+		t.Fatalf("driftPolicy must not be sent to the API: %v", m)
+	}
+}
