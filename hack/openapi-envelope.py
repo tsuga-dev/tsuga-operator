@@ -32,6 +32,7 @@ Reads a spec on stdin, writes the filtered spec to stdout. If a target node is
 absent (e.g. the spec restructured), it is left untouched, so the drift gate
 starts reporting union noise again — a visible signal to update this filter.
 """
+
 import json
 import sys
 
@@ -39,7 +40,10 @@ OPAQUE = {"type": "object", "description": "opaque; operator passthrough"}
 
 # (create path, dotted location of the opaque node within its request schema)
 REQUEST_TARGETS = [
-    ("/v1/dashboards", ["properties", "graphs", "items", "properties", "visualization"]),
+    (
+        "/v1/dashboards",
+        ["properties", "graphs", "items", "properties", "visualization"],
+    ),
     ("/v1/monitors", ["properties", "configuration"]),
     ("/v1/slos", ["properties", "configuration"]),
     ("/v1/slos", ["properties", "alerts", "items", "properties", "configuration"]),
@@ -68,7 +72,9 @@ def project(schema, fields):
     properties = {k: v for k, v in schema.get("properties", {}).items() if k in fields}
     # `code` is shown as free text, so new error codes are not breaks.
     if "code" in properties:
-        properties["code"] = {k: v for k, v in properties["code"].items() if k != "enum"}
+        properties["code"] = {
+            k: v for k, v in properties["code"].items() if k != "enum"
+        }
     out = {"type": "object", "properties": properties}
     required = [k for k in schema.get("required", []) if k in fields]
     if required:
@@ -130,13 +136,19 @@ def main():
     for path, keys in REQUEST_TARGETS:
         schema = request_schema(spec, path)
         if schema is None or not blank(schema, keys):
-            print(f"openapi-envelope: warning: {path} {'.'.join(keys)} not found", file=sys.stderr)
+            print(
+                f"openapi-envelope: warning: {path} {'.'.join(keys)} not found",
+                file=sys.stderr,
+            )
     schemas = spec.get("components", {}).get("schemas", {})
     for model, fields in RESPONSE_FIELDS.items():
         if model in schemas:
             schemas[model] = project(schemas[model], fields)
         else:
-            print(f"openapi-envelope: warning: component {model} not found", file=sys.stderr)
+            print(
+                f"openapi-envelope: warning: component {model} not found",
+                file=sys.stderr,
+            )
     json.dump(spec, sys.stdout)
 
 

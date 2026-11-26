@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate CRD field references and validate the downloadable documentation examples."""
+
 import argparse
 import json
 from pathlib import Path
@@ -15,8 +16,8 @@ NOTES = {
     "SLO": "Manage a native Tsuga SLO with an event- or time-based SLI. Targets must be strictly between 0 and 100; windows are 7, 30, or 90 days. SLI and alert configurations are passed through to Tsuga for validation. Omitting clusterIds selects all clusters; omitting alerts removes alerts. Remote updates recreate alerts with new IDs. See the [SLO guide](../slos/index.md).",
     "Dashboard": "Widget IDs (`spec.graphs[].id`) are required by the Kubernetes schema. Visualization objects pass through to the Tsuga API; Kubernetes does not validate their internal contract. `folderRef` names a DashboardFolder in the same namespace and `folderId` takes precedence; with neither, the dashboard keeps its current folder.",
     "Monitor": "Use `dashboardRef: {name: example-dashboard}` for a Dashboard in the same namespace. If both fields are supplied, `dashboardId` takes precedence. Likewise `folderRef` names a MonitorFolder in the same namespace and `folderId` takes precedence; with neither, the monitor keeps its current folder. Configuration objects pass through to the Tsuga API.",
-    "MonitorFolder": "Use `parentFolderRef: {name: example-monitor-folder}` for a parent MonitorFolder in the same namespace; `parentFolderId` takes precedence. Folders nest two levels at most. Deleting a non-empty folder waits until it is empty in Tsuga, with the reason in `status.message`; annotate `observability.tsuga.com/orphan-if-not-empty: \"true\"` to leave it in Tsuga once nothing in the namespace references it. See [Monitors](../monitors/index.md#file-the-monitor-in-a-folder).",
-    "DashboardFolder": "Use `parentFolderRef: {name: example-dashboard-folder}` for a parent DashboardFolder in the same namespace; `parentFolderId` takes precedence. Folders nest two levels at most. Deleting a non-empty folder waits until it is empty in Tsuga, with the reason in `status.message`; annotate `observability.tsuga.com/orphan-if-not-empty: \"true\"` to leave it in Tsuga once nothing in the namespace references it. See [Dashboards](../dashboards/index.md#file-the-dashboard-in-a-folder).",
+    "MonitorFolder": 'Use `parentFolderRef: {name: example-monitor-folder}` for a parent MonitorFolder in the same namespace; `parentFolderId` takes precedence. Folders nest two levels at most. Deleting a non-empty folder waits until it is empty in Tsuga, with the reason in `status.message`; annotate `observability.tsuga.com/orphan-if-not-empty: "true"` to leave it in Tsuga once nothing in the namespace references it. See [Monitors](../monitors/index.md#file-the-monitor-in-a-folder).',
+    "DashboardFolder": 'Use `parentFolderRef: {name: example-dashboard-folder}` for a parent DashboardFolder in the same namespace; `parentFolderId` takes precedence. Folders nest two levels at most. Deleting a non-empty folder waits until it is empty in Tsuga, with the reason in `status.message`; annotate `observability.tsuga.com/orphan-if-not-empty: "true"` to leave it in Tsuga once nothing in the namespace references it. See [Dashboards](../dashboards/index.md#file-the-dashboard-in-a-folder).',
     "TsugaCollectorConfig": "The name must be `cluster` (enforced by the CRD), so at most one config exists: TsugaMonitoring looks up that exact name, and collector child names are fixed. Secrets must exist in `collectorNamespace`. At least one agent signal must remain enabled. See [runtime defaults](configuration.md) for collector images and resources, which are resolved in code rather than by the CRD.",
     "TsugaMonitoring": "Use one resource per namespace to avoid competing workload annotation owners. With `injection: Manual`, annotate selected pod templates manually; there is no implemented opt-in label selector.",
 }
@@ -30,11 +31,24 @@ def fields(schema, prefix="", crd_kind=""):
     for name, prop in schema.get("properties", {}).items():
         path = f"{prefix}.{name}" if prefix else name
         constraints = []
-        for key in ("enum", "minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems", "exclusiveMinimum", "exclusiveMaximum", "pattern"):
+        for key in (
+            "enum",
+            "minimum",
+            "maximum",
+            "minLength",
+            "maxLength",
+            "minItems",
+            "maxItems",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+            "pattern",
+        ):
             if key in prop:
                 constraints.append(f"{key}: `{cell(json.dumps(prop[key]))}`")
         if "enum" in prop.get("items", {}):
-            constraints.append(f'item enum: `{cell(json.dumps(prop["items"]["enum"]))}`')
+            constraints.append(
+                f"item enum: `{cell(json.dumps(prop['items']['enum']))}`"
+            )
         if prop.get("x-kubernetes-preserve-unknown-fields"):
             constraints.append("Opaque JSON; validated by Tsuga")
         description = prop.get("description", "—")
@@ -42,36 +56,69 @@ def fields(schema, prefix="", crd_kind=""):
         if crd_kind == "TsugaCollectorConfig" and path == "spec.image":
             description = "Override the image for agent, gateway, and scraper; see runtime defaults."
         required = "Yes" if name in schema.get("required", []) else "No"
-        default = f'`{cell(json.dumps(prop["default"]))}`' if "default" in prop else "—"
+        default = f"`{cell(json.dumps(prop['default']))}`" if "default" in prop else "—"
         kind = prop.get("type", "JSON")
         if kind == "array":
-            kind += f' of {prop.get("items", {}).get("type", "JSON")}'
+            kind += f" of {prop.get('items', {}).get('type', 'JSON')}"
         yield f"| `{path}` | {kind} | {required} | {default} | {cell(description)} {'; '.join(constraints)} |"
         yield from fields(prop, path, crd_kind)
         if "items" in prop:
             yield from fields(prop["items"], path + "[]", crd_kind)
         for rule in prop.get("x-kubernetes-validations", []):
-            yield f'| `{path}` validation | CEL | — | — | {cell(rule.get("message", rule["rule"]))} |'
+            yield f"| `{path}` validation | CEL | — | — | {cell(rule.get('message', rule['rule']))} |"
 
 
 def render(crd, version):
     spec = crd["spec"]
     kind = spec["names"]["kind"]
     schema = version["schema"]["openAPIV3Schema"]
-    return "\n".join([
-        "---", "# Generated by hack/docs.py. Edit schemas or the generator, then regenerate.",
-        "hide:", "  - toc", "---", f"# {kind}", "",
-        f'**API:** `{spec["group"]}/{version["name"]}` · **Scope:** {spec["scope"]} · **Short name:** `{spec["names"]["shortNames"][0]}`', "",
-        NOTES[kind], "", "## Fields", "",
-        "Required is relative to the containing object. Defaults inside optional objects apply only when the containing object exists. Status is read-only. Standard Kubernetes metadata fields are omitted.", "",
-        "| Field | Type | Required | Schema default | Description and constraints |",
-        "| --- | --- | --- | --- | --- |",
-        *fields({"properties": {k: v for k, v in schema["properties"].items() if k in ("spec", "status")}, "required": schema.get("required", [])}, crd_kind=kind), "",
-        *[line for rule in schema.get("x-kubernetes-validations", []) for line in ("Validation: " + cell(rule.get("message", rule["rule"])), "")],
-        "## Source", "",
-        f'[CRD schema](https://github.com/tsuga-dev/tsuga-operator/blob/main/config/crd/bases/{spec["group"]}_{spec["names"]["plural"]}.yaml).', "",
-        "This table is generated from the checked-in schema. See [configuration and compatibility](configuration.md) for runtime behavior and [example manifests](../examples/index.md) for complete resources.", "",
-    ])
+    return "\n".join(
+        [
+            "---",
+            "# Generated by hack/docs.py. Edit schemas or the generator, then regenerate.",
+            "hide:",
+            "  - toc",
+            "---",
+            f"# {kind}",
+            "",
+            f"**API:** `{spec['group']}/{version['name']}` · **Scope:** {spec['scope']} · **Short name:** `{spec['names']['shortNames'][0]}`",
+            "",
+            NOTES[kind],
+            "",
+            "## Fields",
+            "",
+            "Required is relative to the containing object. Defaults inside optional objects apply only when the containing object exists. Status is read-only. Standard Kubernetes metadata fields are omitted.",
+            "",
+            "| Field | Type | Required | Schema default | Description and constraints |",
+            "| --- | --- | --- | --- | --- |",
+            *fields(
+                {
+                    "properties": {
+                        k: v
+                        for k, v in schema["properties"].items()
+                        if k in ("spec", "status")
+                    },
+                    "required": schema.get("required", []),
+                },
+                crd_kind=kind,
+            ),
+            "",
+            *[
+                line
+                for rule in schema.get("x-kubernetes-validations", [])
+                for line in (
+                    "Validation: " + cell(rule.get("message", rule["rule"])),
+                    "",
+                )
+            ],
+            "## Source",
+            "",
+            f"[CRD schema](https://github.com/tsuga-dev/tsuga-operator/blob/main/config/crd/bases/{spec['group']}_{spec['names']['plural']}.yaml).",
+            "",
+            "This table is generated from the checked-in schema. See [configuration and compatibility](configuration.md) for runtime behavior and [example manifests](../examples/index.md) for complete resources.",
+            "",
+        ]
+    )
 
 
 def check_collector_monitors(docs):
@@ -83,29 +130,45 @@ def check_collector_monitors(docs):
         config = spec["configuration"]
         tags = {(t["key"], t["value"]) for t in spec.get("tags", [])}
         if not {("source", "tsuga-operator"), ("component", "otel-collector")} <= tags:
-            failures.append(f"collector-monitors.yaml: {name}: missing source/component tags")
+            failures.append(
+                f"collector-monitors.yaml: {name}: missing source/component tags"
+            )
         if config.get("aggregationAlertLogic") != "each":
-            failures.append(f"collector-monitors.yaml: {name}: aggregationAlertLogic must be each")
+            failures.append(
+                f"collector-monitors.yaml: {name}: aggregationAlertLogic must be each"
+            )
         fields = config["groupByFields"][0]["fields"]
         if fields[0] != "context.k8s.cluster.name":
-            failures.append(f"collector-monitors.yaml: {name}: must group by context.k8s.cluster.name first")
+            failures.append(
+                f"collector-monitors.yaml: {name}: must group by context.k8s.cluster.name first"
+            )
         # Monitors take at most three Group by fields in the Tsuga UI.
         if len(fields) > 3:
-            failures.append(f"collector-monitors.yaml: {name}: at most 3 group-by fields, found {len(fields)}")
+            failures.append(
+                f"collector-monitors.yaml: {name}: at most 3 group-by fields, found {len(fields)}"
+            )
         for query in config["queries"]:
             if "context.k8s.pod.name:tsuga-*" not in query["filter"]:
-                failures.append(f"collector-monitors.yaml: {name}: query filter must scope to context.k8s.pod.name:tsuga-*")
+                failures.append(
+                    f"collector-monitors.yaml: {name}: query filter must scope to context.k8s.pod.name:tsuga-*"
+                )
             if "type" not in query.get("fill", {}).get("mode", {}):
-                failures.append(f"collector-monitors.yaml: {name}: every query needs a fill mode")
+                failures.append(
+                    f"collector-monitors.yaml: {name}: every query needs a fill mode"
+                )
             # A bare name resolves to whichever kind Tsuga prefers, which other collectors in the org can change.
             if "metricKind" not in query:
-                failures.append(f"collector-monitors.yaml: {name}: every query must pin metricKind")
+                failures.append(
+                    f"collector-monitors.yaml: {name}: every query must pin metricKind"
+                )
     return failures
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="Fail if generated pages are stale")
+    parser.add_argument(
+        "--check", action="store_true", help="Fail if generated pages are stale"
+    )
     args = parser.parse_args()
     schemas = {}
     failures = []
@@ -115,12 +178,16 @@ def main():
             if not version["served"]:
                 continue
             kind = crd["spec"]["names"]["kind"]
-            schemas[(crd["spec"]["group"] + "/" + version["name"], kind)] = version["schema"]["openAPIV3Schema"]
+            schemas[(crd["spec"]["group"] + "/" + version["name"], kind)] = version[
+                "schema"
+            ]["openAPIV3Schema"]
             target = SITE / "reference" / f"{kind.lower()}.md"
             content = render(crd, version)
             if args.check:
                 if not target.exists() or target.read_text() != content:
-                    failures.append(f"Stale reference: {target.relative_to(ROOT)}; run make docs-reference")
+                    failures.append(
+                        f"Stale reference: {target.relative_to(ROOT)}; run make docs-reference"
+                    )
             else:
                 target.write_text(content)
     examples = sorted((SITE / "examples").glob("*.yaml"))
@@ -128,29 +195,53 @@ def main():
         for obj in yaml.safe_load_all(path.read_text()):
             if obj is None:
                 continue
-            if not isinstance(obj, dict) or not isinstance(obj.get("spec"), dict) or not isinstance(obj.get("metadata"), dict):
-                failures.append(f"{path.name}: expected a Kubernetes object with metadata and spec mappings")
+            if (
+                not isinstance(obj, dict)
+                or not isinstance(obj.get("spec"), dict)
+                or not isinstance(obj.get("metadata"), dict)
+            ):
+                failures.append(
+                    f"{path.name}: expected a Kubernetes object with metadata and spec mappings"
+                )
                 continue
             schema = schemas.get((obj.get("apiVersion"), obj.get("kind")))
             if schema is None:
-                failures.append(f'{path.name}: no served CRD schema for apiVersion {obj.get("apiVersion")!r}, kind {obj.get("kind")!r}')
+                failures.append(
+                    f"{path.name}: no served CRD schema for apiVersion {obj.get('apiVersion')!r}, kind {obj.get('kind')!r}"
+                )
                 continue
             # OpenAPI v3 CRDs use boolean exclusive bounds, as in JSON Schema draft 4.
             for error in Draft4Validator(schema).iter_errors(obj):
-                failures.append(f'{path.name}: {list(error.path)}: {error.message}')
+                failures.append(f"{path.name}: {list(error.path)}: {error.message}")
             # JSON Schema does not evaluate Kubernetes CEL rules.
             if obj["kind"] == "TsugaPostgresMonitoring":
                 provisioning = obj["spec"].get("provisioning")
-                if provisioning is None or (provisioning.get("mode", "managed") == "managed" and not provisioning.get("adminSecretRef", {}).get("name")):
-                    failures.append(f"{path.name}: managed provisioning requires adminSecretRef.name; use explicit manual mode otherwise")
+                if provisioning is None or (
+                    provisioning.get("mode", "managed") == "managed"
+                    and not provisioning.get("adminSecretRef", {}).get("name")
+                ):
+                    failures.append(
+                        f"{path.name}: managed provisioning requires adminSecretRef.name; use explicit manual mode otherwise"
+                    )
                 if len(obj["metadata"].get("name", "")) > 43:
-                    failures.append(f"{path.name}: PostgreSQL resource names must be at most 43 characters")
-            if obj["kind"] == "TsugaCollector" and len(obj["metadata"].get("name", "")) > 36:
-                failures.append(f"{path.name}: TsugaCollector names must be at most 36 characters")
+                    failures.append(
+                        f"{path.name}: PostgreSQL resource names must be at most 43 characters"
+                    )
+            if (
+                obj["kind"] == "TsugaCollector"
+                and len(obj["metadata"].get("name", "")) > 36
+            ):
+                failures.append(
+                    f"{path.name}: TsugaCollector names must be at most 36 characters"
+                )
             if obj["kind"] == "TsugaCollectorConfig":
                 prom = obj["spec"].get("prometheus", {})
-                if prom.get("replicas", 1) > 1 and not prom.get("targetAllocator", {}).get("enabled", False):
-                    failures.append(f"{path.name}: multiple scraper replicas require a Target Allocator")
+                if prom.get("replicas", 1) > 1 and not prom.get(
+                    "targetAllocator", {}
+                ).get("enabled", False):
+                    failures.append(
+                        f"{path.name}: multiple scraper replicas require a Target Allocator"
+                    )
     monitors = SITE / "examples" / "collector-monitors.yaml"
     failures += check_collector_monitors(list(yaml.safe_load_all(monitors.read_text())))
     if failures:
