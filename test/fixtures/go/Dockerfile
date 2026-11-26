@@ -1,4 +1,4 @@
-FROM golang:1.27 AS build
+FROM golang:1.26 AS build
 WORKDIR /src
 COPY main.go .
 # Not stripped: the eBPF agent finds its probes through the symbol table.
